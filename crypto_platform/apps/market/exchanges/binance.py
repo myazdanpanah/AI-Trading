@@ -9,7 +9,7 @@ class BinanceExchange(CCXTExchange):
     exchange_class = ccxt.binance
     default_config = {
         'options': {
-            'defaultType': 'future',
+            'defaultType': 'spot',
         }
     }
     

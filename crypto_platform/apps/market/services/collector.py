@@ -202,4 +202,40 @@ class MarketDataCollector:
             })
 
             if not validation.passed:
-                logger.warning(f"Derivatives validation failed for {symbol}: {validation.to_d
+                logger.warning(f"Derivatives validation failed for {symbol}: {validation.to_dict()}")
+                self.validation_errors.append(validation.to_dict())
+                return None
+
+            # Save to database
+            derivatives = await asyncio.to_thread(
+                self._save_derivatives,
+                normalized
+            )
+            return derivatives
+        except Exception as e:
+            logger.error(f"Error collecting derivatives: {e}")
+            return None
+
+    def _save_derivatives(self, normalized) -> object:
+        """Save normalized derivatives to database (sync helper)."""
+        derivatives, created = DerivativesData.objects.update_or_create(
+            symbol=normalized.symbol,
+            timestamp=normalized.timestamp,
+            defaults={
+                'exchange': normalized.exchange,
+                'funding_rate': normalized.funding_rate,
+                'open_interest': normalized.open_interest,
+                'open_interest_usd': normalized.open_interest_usd or 0,
+            }
+        )
+        return derivatives
+
+    async def collect_all(self, symbols: List[str], timeframes: List[str]) -> Dict:
+        """Collect all market data."""
+        results = {}
+        for exchange_name in self.exchanges:
+            for symbol in symbols:
+                for tf in timeframes:
+                    candles = await self.collect_candles(exchange_name, symbol, tf)
+                    results[f"{exchange_name}:{symbol}:{tf}"] = len(candles)
+        return results

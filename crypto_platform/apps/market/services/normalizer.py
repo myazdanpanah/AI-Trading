@@ -61,9 +61,9 @@ class NormalizedDerivatives:
     funding_rate: Decimal
     funding_rate_hourly: Decimal
     open_interest: Decimal
+    timestamp: datetime
     open_interest_usd: Optional[Decimal] = None
     long_short_ratio: Optional[Decimal] = None
-    timestamp: datetime
 
     @classmethod
     def from_funding(cls, symbol: str, exchange: str, rate: Decimal, timestamp: datetime):

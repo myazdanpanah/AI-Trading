@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { LearningInsights } from '../feedback/LearningInsights';
 import { SignalsPanel } from './SignalsPanel';
 import { AnalysisPanel } from './AnalysisPanel';
@@ -10,53 +10,17 @@ import { PortfolioTracker } from '../trading/PortfolioTracker';
 import { APISettings } from '../settings/APISettings';
 import { UserSettings } from '../settings/UserSettings';
 
-
 interface DashboardProps {
   onLogout?: () => void;
-  mockMode?: boolean;
-  onToggleMock?: () => void;
 }
 
-const generateCandlestickData = () => {
-  const data = [];
-  let basePrice = 67500;
-  const now = new Date();
-  
-  for (let i = 99; i >= 0; i--) {
-    const date = new Date(now);
-    date.setMinutes(date.getMinutes() - i * 15);
-    
-    const volatility = 0.003 + Math.random() * 0.005;
-    const open = basePrice;
-    const change = (Math.random() - 0.48) * volatility * basePrice;
-    const close = open + change;
-    const high = Math.max(open, close) + Math.random() * volatility * basePrice * 0.3;
-    const low = Math.min(open, close) - Math.random() * volatility * basePrice * 0.3;
-    const volume = 500000000 + Math.random() * 1000000000;
-    
-    data.push({
-      date: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      open: Math.round(open * 100) / 100,
-      high: Math.round(high * 100) / 100,
-      low: Math.round(low * 100) / 100,
-      close: Math.round(close * 100) / 100,
-      volume: Math.round(volume),
-    });
-    
-    basePrice = close;
-  }
-  return data;
-};
-
-export const Dashboard: React.FC<DashboardProps> = ({ onLogout, mockMode, onToggleMock }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'trading' | 'signals' | 'feedback' | 'analysis' | 'backtest' | 'settings' | 'user-settings'>('trading');
   const [loading, setLoading] = useState(true);
-  const [selectedSymbol, setSelectedSymbol] = useState('BTC-USDT');
-  
-  const candlestickData = useMemo(() => generateCandlestickData(), []);
+  const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT');
 
   useEffect(() => {
-    setTimeout(() => setLoading(false), 500);
+    setTimeout(() => setLoading(false), 300);
   }, []);
 
   const tabs = [
@@ -80,7 +44,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, mockMode, onTogg
             </div>
             <span className="text-white font-semibold hidden sm:block">CryptoAI</span>
           </div>
-          
+
           {/* Tabs */}
           <nav className="flex items-center gap-1">
             {tabs.map((tab) => (
@@ -99,23 +63,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, mockMode, onTogg
             ))}
           </nav>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-xs">
             <div className="w-2 h-2 bg-[#26a69a] rounded-full animate-pulse" />
             <span className="text-gray-400">Live</span>
           </div>
-          {mockMode && (
-            <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded">
-              Demo
-            </span>
-          )}
-          <button
-            onClick={onToggleMock}
-            className="px-3 py-1 text-xs bg-[#2a2a3e] text-gray-300 rounded hover:bg-[#3a3a4e]"
-          >
-            {mockMode ? 'Connect' : 'Demo'}
-          </button>
           <button
             onClick={onLogout}
             className="px-3 py-1 text-xs text-gray-400 hover:text-white"
@@ -129,7 +82,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, mockMode, onTogg
       <main className="flex-1 min-h-0 overflow-hidden">
         {loading ? (
           <div className="h-full flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent" />
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mx-auto" />
+              <p className="text-gray-400 text-sm mt-2">Loading...</p>
+            </div>
           </div>
         ) : (
           <>
@@ -138,17 +94,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, mockMode, onTogg
               <div className="h-full flex">
                 {/* Left: Watchlist */}
                 <div className="w-64 flex-shrink-0 border-r border-[#2a2a3e]">
-                  <Watchlist 
+                  <Watchlist
                     onSelectSymbol={setSelectedSymbol}
                     selectedSymbol={selectedSymbol}
                   />
                 </div>
-                
+
                 {/* Center: Chart */}
                 <div className="flex-1 min-w-0">
-                  <TradingViewChart data={candlestickData} />
+                  <TradingViewChart symbol={selectedSymbol} />
                 </div>
-                
+
                 {/* Right: Order Book + Portfolio */}
                 <div className="w-72 flex-shrink-0 border-l border-[#2a2a3e] flex flex-col">
                   <div className="flex-1 min-h-0 overflow-y-auto border-b border-[#2a2a3e]">

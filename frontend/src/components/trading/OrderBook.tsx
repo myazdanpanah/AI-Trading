@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { connectOrderBookStream, disconnectStream, getWsUrl } from '../../utils/websocket';
-import { isMockDataEnabled } from '../../utils/api';
+import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../../utils/api';
 
 interface OrderBookEntry {
   price: number;
@@ -17,83 +16,107 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol = 'BTC-USDT' }) => 
   const [orders, setOrders] = useState<OrderBookEntry[]>([]);
   const [spread, setSpread] = useState(0);
   const [lastPrice, setLastPrice] = useState(0);
-  const wsRef = useRef<WebSocket | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Try WebSocket first, fall back to mock data
-    const useWebSocket = !isMockDataEnabled();
-    
-    if (useWebSocket) {
-      const wsSymbol = symbol.replace('-', '/');
-      const url = getWsUrl(`/ws/orderbook/${wsSymbol}/`);
-      
-      wsRef.current = connectOrderBookStream(symbol, (data) => {
-        if (data.type === 'orderbook_update') {
-          const askOrders: OrderBookEntry[] = data.asks.map((ask: any) => ({
-            ...ask,
-            side: 'ask' as const,
-          }));
-          const bidOrders: OrderBookEntry[] = data.bids.map((bid: any) => ({
-            ...bid,
-            side: 'bid' as const,
-          }));
-          
-          setOrders([...askOrders.reverse(), ...bidOrders]);
-          setSpread(data.spread);
-          setLastPrice(data.last_price);
-        }
-      });
-      
-      return () => {
-        if (wsRef.current) {
-          disconnectStream(url);
-        }
-      };
-    } else {
-      // Mock data fallback
-      generateMockOrderBook();
-      const interval = setInterval(generateMockOrderBook, 1500);
-      return () => clearInterval(interval);
-    }
+    fetchOrderBook();
+    const interval = setInterval(fetchOrderBook, 3000);
+    return () => clearInterval(interval);
   }, [symbol]);
 
-  const generateMockOrderBook = () => {
-    const basePrice = 67500 + (Math.random() - 0.5) * 500;
-    const asks: OrderBookEntry[] = [];
-    const bids: OrderBookEntry[] = [];
-    
-    let totalAmount = 0;
-    for (let i = 0; i < 10; i++) {
-      const price = basePrice + (i + 1) * (3 + Math.random() * 8);
-      const amount = 0.01 + Math.random() * 0.5;
-      totalAmount += amount;
-      asks.push({
-        price: Math.round(price * 100) / 100,
-        amount: Math.round(amount * 10000) / 10000,
-        total: Math.round(totalAmount * 10000) / 10000,
-        side: 'ask',
-      });
+  const fetchOrderBook = async () => {
+    try {
+      const apiSymbol = symbol.replace('-', '');
+      const response = await apiFetch(`/market/orderbook/latest/?symbol=${apiSymbol}`);
+      if (response.ok) {
+        const data = await response.json();
+
+        // Parse orderbook from backend
+        const bidDepth = data.bid_depth || [];
+        const askDepth = data.ask_depth || [];
+
+        const asks: OrderBookEntry[] = askDepth.map((ask: any) => ({
+          price: parseFloat(ask.price || '0'),
+          amount: parseFloat(ask.amount || '0'),
+          total: parseFloat(ask.total || '0'),
+          side: 'ask' as const,
+        }));
+
+        const bids: OrderBookEntry[] = bidDepth.map((bid: any) => ({
+          price: parseFloat(bid.price || '0'),
+          amount: parseFloat(bid.amount || '0'),
+          total: parseFloat(bid.total || '0'),
+          side: 'bid' as const,
+        }));
+
+        if (asks.length > 0 && bids.length > 0) {
+          setOrders([...asks.reverse(), ...bids]);
+          setSpread(data.spread || 0);
+          setLastPrice(asks[asks.length - 1]?.price || bids[0]?.price || 0);
+          setLoading(false);
+        } else {
+          fetchFromExchange();
+        }
+      } else {
+        fetchFromExchange();
+      }
+    } catch (error) {
+      console.error('Failed to fetch orderbook:', error);
+      fetchFromExchange();
     }
-    
-    totalAmount = 0;
-    for (let i = 0; i < 10; i++) {
-      const price = basePrice - (i + 1) * (3 + Math.random() * 8);
-      const amount = 0.01 + Math.random() * 0.5;
-      totalAmount += amount;
-      bids.push({
-        price: Math.round(price * 100) / 100,
-        amount: Math.round(amount * 10000) / 10000,
-        total: Math.round(totalAmount * 10000) / 10000,
-        side: 'bid',
-      });
-    }
-    
-    setOrders([...asks.reverse(), ...bids]);
-    setSpread(asks[asks.length - 1].price - bids[0].price);
-    setLastPrice(basePrice);
   };
 
-  const maxTotal = Math.max(...orders.map(o => o.total));
+  const fetchFromExchange = async () => {
+    try {
+      const apiSymbol = symbol.replace('-', '').toLowerCase();
+      const response = await fetch(`https://api.binance.com/api/v3/depth?symbol=${apiSymbol.toUpperCase()}&limit=10`);
+      if (response.ok) {
+        const data = await response.json();
+
+        let totalAmount = 0;
+        const asks: OrderBookEntry[] = (data.asks || []).map((ask: any) => {
+          totalAmount += parseFloat(ask[1]);
+          return {
+            price: parseFloat(ask[0]),
+            amount: parseFloat(ask[1]),
+            total: totalAmount,
+            side: 'ask' as const,
+          };
+        });
+
+        totalAmount = 0;
+        const bids: OrderBookEntry[] = (data.bids || []).map((bid: any) => {
+          totalAmount += parseFloat(bid[1]);
+          return {
+            price: parseFloat(bid[0]),
+            amount: parseFloat(bid[1]),
+            total: totalAmount,
+            side: 'bid' as const,
+          };
+        });
+
+        setOrders([...asks.reverse(), ...bids]);
+        if (asks.length > 0 && bids.length > 0) {
+          setSpread(asks[asks.length - 1].price - bids[0].price);
+          setLastPrice((asks[asks.length - 1].price + bids[0].price) / 2);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch from exchange:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const maxTotal = Math.max(...orders.map(o => o.total), 1);
+
+  if (loading) {
+    return (
+      <div className="bg-[#131722] h-full flex items-center justify-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#131722] h-full flex flex-col">
@@ -102,23 +125,23 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol = 'BTC-USDT' }) => 
         <span className="text-sm font-medium text-white">Order Book</span>
         <span className="text-xs text-gray-500">{symbol.replace('-USDT', '/USDT')}</span>
       </div>
-      
+
       {/* Column headers */}
       <div className="grid grid-cols-3 gap-1 px-3 py-1 text-[10px] text-gray-500 border-b border-[#2a2a3e]">
         <span>Price (USDT)</span>
         <span className="text-right">Amount</span>
         <span className="text-right">Total</span>
       </div>
-      
+
       {/* Asks */}
       <div className="flex-1 overflow-hidden">
         <div className="h-full flex flex-col justify-end">
           {orders.filter(o => o.side === 'ask').map((order, i) => (
-            <div 
+            <div
               key={`ask-${i}`}
               className="relative grid grid-cols-3 gap-1 px-3 py-[3px] hover:bg-[#1e1e2e] cursor-pointer"
             >
-              <div 
+              <div
                 className="absolute inset-y-0 right-0 bg-[#ef5350]/10"
                 style={{ width: `${(order.total / maxTotal) * 100}%` }}
               />
@@ -129,7 +152,7 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol = 'BTC-USDT' }) => 
           ))}
         </div>
       </div>
-      
+
       {/* Last price */}
       <div className="px-3 py-2 border-y border-[#2a2a3e]">
         <div className="flex items-center justify-between">
@@ -141,16 +164,16 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol = 'BTC-USDT' }) => 
           </span>
         </div>
       </div>
-      
+
       {/* Bids */}
       <div className="flex-1 overflow-hidden">
         <div>
           {orders.filter(o => o.side === 'bid').map((order, i) => (
-            <div 
+            <div
               key={`bid-${i}`}
               className="relative grid grid-cols-3 gap-1 px-3 py-[3px] hover:bg-[#1e1e2e] cursor-pointer"
             >
-              <div 
+              <div
                 className="absolute inset-y-0 right-0 bg-[#26a69a]/10"
                 style={{ width: `${(order.total / maxTotal) * 100}%` }}
               />
