@@ -84,7 +84,7 @@ export const Backtester: React.FC = () => {
         id: (i + 1).toString(),
         entryDate: entryDate.toLocaleDateString(),
         exitDate: exitDate.toLocaleDateString(),
-        side: Math.random() > 0.5 ? 'long' : 'short',
+        side: (Math.random() > 0.5 ? 'long' : 'short') as 'long' | 'short',
         entryPrice: Math.round(entryPrice),
         exitPrice: Math.round(exitPrice),
         pnl: Math.round((exitPrice - entryPrice) * (Math.random() * 0.1 + 0.01)),

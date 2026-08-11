@@ -40,7 +40,6 @@ const CandleShape = (props: any) => {
   
   // Wick positions (scaled)
   const priceRange = high - low;
-  const bodyRange = Math.abs(close - open);
   const wickScale = priceRange > 0 ? bodyHeight / priceRange : 1;
   
   const wickTop = bodyTop - (high - Math.max(open, close)) * wickScale;
@@ -132,7 +131,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ data, height
   
   // Transform data for the chart
   const chartData = useMemo(() => {
-    return data.map((d, i) => ({
+    return data.map((d) => ({
       ...d,
       // For Recharts, we need open-close range as a bar
       openClose: [d.open, d.close],

@@ -8,7 +8,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine,
 } from 'recharts';
 
 interface CandleData {
@@ -54,7 +53,7 @@ const calculateEMA = (data: CandleData[], period: number) => {
 
 const calculateBollinger = (data: CandleData[], period: number = 20, stdDev: number = 2) => {
   const sma = calculateSMA(data, period);
-  return data.map((d, i) => {
+  return data.map((_d, i) => {
     if (i < period - 1) return null;
     const slice = data.slice(i - period + 1, i + 1);
     const mean = sma[i]!;
@@ -79,7 +78,6 @@ const CandleShape = (props: any) => {
   const bodyHeight = Math.max(Math.abs(height), 1);
   
   // Scale wicks proportionally
-  const priceRange = high - low || 1;
   const bodyRange = Math.abs(close - open) || 1;
   const wickScale = bodyHeight / bodyRange;
   

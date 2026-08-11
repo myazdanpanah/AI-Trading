@@ -11,7 +11,7 @@ export const APISettings: React.FC = () => {
   const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
   const [pullingModel, setPullingModel] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState('gemma2:latest');
-  const [ollamaStatus, setOllamaStatus] = useState<'connected' | 'disconnected'>('connected');
+  const [ollamaStatus] = useState<'connected' | 'disconnected'>('connected');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -152,7 +152,7 @@ export const APISettings: React.FC = () => {
                   <button
                     key={model}
                     onClick={() => pullModel(model)}
-                    disabled={pullingModel === model || ollamaModels.find(m => m.name === model)}
+                    disabled={pullingModel === model || !!ollamaModels.find(m => m.name === model)}
                     className="p-2 bg-[#131722] rounded text-left hover:bg-[#2a2a3e] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <div className="text-sm text-white">{model}</div>

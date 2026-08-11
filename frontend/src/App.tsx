@@ -19,7 +19,7 @@ const App: React.FC = () => {
     setLoading(false);
   }, []);
 
-  const handleLogin = (token: string) => {
+  const handleLogin = (_token: string) => {
     setIsAuth(true);
     setMockMode(false);
     localStorage.removeItem('use_mock_data');

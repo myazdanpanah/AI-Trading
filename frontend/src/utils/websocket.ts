@@ -97,7 +97,7 @@ class WebSocketManager {
   }
 
   disconnectAll() {
-    this.connections.forEach((ws, url) => {
+    this.connections.forEach((ws) => {
       ws.close(1000);
     });
     this.connections.clear();
@@ -135,8 +135,8 @@ export const connectPriceStream = (
   onPrice: (data: any) => void
 ): WebSocket => {
   const wsSymbol = symbol.replace('-', '/');
-  const url = getWsUrl(`/ws/prices/${wsSymbol}/`);
-  return wsManager.connect(url, onPrice);
+  const wsUrl = getWsUrl(`/ws/prices/${wsSymbol}/`);
+  return wsManager.connect(wsUrl, onPrice);
 };
 
 export const connectOrderBookStream = (
@@ -144,19 +144,19 @@ export const connectOrderBookStream = (
   onOrderBook: (data: any) => void
 ): WebSocket => {
   const wsSymbol = symbol.replace('-', '/');
-  const url = getWsUrl(`/ws/orderbook/${wsSymbol}/`);
-  return wsManager.connect(url, onOrderBook);
+  const wsUrl = getWsUrl(`/ws/orderbook/${wsSymbol}/`);
+  return wsManager.connect(wsUrl, onOrderBook);
 };
 
 export const connectSignalStream = (
   onSignal: (data: any) => void
 ): WebSocket => {
-  const url = getWsUrl('/ws/signals/');
-  return wsManager.connect(url, onSignal);
+  const wsUrl = getWsUrl('/ws/signals/');
+  return wsManager.connect(wsUrl, onSignal);
 };
 
-export const disconnectStream = (url: string) => {
-  wsManager.disconnect(url);
+export const disconnectStream = (wsUrl: string) => {
+  wsManager.disconnect(wsUrl);
 };
 
 export const disconnectAllStreams = () => {

@@ -132,7 +132,7 @@ export const PortfolioTracker: React.FC = () => {
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'positions' ? (
           <div className="divide-y divide-[#2a2a3e]">
-            {positions.map((pos, i) => (
+            {positions.map((pos) => (
               <div key={pos.symbol} className="px-4 py-3 hover:bg-[#1e1e2e]/50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -189,7 +189,7 @@ export const PortfolioTracker: React.FC = () => {
               </ResponsiveContainer>
             </div>
             <div className="space-y-2 mt-4">
-              {allocationData.map((item, i) => (
+              {allocationData.map((item) => (
                 <div key={item.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded" style={{ backgroundColor: item.color }} />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { connectPriceStream, disconnectAllStreams, getWsUrl } from '../../utils/websocket';
+import { connectPriceStream, disconnectAllStreams } from '../../utils/websocket';
 import { isMockDataEnabled } from '../../utils/api';
 
 interface WatchlistItem {
@@ -76,7 +76,7 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onSelectSymbol, selectedSy
   }, []);
 
   const generateMockWatchlist = () => {
-    const items: WatchlistItem[] = defaultSymbols.map(({ symbol, name }) => {
+    const items: WatchlistItem[] =  defaultSymbols.map(({ symbol }) => {
       const basePrice = symbol === 'BTC-USDT' ? 67500 : 
                         symbol === 'ETH-USDT' ? 3450 :
                         symbol === 'SOL-USDT' ? 180 :

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { LearningInsights } from '../feedback/LearningInsights';
 import { SignalsPanel } from './SignalsPanel';
 import { AnalysisPanel } from './AnalysisPanel';
@@ -9,16 +9,7 @@ import { Backtester } from '../trading/Backtester';
 import { PortfolioTracker } from '../trading/PortfolioTracker';
 import { APISettings } from '../settings/APISettings';
 import { UserSettings } from '../settings/UserSettings';
-import { apiFetch } from '../../utils/api';
 
-interface CandleData {
-  date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
 
 interface DashboardProps {
   onLogout?: () => void;

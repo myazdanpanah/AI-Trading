@@ -93,7 +93,7 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
 /**
  * Mock fetch that returns fake data
  */
-async function mockFetch(url: string, options: RequestInit = {}): Promise<Response> {
+async function mockFetch(url: string, _options: RequestInit = {}): Promise<Response> {
   await delay(300); // Simulate network delay
   
   let data: any;

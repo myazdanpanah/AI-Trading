@@ -55,32 +55,6 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-// Custom bar shape with rounded corners
-const RoundedBar = (props: any) => {
-  const { x, y, width, height, fill } = props;
-  const radius = Math.min(6, width / 2);
-  
-  return (
-    <g>
-      <defs>
-        <linearGradient id={`gradient-${fill}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={fill} stopOpacity={1} />
-          <stop offset="100%" stopColor={fill} stopOpacity={0.6} />
-        </linearGradient>
-      </defs>
-      <rect
-        x={x}
-        y={y}
-        width={width}
-        height={height}
-        fill={`url(#gradient-${fill})`}
-        rx={radius}
-        ry={radius}
-      />
-    </g>
-  );
-};
-
 export const FactorBarChart: React.FC<FactorBarChartProps> = ({ data, showDetails = true }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   

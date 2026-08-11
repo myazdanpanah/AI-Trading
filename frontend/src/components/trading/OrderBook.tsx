@@ -17,7 +17,6 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol = 'BTC-USDT' }) => 
   const [orders, setOrders] = useState<OrderBookEntry[]>([]);
   const [spread, setSpread] = useState(0);
   const [lastPrice, setLastPrice] = useState(0);
-  const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -42,7 +41,6 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol = 'BTC-USDT' }) => 
           setOrders([...askOrders.reverse(), ...bidOrders]);
           setSpread(data.spread);
           setLastPrice(data.last_price);
-          setConnected(true);
         }
       });
       
