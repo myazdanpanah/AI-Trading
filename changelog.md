@@ -9,55 +9,71 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased] - 2026-08-11
 
 ### Added
-- **WebSocket Real-time Streaming (Phase 23)**
-  - PriceConsumer for real-time price updates (1s interval)
-  - OrderBookConsumer for live order book streaming (1.5s interval)
-  - SignalConsumer for trading signal notifications
-  - WebSocket URL routing with authentication middleware
-  - Frontend WebSocket utility with reconnection logic
-  - OrderBook component now uses WebSocket for live data
-  - Watchlist component streams real-time prices via WebSocket
+- **Phase 24: Mobile App API**
+  - DeviceToken model for push notification management
+  - MobileAlert model for price and signal alerts
+  - MobileWidget model for configurable home screen widgets
+  - REST API endpoints with full CRUD operations
+  - Device registration and deactivation endpoints
 
-- **Backend Improvements**
-  - Created missing `base.py` exchange adapter (BaseExchange, OHLCV, OrderBook dataclasses)
-  - Added CORS configuration to Django settings
-  - Added rate limiting (100/hour anonymous, 1000/hour authenticated)
-  - Added Django Channels for WebSocket support
-  - Updated ASGI configuration for ProtocolTypeRouter
-  - Added `channels` and `channels-redis` to requirements
+- **Phase 25: Advanced AI Strategies**
+  - Enhanced multi-agent orchestration patterns
+  - Agent definitions with roles and capabilities
+  - Workflow engine for step-by-step execution
+  - Prompt versioning for AI management
+
+- **Phase 26: Multi-exchange Arbitrage**
+  - ArbitrageOpportunity model for tracking opportunities
+  - ArbitrageDetector service for cross-exchange detection
+  - Exchange fee calculation and profit estimation
+  - Risk scoring for arbitrage opportunities
+  - ArbitrageConfig for customizable settings
+  - ArbitrageExecution for tracking execution history
+
+- **Phase 27: Social Trading**
+  - Trader profile model with performance metrics
+  - Follow/following relationship system
+  - CopyTrade model for automatic trade copying
+  - TraderSignal model for sharing signals
+  - SocialComment model for discussions
+  - CopyTrader service for copy trading logic
+  - Trader leaderboard endpoint
+  - Like and comment functionality
+
+- **Phase 28: Advanced Portfolio Management**
+  - Portfolio model with multi-portfolio support
+  - PortfolioAllocation model for target allocations
+  - PortfolioRebalancer service for automated rebalancing
+  - TaxLot model for FIFO/LIFO/HIFO cost basis tracking
+  - TaxOptimizer service for tax-loss harvesting
+  - TaxReport model for generating tax reports
+  - RebalanceHistory for tracking rebalance events
+  - Performance metrics (Sharpe, drawdown, volatility)
 
 - **Infrastructure**
-  - Nginx WebSocket proxy configuration with upgrade headers
-  - Nginx security headers (X-Frame-Options, X-Content-Type-Options, etc.)
-  - Nginx rate limiting zone (10r/s with burst)
-  - Vite WebSocket proxy for development
-
-- **Documentation**
-  - Comprehensive README.md with architecture diagram
-  - Full API documentation with endpoints table
-  - Project structure documentation
-  - Quick start guide for Docker and local development
+  - Added new Django apps: mobile, arbitrage, social, portfolio
+  - Added to INSTALLED_APPS in settings
+  - Added URL routing for new endpoints
+  - Added admin configurations for all new models
+  - Created serializers for all new models
 
 ### Changed
-- OrderBook component now connects to WebSocket instead of polling
-- Watchlist component streams prices via WebSocket connections
-- ASGI application now uses ProtocolTypeRouter for HTTP/WebSocket
-
-### Fixed
-- Missing `base.py` exchange adapter that `ccxt_base.py` was importing
-- CORS not configured in Django settings
-- No rate limiting on API endpoints
+- Updated progress.md with all completed phases
+- Updated changelog.md with detailed changes
 
 ---
 
 ## Development Log
 
 ### 2026-08-11
-- Rebuilt Docker images with all fixes
-- Enhanced frontend with charts and real-time updates
-- Added demo mode for testing without backend
-- Verified full stack connectivity
-- Updated documentation
+- Implemented Phase 23: WebSocket real-time streaming
+- Implemented Phase 24: Mobile App API
+- Implemented Phase 25: Advanced AI Strategies
+- Implemented Phase 26: Multi-exchange Arbitrage
+- Implemented Phase 27: Social Trading
+- Implemented Phase 28: Advanced Portfolio Management
+- Production hardening with Dockerfiles and Grafana
+- Comprehensive README.md documentation
 
 ### 2026-08-03
 - Implemented Phase 18: Advanced Analytics & Reporting

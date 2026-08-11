@@ -48,4 +48,8 @@ urlpatterns = [
     path('api/technical-analysis/', include('apps.technical_analysis.urls')),
     path('api/sentiment/', include('apps.sentiment.urls')),
     path('api/feedback/', include('apps.feedback.urls')),
+    path('api/mobile/', include('apps.mobile.urls')),
+    path('api/arbitrage/', include('apps.arbitrage.urls')),
+    path('api/social/', include('apps.social.urls')),
+    path('api/portfolio/', include('apps.portfolio.urls')),
 ]

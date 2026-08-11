@@ -43,6 +43,10 @@ INSTALLED_APPS = [
     'apps.technical_analysis',
     'apps.sentiment',
     'apps.feedback',
+    'apps.mobile',
+    'apps.arbitrage',
+    'apps.social',
+    'apps.portfolio',
 ]
 
 MIDDLEWARE = [
