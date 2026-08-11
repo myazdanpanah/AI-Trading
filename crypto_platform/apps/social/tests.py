@@ -87,7 +87,7 @@ class CopyTraderTest(TestCase):
         )
         
         self.assertFalse(result['should_copy'])
-        self.assertIn('risk', result['reason'])
+        self.assertIn('Risk', result['reason'])
     
     def test_trader_score(self):
         """Test trader score calculation."""
@@ -119,6 +119,7 @@ class SocialModelTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             username='testtrader',
+            email='testtrader@test.com',
             password='testpass123'
         )
     
@@ -146,6 +147,7 @@ class SocialModelTest(TestCase):
         
         follower = User.objects.create_user(
             username='follower',
+            email='follower@test.com',
             password='testpass123'
         )
         
@@ -168,7 +170,8 @@ class SocialModelTest(TestCase):
         )
         
         follower = User.objects.create_user(
-            username='follower',
+            username='follower2',
+            email='follower2@test.com',
             password='testpass123'
         )
         

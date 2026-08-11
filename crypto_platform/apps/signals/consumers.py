@@ -2,10 +2,10 @@
 import json
 import asyncio
 from datetime import datetime
-from channels.generic.websocket import AsyncWebSocketConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer
 
 
-class SignalConsumer(AsyncWebSocketConsumer):
+class SignalConsumer(AsyncWebsocketConsumer):
     """WebSocket consumer for real-time trading signal updates."""
     
     async def connect(self):

@@ -69,6 +69,16 @@ class SignalViewSet(viewsets.ModelViewSet):
                 current_price=data.get('current_price'),
             )
 
+            # Convert Decimal values to float for JSON serialization
+            def decimal_to_float(obj):
+                if isinstance(obj, dict):
+                    return {k: decimal_to_float(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [decimal_to_float(i) for i in obj]
+                elif hasattr(obj, '__float__'):
+                    return float(obj)
+                return obj
+
             # Create signal record
             with transaction.atomic():
                 signal = Signal.objects.create(
@@ -102,14 +112,16 @@ class SignalViewSet(viewsets.ModelViewSet):
                 SignalGenerationRequest.objects.create(
                     symbol=result['symbol'],
                     timeframe=result['timeframe'],
-                    input_data=data,
+                    input_data=decimal_to_float(data),
                     weights_used=result['weights_used'],
                     status='completed',
                 )
 
+            serializable_result = decimal_to_float(result)
+            
             return Response({
                 'signal': SignalSerializer(signal).data,
-                'details': result,
+                'details': serializable_result,
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:

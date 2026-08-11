@@ -3,11 +3,11 @@ import json
 import asyncio
 from datetime import datetime
 from decimal import Decimal
-from channels.generic.websocket import AsyncWebSocketConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 
 
-class PriceConsumer(AsyncWebSocketConsumer):
+class PriceConsumer(AsyncWebsocketConsumer):
     """WebSocket consumer for real-time price streaming."""
     
     async def connect(self):
@@ -110,7 +110,7 @@ class PriceConsumer(AsyncWebSocketConsumer):
         await self.send(text_data=json.dumps(event['data']))
 
 
-class OrderBookConsumer(AsyncWebSocketConsumer):
+class OrderBookConsumer(AsyncWebsocketConsumer):
     """WebSocket consumer for real-time order book streaming."""
     
     async def connect(self):
