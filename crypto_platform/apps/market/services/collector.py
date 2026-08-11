@@ -239,3 +239,29 @@ class MarketDataCollector:
                     candles = await self.collect_candles(exchange_name, symbol, tf)
                     results[f"{exchange_name}:{symbol}:{tf}"] = len(candles)
         return results
+
+    async def collect_tickers(self) -> Dict:
+        """Collect current ticker data for all symbols."""
+        tickers = {}
+        for exchange_name, exchange in self.exchanges.items():
+            try:
+                if hasattr(exchange, 'fetch_market_data'):
+                    market_data = await exchange.fetch_market_data()
+                    tickers.update(market_data)
+                else:
+                    symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT']
+                    for symbol in symbols:
+                        ticker = await exchange.fetch_ticker(symbol)
+                        if ticker:
+                            tickers[symbol] = ticker
+            except Exception as e:
+                logger.error(f"Failed to collect tickers from {exchange_name}: {e}")
+        return tickers
+
+    async def close_all(self):
+        """Close all exchange connections."""
+        for exchange in self.exchanges.values():
+            try:
+                await exchange.close()
+            except Exception as e:
+                logger.error(f"Error closing exchange: {e}")
