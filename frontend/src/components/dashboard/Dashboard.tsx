@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LearningInsights } from '../feedback/LearningInsights';
 import { SignalsPanel } from './SignalsPanel';
 import { AnalysisPanel } from './AnalysisPanel';
@@ -14,13 +14,63 @@ interface DashboardProps {
   onLogout?: () => void;
 }
 
+// Ticker Tape component
+const TickerTape: React.FC = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const idRef = useRef('tv-ticker-tape');
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const timer = setTimeout(() => {
+      if (typeof (window as any).TradingView === 'undefined') return;
+      if (!containerRef.current) return;
+
+      containerRef.current.innerHTML = '';
+
+      new (window as any).TradingView.TickerTape({
+        container_id: idRef.current,
+        symbols: [
+          { proName: 'BINANCE:BTCUSDT', title: 'Bitcoin' },
+          { proName: 'BINANCE:ETHUSDT', title: 'Ethereum' },
+          { proName: 'BINANCE:SOLUSDT', title: 'Solana' },
+          { proName: 'BINANCE:BNBUSDT', title: 'BNB' },
+          { proName: 'BINANCE:XRPUSDT', title: 'XRP' },
+          { proName: 'BINANCE:ADAUSDT', title: 'ADA' },
+          { proName: 'BINANCE:DOGEUSDT', title: 'DOGE' },
+          { proName: 'BINANCE:DOTUSDT', title: 'DOT' },
+          { proName: 'BINANCE:AVAXUSDT', title: 'AVAX' },
+          { proName: 'BINANCE:LINKUSDT', title: 'LINK' },
+        ],
+        colorTheme: 'dark',
+        isTransparent: false,
+        showSymbolLogo: true,
+        locale: 'en',
+      });
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  return <div id={idRef.current} ref={containerRef} className="w-full" />;
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'trading' | 'signals' | 'feedback' | 'analysis' | 'backtest' | 'settings' | 'user-settings'>('trading');
   const [loading, setLoading] = useState(true);
   const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT');
 
   useEffect(() => {
-    setTimeout(() => setLoading(false), 300);
+    // Load TradingView script
+    if (!document.getElementById('tv-script')) {
+      const script = document.createElement('script');
+      script.id = 'tv-script';
+      script.src = 'https://s3.tradingview.com/tv.js';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+
+    setTimeout(() => setLoading(false), 500);
   }, []);
 
   const tabs = [
@@ -35,6 +85,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
   return (
     <div className="h-screen flex flex-col bg-[#131722]">
+      {/* Ticker Tape */}
+      <div className="bg-[#1e1e2e] border-b border-[#2a2a3e] flex-shrink-0" style={{ height: 44 }}>
+        {loading ? null : <TickerTape />}
+      </div>
+
       {/* Header */}
       <header className="bg-[#1e1e2e] border-b border-[#2a2a3e] px-4 py-2 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
@@ -45,7 +100,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             <span className="text-white font-semibold hidden sm:block">CryptoAI</span>
           </div>
 
-          {/* Tabs */}
           <nav className="flex items-center gap-1">
             {tabs.map((tab) => (
               <button
@@ -69,10 +123,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             <div className="w-2 h-2 bg-[#26a69a] rounded-full animate-pulse" />
             <span className="text-gray-400">Live</span>
           </div>
-          <button
-            onClick={onLogout}
-            className="px-3 py-1 text-xs text-gray-400 hover:text-white"
-          >
+          <button onClick={onLogout} className="px-3 py-1 text-xs text-gray-400 hover:text-white">
             Logout
           </button>
         </div>
@@ -84,30 +135,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
           <div className="h-full flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mx-auto" />
-              <p className="text-gray-400 text-sm mt-2">Loading...</p>
+              <p className="text-gray-400 text-sm mt-2">Loading TradingView...</p>
             </div>
           </div>
         ) : (
           <>
-            {/* Trading Tab */}
             {activeTab === 'trading' && (
               <div className="h-full flex">
-                {/* Left: Watchlist */}
-                <div className="w-64 flex-shrink-0 border-r border-[#2a2a3e]">
-                  <Watchlist
-                    onSelectSymbol={setSelectedSymbol}
-                    selectedSymbol={selectedSymbol}
-                  />
+                <div className="w-80 flex-shrink-0 border-r border-[#2a2a3e]">
+                  <Watchlist onSelectSymbol={setSelectedSymbol} selectedSymbol={selectedSymbol} />
                 </div>
-
-                {/* Center: Chart */}
                 <div className="flex-1 min-w-0">
                   <TradingViewChart symbol={selectedSymbol} />
                 </div>
-
-                {/* Right: Order Book + Portfolio */}
                 <div className="w-72 flex-shrink-0 border-l border-[#2a2a3e] flex flex-col">
-                  <div className="flex-1 min-h-0 overflow-y-auto border-b border-[#2a2a3e]">
+                  <div className="flex-1 min-h-0 border-b border-[#2a2a3e]">
                     <OrderBook symbol={selectedSymbol} />
                   </div>
                   <div className="h-80 flex-shrink-0">
@@ -116,39 +158,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                 </div>
               </div>
             )}
-
-            {/* Backtest Tab */}
             {activeTab === 'backtest' && (
-              <div className="h-full p-4">
-                <Backtester />
-              </div>
+              <div className="h-full p-4"><Backtester /></div>
             )}
-
-            {/* Other Tabs */}
             {activeTab === 'signals' && (
-              <div className="h-full p-4">
-                <SignalsPanel />
-              </div>
+              <div className="h-full p-4"><SignalsPanel /></div>
             )}
             {activeTab === 'feedback' && (
-              <div className="h-full p-4">
-                <LearningInsights />
-              </div>
+              <div className="h-full p-4"><LearningInsights /></div>
             )}
             {activeTab === 'analysis' && (
-              <div className="h-full p-4">
-                <AnalysisPanel />
-              </div>
+              <div className="h-full p-4"><AnalysisPanel /></div>
             )}
             {activeTab === 'settings' && (
-              <div className="h-full p-4">
-                <APISettings />
-              </div>
+              <div className="h-full p-4"><APISettings /></div>
             )}
             {activeTab === 'user-settings' && (
-              <div className="h-full p-4">
-                <UserSettings />
-              </div>
+              <div className="h-full p-4"><UserSettings /></div>
             )}
           </>
         )}
