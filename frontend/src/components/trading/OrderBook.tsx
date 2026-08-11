@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { connectOrderBookStream, disconnectStream, getWsUrl } from '../../utils/websocket';
+import { isMockDataEnabled } from '../../utils/api';
 
 interface OrderBookEntry {
   price: number;
@@ -15,11 +17,46 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol = 'BTC-USDT' }) => 
   const [orders, setOrders] = useState<OrderBookEntry[]>([]);
   const [spread, setSpread] = useState(0);
   const [lastPrice, setLastPrice] = useState(0);
+  const [connected, setConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    generateMockOrderBook();
-    const interval = setInterval(generateMockOrderBook, 1500);
-    return () => clearInterval(interval);
+    // Try WebSocket first, fall back to mock data
+    const useWebSocket = !isMockDataEnabled();
+    
+    if (useWebSocket) {
+      const wsSymbol = symbol.replace('-', '/');
+      const url = getWsUrl(`/ws/orderbook/${wsSymbol}/`);
+      
+      wsRef.current = connectOrderBookStream(symbol, (data) => {
+        if (data.type === 'orderbook_update') {
+          const askOrders: OrderBookEntry[] = data.asks.map((ask: any) => ({
+            ...ask,
+            side: 'ask' as const,
+          }));
+          const bidOrders: OrderBookEntry[] = data.bids.map((bid: any) => ({
+            ...bid,
+            side: 'bid' as const,
+          }));
+          
+          setOrders([...askOrders.reverse(), ...bidOrders]);
+          setSpread(data.spread);
+          setLastPrice(data.last_price);
+          setConnected(true);
+        }
+      });
+      
+      return () => {
+        if (wsRef.current) {
+          disconnectStream(url);
+        }
+      };
+    } else {
+      // Mock data fallback
+      generateMockOrderBook();
+      const interval = setInterval(generateMockOrderBook, 1500);
+      return () => clearInterval(interval);
+    }
   }, [symbol]);
 
   const generateMockOrderBook = () => {

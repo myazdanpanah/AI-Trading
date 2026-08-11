@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { connectPriceStream, disconnectAllStreams, getWsUrl } from '../../utils/websocket';
+import { isMockDataEnabled } from '../../utils/api';
 
 interface WatchlistItem {
   symbol: string;
@@ -32,11 +34,45 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onSelectSymbol, selectedSy
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [sortBy, setSortBy] = useState<'change' | 'volume'>('change');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const wsConnections = useRef<Map<string, WebSocket>>(new Map());
 
   useEffect(() => {
-    generateMockWatchlist();
-    const interval = setInterval(generateMockWatchlist, 3000);
-    return () => clearInterval(interval);
+    // Try WebSocket first, fall back to mock data
+    const useWebSocket = !isMockDataEnabled();
+    
+    if (useWebSocket) {
+      // Connect to WebSocket for each symbol
+      defaultSymbols.forEach(({ symbol }) => {
+        const ws = connectPriceStream(symbol, (data) => {
+          if (data.type === 'price_update') {
+            setWatchlist(prev => prev.map(item => 
+              item.symbol === symbol.replace('/', '-') 
+                ? {
+                    ...item,
+                    price: data.price,
+                    change_24h: data.change_24h,
+                    volume: data.volume,
+                  }
+                : item
+            ));
+          }
+        });
+        wsConnections.current.set(symbol, ws);
+      });
+      
+      // Initialize with default data
+      generateMockWatchlist();
+      
+      return () => {
+        disconnectAllStreams();
+        wsConnections.current.clear();
+      };
+    } else {
+      // Mock data fallback
+      generateMockWatchlist();
+      const interval = setInterval(generateMockWatchlist, 3000);
+      return () => clearInterval(interval);
+    }
   }, []);
 
   const generateMockWatchlist = () => {
