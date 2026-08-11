@@ -57,6 +57,30 @@ class UserProfile(models.Model):
         return f"Profile: {self.user.username}"
 
 
+class UserWatchlist(models.Model):
+    """User's custom watchlist with ordering."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='watchlist')
+    symbol = models.CharField(max_length=20, db_index=True)  # e.g. BTCUSDT
+    display_name = models.CharField(max_length=50, blank=True)  # e.g. Bitcoin
+    coin_id = models.CharField(max_length=50, blank=True)  # CoinGecko ID
+    order = models.IntegerField(default=0)
+    is_favorite = models.BooleanField(default=False)
+    price_alert_above = models.DecimalField(max_digits=20, decimal_places=8, null=True, blank=True)
+    price_alert_below = models.DecimalField(max_digits=20, decimal_places=8, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'watchlist item'
+        verbose_name_plural = 'watchlist items'
+        db_table = 'user_watchlist'
+        ordering = ['order', '-created_at']
+        unique_together = ['user', 'symbol']
+
+    def __str__(self):
+        return f"{self.user.username}: {self.symbol}"
+
+
 class UserSession(models.Model):
     """Track user sessions for security."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

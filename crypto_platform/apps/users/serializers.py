@@ -1,6 +1,6 @@
 """User serializers."""
 from rest_framework import serializers
-from .models import User, UserProfile
+from .models import User, UserProfile, UserWatchlist
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -27,3 +27,17 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ['id', 'risk_level', 'favorite_symbols', 'notification_settings', 'timezone']
+
+
+class UserWatchlistSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserWatchlist
+        fields = ['id', 'symbol', 'display_name', 'coin_id', 'order', 'is_favorite', 'price_alert_above', 'price_alert_below', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
+class UserWatchlistCreateSerializer(serializers.Serializer):
+    """Batch create/update watchlist."""
+    symbols = serializers.ListField(child=serializers.DictField(), write_only=True)
+    # Each dict: {symbol, display_name, coin_id, is_favorite, order}
+
