@@ -115,7 +115,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
 
           <div className="mt-6 text-center">
             <p className="text-purple-200/60 text-sm">
-              Demo credentials: admin / admin123
+              Demo credentials: myazdanpanah / 123456
             </p>
           </div>
         </div>

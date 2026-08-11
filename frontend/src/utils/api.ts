@@ -82,18 +82,10 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
       headers,
     });
     
-    // If 401, try mock data
-    if (response.status === 401) {
-      console.log('API returned 401, using mock data');
-      localStorage.setItem('use_mock_data', 'true');
-      return mockFetch(url, options);
-    }
-    
     return response;
   } catch (error) {
-    // If network error, use mock data
-    console.log('API unavailable, using mock data');
-    localStorage.setItem('use_mock_data', 'true');
+    // If network error, try mock data as fallback
+    console.log('API unavailable, using mock data as fallback');
     return mockFetch(url, options);
   }
 }

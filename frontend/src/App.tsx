@@ -21,12 +21,16 @@ const App: React.FC = () => {
 
   const handleLogin = (token: string) => {
     setIsAuth(true);
+    setMockMode(false);
+    localStorage.removeItem('use_mock_data');
   };
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('use_mock_data');
     setIsAuth(false);
+    setMockMode(false);
   };
 
   const handleToggleMock = () => {

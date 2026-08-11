@@ -8,6 +8,7 @@ import { TradingViewChart } from '../trading/TradingViewChart';
 import { Backtester } from '../trading/Backtester';
 import { PortfolioTracker } from '../trading/PortfolioTracker';
 import { APISettings } from '../settings/APISettings';
+import { UserSettings } from '../settings/UserSettings';
 import { apiFetch } from '../../utils/api';
 
 interface CandleData {
@@ -57,7 +58,7 @@ const generateCandlestickData = () => {
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({ onLogout, mockMode, onToggleMock }) => {
-  const [activeTab, setActiveTab] = useState<'trading' | 'signals' | 'feedback' | 'analysis' | 'backtest' | 'settings'>('trading');
+  const [activeTab, setActiveTab] = useState<'trading' | 'signals' | 'feedback' | 'analysis' | 'backtest' | 'settings' | 'user-settings'>('trading');
   const [loading, setLoading] = useState(true);
   const [selectedSymbol, setSelectedSymbol] = useState('BTC-USDT');
   
@@ -74,6 +75,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, mockMode, onTogg
     { id: 'analysis' as const, label: 'Analysis', icon: '📊' },
     { id: 'backtest' as const, label: 'Backtest', icon: '🔬' },
     { id: 'settings' as const, label: 'Settings', icon: '⚙️' },
+    { id: 'user-settings' as const, label: 'Profile', icon: '👤' },
   ];
 
   return (
@@ -194,6 +196,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, mockMode, onTogg
             {activeTab === 'settings' && (
               <div className="h-full p-4">
                 <APISettings />
+              </div>
+            )}
+            {activeTab === 'user-settings' && (
+              <div className="h-full p-4">
+                <UserSettings />
               </div>
             )}
           </>
