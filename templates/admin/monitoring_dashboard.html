@@ -1,0 +1,245 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Monitoring Dashboard{% endblock %}
+
+{% block content %}
+<style>
+    .monitoring-dashboard {
+        padding: 20px;
+    }
+    .dashboard-header {
+        margin-bottom: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    .dashboard-header h1 {
+        margin: 0;
+    }
+    .metric-card {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .metric-card h3 {
+        margin-top: 0;
+        color: #333;
+    }
+    .metric-value {
+        font-size: 2em;
+        font-weight: bold;
+        color: #41769d;
+    }
+    .status-healthy { color: #28a745; }
+    .status-unhealthy { color: #dc3545; }
+    .status-warning { color: #ffc107; }
+    .status-loading { color: #6c757d; }
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+    }
+    .refresh-btn {
+        background: #41769d;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .refresh-btn:hover {
+        background: #205067;
+    }
+    .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        display: none;
+    }
+    .loading-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border: 2px solid #41769d;
+        border-radius: 50%;
+        border-top-color: transparent;
+        animation: spin 1s linear infinite;
+        margin-left: 10px;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .last-check {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 5px;
+    }
+</style>
+
+<div class="monitoring-dashboard">
+    <div class="dashboard-header">
+        <h1>Monitoring Dashboard</h1>
+        <button class="refresh-btn" onclick="refreshMetrics()">Refresh</button>
+        <span id="last-updated" style="color: #666;"></span>
+        <span id="loading-indicator" class="loading-indicator" style="display: none;"></span>
+    </div>
+    
+    <div id="error-message" class="error-message"></div>
+    
+    <div class="metrics-grid" id="metrics-container">
+        <div class="metric-card">
+            <h3>Health Status</h3>
+            <div id="health-status" class="status-loading">Loading...</div>
+        </div>
+        
+        <div class="metric-card">
+            <h3>Total Requests</h3>
+            <div class="metric-value" id="total-requests">0</div>
+        </div>
+        
+        <div class="metric-card">
+            <h3>Average Response Time</h3>
+            <div class="metric-value" id="avg-response-time">0ms</div>
+        </div>
+        
+        <div class="metric-card">
+            <h3>P95 Response Time</h3>
+            <div class="metric-value" id="p95-response-time">0ms</div>
+        </div>
+        
+        <div class="metric-card">
+            <h3>Database</h3>
+            <div id="db-status" class="status-loading">Checking...</div>
+            <div class="last-check" id="db-check-time"></div>
+        </div>
+        
+        <div class="metric-card">
+            <h3>Redis</h3>
+            <div id="redis-status" class="status-loading">Checking...</div>
+            <div class="last-check" id="redis-check-time"></div>
+        </div>
+        
+        <div class="metric-card">
+            <h3>Celery Workers</h3>
+            <div id="celery-status" class="status-loading">Checking...</div>
+            <div class="last-check" id="celery-check-time"></div>
+        </div>
+        
+        <div class="metric-card">
+            <h3>Disk Space</h3>
+            <div id="disk-status" class="status-loading">Checking...</div>
+            <div class="last-check" id="disk-check-time"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const csrfToken = '{{ csrf_token }}';
+const metricsUrl = '/api/metrics/';
+let retryCount = 0;
+const maxRetries = 3;
+
+function showError(message) {
+    const errorDiv = document.getElementById('error-message');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+}
+
+function hideError() {
+    document.getElementById('error-message').style.display = 'none';
+}
+
+function showLoading() {
+    document.getElementById('loading-indicator').style.display = 'inline-block';
+}
+
+function hideLoading() {
+    document.getElementById('loading-indicator').style.display = 'none';
+}
+
+function updateServiceStatus(elementId, checkTimeId, status, message) {
+    const element = document.getElementById(elementId);
+    element.textContent = message || status;
+    element.className = 'status-' + status;
+    
+    const checkTime = document.getElementById(checkTimeId);
+    if (checkTime) {
+        checkTime.textContent = 'Last check: ' + new Date().toLocaleTimeString();
+    }
+}
+
+async function refreshMetrics() {
+    showLoading();
+    hideError();
+    
+    try {
+        const response = await fetch(metricsUrl, {
+            headers: {
+                'X-CSRFToken': csrfToken,
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Update health status
+        const healthStatus = document.getElementById('health-status');
+        healthStatus.textContent = data.health.status;
+        healthStatus.className = 'metric-value status-' + data.health.status;
+        
+        // Update metrics
+        document.getElementById('total-requests').textContent = data.metrics.requests_total || 0;
+        document.getElementById('avg-response-time').textContent = (data.metrics.avg_response_time * 1000).toFixed(2) + 'ms';
+        document.getElementById('p95-response-time').textContent = (data.metrics.p95_response_time * 1000).toFixed(2) + 'ms';
+        
+        // Update service statuses
+        const services = data.health.services;
+        if (services.database) {
+            updateServiceStatus('db-status', 'db-check-time', services.database.status, services.database.message);
+        }
+        if (services.redis) {
+            updateServiceStatus('redis-status', 'redis-check-time', services.redis.status, services.redis.message);
+        }
+        if (services.celery) {
+            updateServiceStatus('celery-status', 'celery-check-time', services.celery.status, services.celery.message);
+        }
+        if (services.disk) {
+            updateServiceStatus('disk-status', 'disk-check-time', services.disk.status, services.disk.message);
+        }
+        
+        // Update timestamp
+        document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleString();
+        
+        retryCount = 0;
+        
+    } catch (error) {
+        console.error('Failed to fetch metrics:', error);
+        showError(`Failed to fetch metrics: ${error.message}`);
+        
+        retryCount++;
+        if (retryCount < maxRetries) {
+            setTimeout(refreshMetrics, 5000 * retryCount);
+        }
+    } finally {
+        hideLoading();
+    }
+}
+
+// Auto-refresh every 60 seconds
+setInterval(refreshMetrics, 60000);
+
+// Initial load
+refreshMetrics();
+</script>
+{% endblock %}

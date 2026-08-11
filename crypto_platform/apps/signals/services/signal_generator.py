@@ -1,0 +1,429 @@
+"""Signal Generator - Multi-factor scoring engine for crypto trading signals."""
+import logging
+import json
+from typing import Dict, List, Optional, Tuple
+from datetime import datetime, timedelta
+from decimal import Decimal
+
+logger = logging.getLogger(__name__)
+
+
+class SignalGenerator:
+    """
+    Multi-factor scoring engine that generates trading signals by combining
+    technical analysis, sentiment, news, AI predictions, and macro factors.
+    """
+    
+    DEFAULT_WEIGHTS = {
+        'technical': Decimal('0.30'),
+        'sentiment': Decimal('0.20'),
+        'news': Decimal('0.15'),
+        'ai': Decimal('0.20'),
+        'macro': Decimal('0.15'),
+    }
+    
+    DIRECTION_THRESHOLDS = {
+        'strong_buy': (75, 101),  # 101 to include 100
+        'buy': (60, 75),
+        'hold': (40, 60),
+        'sell': (25, 40),
+        'strong_sell': (0, 25),
+    }
+    
+    def __init__(self):
+        self.weights = self.DEFAULT_WEIGHTS.copy()
+    
+    def load_weights(self, factor_weights: List) -> None:
+        """Load configurable weights from database."""
+        for fw in factor_weights:
+            if fw.is_active and fw.name in self.weights:
+                self.weights[fw.name] = Decimal(str(fw.weight))
+        
+        # Normalize weights to sum to 1.0
+        total = sum(self.weights.values())
+        if total > 0:
+            self.weights = {k: v / total for k, v in self.weights.items()}
+    
+    def generate_signal(
+        self,
+        symbol: str,
+        timeframe: str,
+        technical_data: Dict = None,
+        sentiment_data: Dict = None,
+        news_data: Dict = None,
+        ai_data: Dict = None,
+        macro_data: Dict = None,
+        current_price: Decimal = None,
+    ) -> Dict:
+        """
+        Generate a trading signal based on multi-factor analysis.
+        
+        Returns:
+            Dict with signal details, scores, and reasoning
+        """
+        # Calculate individual factor scores
+        scores = {
+            'technical': self._score_technical(technical_data or {}),
+            'sentiment': self._score_sentiment(sentiment_data or {}),
+            'news': self._score_news(news_data or {}),
+            'ai': self._score_ai(ai_data or {}),
+            'macro': self._score_macro(macro_data or {}),
+        }
+        
+        # Calculate composite score
+        composite_score = sum(
+            scores[factor] * weight
+            for factor, weight in self.weights.items()
+        )
+        
+        # Determine direction
+        direction, confidence = self._determine_direction(composite_score)
+        
+        # Calculate risk score
+        risk_score = self._calculate_risk_score(
+            technical_data or {},
+            sentiment_data or {},
+            scores
+        )
+        
+        # Generate reasoning
+        reasons = self._generate_reasons(scores, technical_data or {}, sentiment_data or {})
+        
+        # Calculate entry/exit levels
+        entry_levels = self._calculate_entry_levels(
+            direction=direction,
+            current_price=current_price or Decimal('0'),
+            technical_data=technical_data or {},
+        )
+        
+        result = {
+            'symbol': symbol,
+            'timeframe': timeframe,
+            'direction': direction,
+            'confidence': confidence,
+            'composite_score': float(composite_score),
+            'risk_score': risk_score,
+            'factor_scores': {k: float(v) for k, v in scores.items()},
+            'weights_used': {k: float(v) for k, v in self.weights.items()},
+            'reasons': reasons,
+            'entry_price': entry_levels.get('entry_price'),
+            'stop_loss': entry_levels.get('stop_loss'),
+            'take_profit': entry_levels.get('take_profit'),
+            'generated_at': datetime.now().isoformat(),
+        }
+        
+        logger.info(f"Generated signal for {symbol}: {direction} (confidence={confidence}%)")
+        return result
+    
+    def _score_technical(self, data: Dict) -> Decimal:
+        """Score based on technical analysis data."""
+        if not data:
+            return Decimal('50')
+        
+        score = Decimal('50')
+        
+        # RSI scoring
+        rsi = data.get('rsi')
+        if rsi is not None:
+            if rsi < 30:
+                score += Decimal('15')  # Oversold = bullish
+            elif rsi > 70:
+                score -= Decimal('15')  # Overbought = bearish
+            elif 40 <= rsi <= 60:
+                score += Decimal('5')   # Neutral zone
+        
+        # MACD scoring
+        macd_signal = data.get('macd_signal')
+        if macd_signal:
+            if macd_signal == 'bullish_crossover':
+                score += Decimal('10')
+            elif macd_signal == 'bearish_crossover':
+                score -= Decimal('10')
+        
+        # Trend scoring
+        trend = data.get('trend')
+        if trend:
+            if trend == 'strong_uptrend':
+                score += Decimal('15')
+            elif trend == 'uptrend':
+                score += Decimal('10')
+            elif trend == 'downtrend':
+                score -= Decimal('10')
+            elif trend == 'strong_downtrend':
+                score -= Decimal('15')
+        
+        # Support/Resistance scoring
+        sr_signal = data.get('sr_signal')
+        if sr_signal:
+            if sr_signal == 'near_support':
+                score += Decimal('10')
+            elif sr_signal == 'near_resistance':
+                score -= Decimal('10')
+        
+        # Volume scoring
+        volume_signal = data.get('volume_signal')
+        if volume_signal:
+            if volume_signal == 'high_volume_breakout':
+                score += Decimal('5')
+            elif volume_signal == 'low_volume':
+                score -= Decimal('5')
+        
+        return max(Decimal('0'), min(Decimal('100'), score))
+    
+    def _score_sentiment(self, data: Dict) -> Decimal:
+        """Score based on sentiment analysis data."""
+        if not data:
+            return Decimal('50')
+        
+        score = Decimal('50')
+        
+        # Fear & Greed Index
+        fear_greed = data.get('fear_greed_index')
+        if fear_greed is not None:
+            if fear_greed < 25:
+                score += Decimal('20')  # Extreme fear = contrarian bullish
+            elif fear_greed < 40:
+                score += Decimal('10')
+            elif fear_greed > 75:
+                score -= Decimal('20')  # Extreme greed = contrarian bearish
+            elif fear_greed > 60:
+                score -= Decimal('10')
+        
+        # Social sentiment
+        social_sentiment = data.get('social_sentiment')
+        if social_sentiment is not None:
+            score += Decimal(str(max(-20, min(20, social_sentiment - 50))))
+        
+        # Whale activity
+        whale_signal = data.get('whale_signal')
+        if whale_signal:
+            if whale_signal == 'accumulation':
+                score += Decimal('10')
+            elif whale_signal == 'distribution':
+                score -= Decimal('10')
+        
+        return max(Decimal('0'), min(Decimal('100'), score))
+    
+    def _score_news(self, data: Dict) -> Decimal:
+        """Score based on news analysis."""
+        if not data:
+            return Decimal('50')
+        
+        score = Decimal('50')
+        
+        # News sentiment
+        news_sentiment = data.get('sentiment')
+        if news_sentiment:
+            if news_sentiment == 'positive':
+                score += Decimal('15')
+            elif news_sentiment == 'negative':
+                score -= Decimal('15')
+        
+        # Impact score
+        impact = data.get('impact_score')
+        if impact is not None:
+            score += Decimal(str(max(-15, min(15, impact - 50))))
+        
+        # Breaking news bonus
+        if data.get('is_breaking'):
+            score += Decimal('10') if data.get('sentiment') == 'positive' else Decimal('-10')
+        
+        return max(Decimal('0'), min(Decimal('100'), score))
+    
+    def _score_ai(self, data: Dict) -> Decimal:
+        """Score based on AI model predictions."""
+        if not data:
+            return Decimal('50')
+        
+        score = Decimal('50')
+        
+        # AI prediction
+        prediction = data.get('prediction')
+        if prediction:
+            confidence = Decimal(str(data.get('prediction_confidence') or 50))
+            if prediction == 'bullish':
+                score += (confidence / Decimal('100')) * Decimal('30')
+            elif prediction == 'bearish':
+                score -= (confidence / Decimal('100')) * Decimal('30')
+        
+        # Model consensus
+        consensus = data.get('model_consensus')
+        if consensus is not None:
+            score += Decimal(str(max(-20, min(20, consensus - 50))))
+        
+        return max(Decimal('0'), min(Decimal('100'), score))
+    
+    def _score_macro(self, data: Dict) -> Decimal:
+        """Score based on macro/economic factors."""
+        if not data:
+            return Decimal('50')
+        
+        score = Decimal('50')
+        
+        # BTC correlation
+        btc_trend = data.get('btc_trend')
+        if btc_trend:
+            if btc_trend == 'bullish':
+                score += Decimal('10')
+            elif btc_trend == 'bearish':
+                score -= Decimal('10')
+        
+        # Market regime
+        market_regime = data.get('market_regime')
+        if market_regime:
+            if market_regime == 'risk_on':
+                score += Decimal('10')
+            elif market_regime == 'risk_off':
+                score -= Decimal('10')
+        
+        # DXY (Dollar Index)
+        dxy_trend = data.get('dxy_trend')
+        if dxy_trend:
+            if dxy_trend == 'weakening':
+                score += Decimal('5')  # Weaker dollar = bullish crypto
+            elif dxy_trend == 'strengthening':
+                score -= Decimal('5')
+        
+        return max(Decimal('0'), min(Decimal('100'), score))
+    
+    def _determine_direction(self, composite_score: Decimal) -> Tuple[str, int]:
+        """Determine signal direction and confidence from composite score."""
+        score = float(composite_score)
+        
+        for direction, (low, high) in self.DIRECTION_THRESHOLDS.items():
+            if low <= score < high:
+                # Confidence is distance from midpoint
+                midpoint = (low + high) / 2
+                confidence = int(50 + abs(score - midpoint) * 2)
+                return direction, min(95, max(10, confidence))
+        
+        return 'hold', 50
+    
+    def _calculate_risk_score(
+        self,
+        technical_data: Dict,
+        sentiment_data: Dict,
+        scores: Dict
+    ) -> int:
+        """Calculate risk score (0-100, higher = more risky)."""
+        risk = 50
+        
+        # Volatility risk
+        volatility = technical_data.get('volatility')
+        if volatility:
+            if volatility > 5:
+                risk += 20
+            elif volatility > 3:
+                risk += 10
+            elif volatility < 1:
+                risk -= 10
+        
+        # Sentiment extremes increase risk
+        fear_greed = sentiment_data.get('fear_greed_index')
+        if fear_greed:
+            if fear_greed < 20 or fear_greed > 80:
+                risk += 15
+        
+        # Score disagreement increases risk
+        score_values = list(scores.values())
+        if score_values:
+            score_range = max(score_values) - min(score_values)
+            if score_range > 30:
+                risk += 10
+        
+        return max(0, min(100, risk))
+    
+    def _generate_reasons(
+        self,
+        scores: Dict,
+        technical_data: Dict,
+        sentiment_data: Dict
+    ) -> List[Dict]:
+        """Generate human-readable reasons for the signal."""
+        reasons = []
+        
+        # Technical reasons
+        if scores['technical'] > 65:
+            reasons.append({
+                'type': 'technical',
+                'description': f"Strong technical indicators (score: {scores['technical']:.1f})",
+                'confidence': int(scores['technical']),
+            })
+        elif scores['technical'] < 35:
+            reasons.append({
+                'type': 'technical',
+                'description': f"Weak technical indicators (score: {scores['technical']:.1f})",
+                'confidence': int(100 - scores['technical']),
+            })
+        
+        # Sentiment reasons
+        fear_greed = sentiment_data.get('fear_greed_index')
+        if fear_greed:
+            if fear_greed < 25:
+                reasons.append({
+                    'type': 'sentiment',
+                    'description': f"Extreme fear in market (F&G: {fear_greed}) - contrarian opportunity",
+                    'confidence': 75,
+                })
+            elif fear_greed > 75:
+                reasons.append({
+                    'type': 'sentiment',
+                    'description': f"Extreme greed in market (F&G: {fear_greed}) - caution advised",
+                    'confidence': 75,
+                })
+        
+        # AI reasons
+        if scores['ai'] > 65:
+            reasons.append({
+                'type': 'ai',
+                'description': f"AI models bullish (score: {scores['ai']:.1f})",
+                'confidence': int(scores['ai']),
+            })
+        elif scores['ai'] < 35:
+            reasons.append({
+                'type': 'ai',
+                'description': f"AI models bearish (score: {scores['ai']:.1f})",
+                'confidence': int(100 - scores['ai']),
+            })
+        
+        return reasons
+    
+    def _calculate_entry_levels(
+        self,
+        direction: str,
+        current_price: Decimal,
+        technical_data: Dict
+    ) -> Dict:
+        """Calculate entry, stop loss, and take profit levels."""
+        if current_price <= 0:
+            return {'entry_price': None, 'stop_loss': None, 'take_profit': []}
+        
+        # Default ATR-based levels
+        atr = Decimal(str(technical_data.get('atr', float(current_price) * 0.02)))
+        
+        if direction in ('buy', 'strong_buy'):
+            entry_price = current_price
+            stop_loss = current_price - (atr * Decimal('2'))
+            take_profit = [
+                float(current_price + (atr * Decimal('2'))),
+                float(current_price + (atr * Decimal('3'))),
+                float(current_price + (atr * Decimal('5'))),
+            ]
+        elif direction in ('sell', 'strong_sell'):
+            entry_price = current_price
+            stop_loss = current_price + (atr * Decimal('2'))
+            take_profit = [
+                float(current_price - (atr * Decimal('2'))),
+                float(current_price - (atr * Decimal('3'))),
+                float(current_price - (atr * Decimal('5'))),
+            ]
+        else:
+            entry_price = None
+            stop_loss = None
+            take_profit = []
+        
+        return {
+            'entry_price': float(entry_price) if entry_price else None,
+            'stop_loss': float(stop_loss) if stop_loss else None,
+            'take_profit': take_profit,
+        }
