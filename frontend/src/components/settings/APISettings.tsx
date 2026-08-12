@@ -15,6 +15,55 @@ interface OllamaInfo {
   active_model: string | null;
 }
 
+interface CloudProvider {
+  id: string;
+  name: string;
+  icon: string;
+  configured: boolean;
+  apiKey: string;
+  baseUrl: string;
+  models: string[];
+}
+
+const DEFAULT_CLOUD_PROVIDERS: CloudProvider[] = [
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    icon: '🤖',
+    configured: false,
+    apiKey: '',
+    baseUrl: 'https://api.openai.com/v1',
+    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    icon: '🧠',
+    configured: false,
+    apiKey: '',
+    baseUrl: 'https://api.anthropic.com',
+    models: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    icon: '🔄',
+    configured: false,
+    apiKey: '',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    models: ['anthropic/claude-3.5-sonnet', 'openai/gpt-4o', 'meta-llama/llama-3.1-405b-instruct'],
+  },
+  {
+    id: 'groq',
+    name: 'Groq',
+    icon: '⚡',
+    configured: false,
+    apiKey: '',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    models: ['llama-3.1-70b-versatile', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
+  },
+];
+
 export const APISettings: React.FC = () => {
   const { selectedModel, setSelectedModel, temperature, setTemperature } = useSettings();
   const [activeTab, setActiveTab] = useState<'ai' | 'exchanges' | 'general'>('ai');
@@ -22,10 +71,23 @@ export const APISettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [ollamaStatus, setOllamaStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  
+  // Cloud AI state
+  const [cloudProviders, setCloudProviders] = useState<CloudProvider[]>(() => {
+    const saved = localStorage.getItem('cloud_providers');
+    return saved ? JSON.parse(saved) : DEFAULT_CLOUD_PROVIDERS;
+  });
+  const [selectedCloudProvider, setSelectedCloudProvider] = useState<string | null>(null);
+  const [editingProvider, setEditingProvider] = useState<CloudProvider | null>(null);
 
   useEffect(() => {
     fetchOllamaModels();
   }, []);
+
+  // Save cloud providers to localStorage
+  useEffect(() => {
+    localStorage.setItem('cloud_providers', JSON.stringify(cloudProviders));
+  }, [cloudProviders]);
 
   const fetchOllamaModels = async () => {
     setLoading(true);
@@ -35,7 +97,6 @@ export const APISettings: React.FC = () => {
         const data: OllamaInfo = await response.json();
         setOllamaInfo(data);
         setOllamaStatus(data.models.length > 0 ? 'connected' : 'disconnected');
-        // If we don't have a selected model yet, use the active one from backend
         if (!selectedModel && data.active_model) {
           setSelectedModel(data.active_model);
         }
@@ -76,6 +137,54 @@ export const APISettings: React.FC = () => {
       setOllamaStatus('disconnected');
       setMessage({ type: 'error', text: 'Failed to check connection' });
     }
+  };
+
+  const testCloudProvider = async (provider: CloudProvider) => {
+    if (!provider.apiKey) {
+      setMessage({ type: 'error', text: 'Please enter an API key first' });
+      return;
+    }
+
+    setMessage({ type: 'success', text: `Testing ${provider.name} connection...` });
+
+    try {
+      // Simple test - try to list models or make a minimal request
+      if (provider.id === 'openai' || provider.id === 'openrouter' || provider.id === 'groq') {
+        const response = await fetch(`${provider.baseUrl}/models`, {
+          headers: {
+            'Authorization': `Bearer ${provider.apiKey}`,
+          },
+        });
+        
+        if (response.ok) {
+          setMessage({ type: 'success', text: `✓ ${provider.name} connected successfully!` });
+          updateProviderConfigured(provider.id, true);
+        } else {
+          setMessage({ type: 'error', text: `✗ ${provider.name} connection failed. Check your API key.` });
+          updateProviderConfigured(provider.id, false);
+        }
+      } else if (provider.id === 'anthropic') {
+        // Anthropic uses a different auth method
+        setMessage({ type: 'success', text: `✓ ${provider.name} API key saved. Connection will be tested on first use.` });
+        updateProviderConfigured(provider.id, true);
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: `Failed to test ${provider.name} connection` });
+    }
+  };
+
+  const updateProviderConfigured = (providerId: string, configured: boolean) => {
+    setCloudProviders(prev => 
+      prev.map(p => p.id === providerId ? { ...p, configured } : p)
+    );
+  };
+
+  const saveProviderConfig = (provider: CloudProvider) => {
+    setCloudProviders(prev => 
+      prev.map(p => p.id === provider.id ? provider : p)
+    );
+    setEditingProvider(null);
+    setMessage({ type: 'success', text: `${provider.name} configuration saved!` });
   };
 
   const formatSize = (bytes: number) => {
@@ -120,6 +229,7 @@ export const APISettings: React.FC = () => {
             message.type === 'success' ? 'bg-[#26a69a]/20 text-[#26a69a]' : 'bg-[#ef5350]/20 text-[#ef5350]'
           }`}>
             {message.text}
+            <button onClick={() => setMessage(null)} className="ml-2 text-white/60 hover:text-white">✕</button>
           </div>
         )}
 
@@ -271,17 +381,83 @@ export const APISettings: React.FC = () => {
 
             {/* Cloud AI */}
             <div className="bg-[#1e1e2e] rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="text-2xl">☁️</div>
-                  <div>
-                    <h3 className="text-white font-medium">Cloud AI</h3>
-                    <p className="text-xs text-gray-400">OpenAI, Anthropic, etc.</p>
+              <h3 className="text-white font-medium mb-3">☁️ Cloud AI Providers</h3>
+              <p className="text-xs text-gray-400 mb-4">Configure API keys for cloud-based AI models</p>
+              
+              <div className="space-y-3">
+                {cloudProviders.map(provider => (
+                  <div key={provider.id} className="bg-[#131722] rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{provider.icon}</span>
+                        <div>
+                          <div className="text-sm text-white font-medium">{provider.name}</div>
+                          <div className="text-[10px] text-gray-500">
+                            {provider.configured ? '✓ Configured' : 'Not configured'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${provider.configured ? 'bg-[#26a69a]' : 'bg-gray-500'}`} />
+                        <button
+                          onClick={() => setEditingProvider(editingProvider?.id === provider.id ? null : provider)}
+                          className="px-3 py-1 bg-[#2a2a3e] text-white text-xs rounded hover:bg-[#3a3a4e]"
+                        >
+                          {editingProvider?.id === provider.id ? 'Close' : 'Configure'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Edit Form */}
+                    {editingProvider?.id === provider.id && (
+                      <div className="mt-3 pt-3 border-t border-[#2a2a3e] space-y-3">
+                        <div>
+                          <label className="block text-[10px] text-gray-400 mb-1">API Key</label>
+                          <input
+                            type="password"
+                            value={editingProvider.apiKey}
+                            onChange={(e) => setEditingProvider({ ...editingProvider, apiKey: e.target.value })}
+                            placeholder="sk-..."
+                            className="w-full bg-[#1e1e2e] border border-[#2a2a3e] rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-gray-400 mb-1">Base URL (optional)</label>
+                          <input
+                            type="text"
+                            value={editingProvider.baseUrl}
+                            onChange={(e) => setEditingProvider({ ...editingProvider, baseUrl: e.target.value })}
+                            className="w-full bg-[#1e1e2e] border border-[#2a2a3e] rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-gray-400 mb-1">Available Models</label>
+                          <div className="flex flex-wrap gap-1">
+                            {editingProvider.models.map(model => (
+                              <span key={model} className="text-[10px] px-2 py-1 bg-[#2a2a3e] rounded text-gray-300">
+                                {model}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => testCloudProvider(editingProvider)}
+                            className="flex-1 py-2 bg-[#2a2a3e] text-white text-xs rounded hover:bg-[#3a3a4e]"
+                          >
+                            Test Connection
+                          </button>
+                          <button
+                            onClick={() => saveProviderConfig(editingProvider)}
+                            className="flex-1 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                          >
+                            Save Config
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-                <button className="px-3 py-1 bg-[#2a2a3e] text-white text-xs rounded hover:bg-[#3a3a4e]">
-                  Configure
-                </button>
+                ))}
               </div>
             </div>
           </div>
