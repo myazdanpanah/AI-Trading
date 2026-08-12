@@ -80,6 +80,136 @@ const Sparkline: React.FC<{ data: number[]; color?: string; height?: number }> =
   );
 };
 
+// Price Chart component (candlestick-style)
+const PriceChart: React.FC<{ data: number[]; symbol: string; height?: number }> = ({ data, symbol, height = 120 }) => {
+  if (!data || data.length < 2) return null;
+  
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const padding = 20;
+  const chartWidth = 100;
+  const chartHeight = height;
+  
+  // Generate candle data (simulate open/high/low/close from price data)
+  const candles = data.map((close, i) => {
+    const prev = i > 0 ? data[i - 1] : close;
+    const open = prev;
+    const high = Math.max(open, close) + range * 0.1;
+    const low = Math.min(open, close) - range * 0.1;
+    return { open, high, low, close, index: i };
+  });
+  
+  const scaleY = (value: number) => {
+    return padding + ((max - value) / range) * (chartHeight - 2 * padding);
+  };
+  
+  const candleWidth = (chartWidth - 2 * padding) / data.length;
+  const bodyWidth = Math.max(1, candleWidth * 0.6);
+  
+  // Generate path for price line
+  const linePath = candles.map((c, i) => {
+    const x = padding + (i / (data.length - 1)) * (chartWidth - 2 * padding);
+    const y = scaleY(c.close);
+    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+  }).join(' ');
+  
+  // Generate gradient fill path
+  const fillPath = `${linePath} L ${padding + ((data.length - 1) / (data.length - 1)) * (chartWidth - 2 * padding)} ${chartHeight - padding} L ${padding} ${chartHeight - padding} Z`;
+  
+  const lastPrice = data[data.length - 1];
+  const firstPrice = data[0];
+  const isUp = lastPrice >= firstPrice;
+  const lineColor = isUp ? '#10b981' : '#ef4444';
+  const fillColor = isUp ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+  
+  return (
+    <div className="relative">
+      <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none">
+        {/* Grid lines */}
+        {[0.25, 0.5, 0.75].map((pct) => (
+          <line
+            key={pct}
+            x1={padding}
+            y1={padding + pct * (chartHeight - 2 * padding)}
+            x2={chartWidth - padding}
+            y2={padding + pct * (chartHeight - 2 * padding)}
+            stroke="#374151"
+            strokeWidth="0.3"
+            strokeDasharray="2,2"
+          />
+        ))}
+        
+        {/* Price labels */}
+        <text x={2} y={padding + 4} fill="#6b7280" fontSize="3">${max.toFixed(0)}</text>
+        <text x={2} y={chartHeight - padding} fill="#6b7280" fontSize="3">${min.toFixed(0)}</text>
+        
+        {/* Gradient fill */}
+        <path d={fillPath} fill={fillColor} />
+        
+        {/* Price line */}
+        <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+        
+        {/* Candle bodies */}
+        {candles.map((c, i) => {
+          const x = padding + (i / (data.length - 1)) * (chartWidth - 2 * padding) - bodyWidth / 2;
+          const bodyTop = scaleY(Math.max(c.open, c.close));
+          const bodyBottom = scaleY(Math.min(c.open, c.close));
+          const bodyHeight = Math.max(1, bodyBottom - bodyTop);
+          const candleColor = c.close >= c.open ? '#10b981' : '#ef4444';
+          
+          return (
+            <g key={i}>
+              {/* Wick */}
+              <line
+                x1={x + bodyWidth / 2}
+                y1={scaleY(c.high)}
+                x2={x + bodyWidth / 2}
+                y2={scaleY(c.low)}
+                stroke={candleColor}
+                strokeWidth="0.3"
+              />
+              {/* Body */}
+              <rect
+                x={x}
+                y={bodyTop}
+                width={bodyWidth}
+                height={bodyHeight}
+                fill={candleColor}
+                rx="0.2"
+              />
+            </g>
+          );
+        })}
+        
+        {/* Current price marker */}
+        <circle
+          cx={padding + ((data.length - 1) / (data.length - 1)) * (chartWidth - 2 * padding)}
+          cy={scaleY(lastPrice)}
+          r="1.5"
+          fill={lineColor}
+        />
+        <text
+          x={chartWidth - padding + 1}
+          y={scaleY(lastPrice) + 1}
+          fill={lineColor}
+          fontSize="3"
+          fontWeight="bold"
+        >
+          ${lastPrice.toFixed(0)}
+        </text>
+      </svg>
+      
+      {/* Legend */}
+      <div className="flex gap-4 mt-1 text-[10px] text-gray-500">
+        <span>🟢 Bullish</span>
+        <span>🔴 Bearish</span>
+        <span>Candles: OHLC</span>
+      </div>
+    </div>
+  );
+};
+
 export const AnalysisPanel: React.FC = () => {
   const { baseSymbols } = useWatchlist();
   const { t, language } = useLanguage();
@@ -234,6 +364,21 @@ export const AnalysisPanel: React.FC = () => {
               <div className="text-xs text-gray-500">{safe.str(position.quantity)} {activeSymbol}</div>
             </div>
           </div>
+
+          {/* Price Chart */}
+          {priceHistory.length > 0 && (
+            <div className="bg-gray-900 rounded-lg p-4 border border-gray-700 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-300">{language === 'fa' ? 'نمودار قیمت' : 'Price Chart'} ({activeSymbol}/USDT)</h3>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <span>{priceHistory.length} candles</span>
+                  <span>|</span>
+                  <span>{language === 'fa' ? 'آخرین' : 'Latest'}: ${safe.price(priceHistory[priceHistory.length - 1])}</span>
+                </div>
+              </div>
+              <PriceChart data={priceHistory} symbol={activeSymbol} height={120} />
+            </div>
+          )}
 
           {/* Section Tabs */}
           <div className="flex gap-1 mb-4 bg-gray-900 rounded-lg p-1">
