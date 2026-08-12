@@ -1,4 +1,5 @@
-import React, { useState, Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWatchlist } from '../../contexts/WatchlistContext';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -50,11 +51,17 @@ class ErrorBoundary extends Component<{ children: ReactNode; tabName: string }, 
   }
 }
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  initialTab?: string;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ initialTab = 'trading' }) => {
   const { user, logout } = useAuth();
   const { selectedSymbol, setSelectedSymbol } = useWatchlist();
   const { t, language } = useLanguage();
-  const [activeTab, setActiveTab] = useState<TabType>('trading');
+  const navigate = useNavigate();
+  
+  const activeTab = initialTab as TabType;
 
   const tabs: { id: TabType; label: string; icon: string }[] = [
     { id: 'trading', label: t('nav.trading'), icon: '📈' },
@@ -63,6 +70,10 @@ export const Dashboard: React.FC = () => {
     { id: 'journal', label: t('nav.journal'), icon: '📝' },
     { id: 'settings', label: t('nav.settings'), icon: '⚙️' },
   ];
+
+  const handleTabChange = (tab: TabType) => {
+    navigate(`/dashboard/${tab}`, { replace: true });
+  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -128,7 +139,7 @@ export const Dashboard: React.FC = () => {
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                     activeTab === tab.id
                       ? 'bg-blue-600 text-white'
