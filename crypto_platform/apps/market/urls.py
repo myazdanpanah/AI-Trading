@@ -8,7 +8,8 @@ router.register(r'orderbook', views.OrderBookViewSet)
 router.register(r'derivatives', views.DerivativesDataViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
     path('status/', views.data_source_status, name='data-source-status'),
     path('ticker/', views.quick_ticker, name='quick-ticker'),
+    path('candles/live/', views.candles, name='candles-live'),
+    path('', include(router.urls)),
 ]

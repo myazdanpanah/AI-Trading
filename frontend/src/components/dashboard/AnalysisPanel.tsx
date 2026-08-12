@@ -4,18 +4,6 @@ import { PerformanceChart } from '../charts/PerformanceChart';
 import { FactorBarChart } from '../charts/FactorBarChart';
 import { CandlestickChart } from '../charts/CandlestickChart';
 
-interface PerformanceMetrics {
-  win_rate: number;
-  total_signals: number;
-  avg_return: number;
-  profit_factor: number;
-  sharpe_ratio: number;
-  factor_analysis: Record<string, any>;
-  insights: any[];
-  days: number;
-  status?: string;
-}
-
 interface CandleData {
   date: string;
   open: number;
@@ -25,75 +13,71 @@ interface CandleData {
   volume: number;
 }
 
+interface AnalysisResult {
+  symbol: string;
+  current_price: number;
+  data_source: string;
+  data_points: number;
+  regime: {
+    composite: { score: number; zone: string; guidance: string };
+    exposure: { posture: string; max_exposure: number };
+    components: Record<string, { label: string; score: number; signal: string }>;
+  };
+  technical: {
+    overall_score: number;
+    trend: { score: number; signal: string };
+    momentum: { score: number; signal: string; rsi: number };
+    volatility: { score: number; signal: string };
+    vwap: { value: number; deviation: number; signal: string };
+    ichimoku: { signal: string; cloud_color: string };
+  };
+  verdict: {
+    signal: string;
+    combined_score: number;
+    regime_score: number;
+    technical_score: number;
+  };
+  execution_time_ms: number;
+}
+
 export const AnalysisPanel: React.FC = () => {
-  const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
+  const [candlestickData, setCandlestickData] = useState<CandleData[]>([]);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [lookbackDays, setLookbackDays] = useState(30);
   const [activeChart, setActiveChart] = useState<'candlestick' | 'performance' | 'factors'>('candlestick');
-  const [candlestickData, setCandlestickData] = useState<CandleData[]>([]);
+  const [selectedSymbol, setSelectedSymbol] = useState('BTC');
 
   useEffect(() => {
-    fetchPerformanceMetrics();
-  }, [lookbackDays]);
+    fetchData();
+  }, [selectedSymbol, lookbackDays]);
 
-  useEffect(() => {
-    fetchCandlestickData();
-  }, []);
-
-  const fetchCandlestickData = async () => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      const response = await apiFetch('/market/ticker/?symbol=BTC&days=60');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.candles && data.candles.length > 0) {
-          const formatted = data.candles.map((c: any) => ({
-            date: new Date(c.date || c.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            open: c.open,
-            high: c.high,
-            low: c.low,
-            close: c.close,
-            volume: c.volume || 0,
-          }));
-          setCandlestickData(formatted);
-          return;
+      // Fetch candle data
+      const candleRes = await apiFetch(`/market/candles/live/?symbol=${selectedSymbol}&days=${lookbackDays}`);
+      if (candleRes.ok) {
+        const candleData = await candleRes.json();
+        if (candleData.candles) {
+          setCandlestickData(candleData.candles);
         }
       }
-    } catch (e) {
-      console.warn('Failed to fetch candlestick data:', e);
+
+      // Fetch full analysis
+      const analysisRes = await apiFetch(`/skills/full-analysis/?symbol=${selectedSymbol}&account_size=10000`);
+      if (analysisRes.ok) {
+        const analysisData = await analysisRes.json();
+        setAnalysis(analysisData);
+      }
+    } catch (err) {
+      console.error('Failed to fetch data:', err);
+    } finally {
+      setLoading(false);
     }
-    // Fallback to generated data
-    setCandlestickData(generateFallbackCandlestickData());
   };
 
-  const generateFallbackCandlestickData = (): CandleData[] => {
-    const data: CandleData[] = [];
-    let basePrice = 65000;
-    const now = new Date();
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const volatility = 0.02 + Math.random() * 0.03;
-      const open = basePrice;
-      const change = (Math.random() - 0.48) * volatility * basePrice;
-      const close = open + change;
-      const high = Math.max(open, close) + Math.random() * volatility * basePrice * 0.5;
-      const low = Math.min(open, close) - Math.random() * volatility * basePrice * 0.5;
-      const volume = 1500000000 + Math.random() * 2000000000;
-      data.push({
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        open: Math.round(open),
-        high: Math.round(high),
-        low: Math.round(low),
-        close: Math.round(close),
-        volume: Math.round(volume),
-      });
-      basePrice = close;
-    }
-    return data;
-  };
-
-  const generateMockHistoricalData = () => {
+  const historicalData = useMemo(() => {
     const data = [];
     const now = new Date();
     for (let i = 29; i >= 0; i--) {
@@ -107,51 +91,7 @@ export const AnalysisPanel: React.FC = () => {
       });
     }
     return data;
-  };
-
-  const historicalData = useMemo(() => generateMockHistoricalData(), []);
-
-  const fetchPerformanceMetrics = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await apiFetch(`/feedback/analysis/results/performance/?days=${lookbackDays}`);
-      if (response.ok) {
-        const data = await response.json();
-        setMetrics(data);
-      } else {
-        // Fallback: set default metrics
-        setMetrics({
-          win_rate: 0,
-          total_signals: 0,
-          avg_return: 0,
-          profit_factor: 0,
-          sharpe_ratio: 0,
-          factor_analysis: {},
-          insights: [],
-          days: lookbackDays,
-          status: 'no_data',
-        });
-        setError(null);
-      }
-    } catch (err) {
-      console.error('Failed to fetch performance metrics:', err);
-      setMetrics({
-        win_rate: 0,
-        total_signals: 0,
-        avg_return: 0,
-        profit_factor: 0,
-        sharpe_ratio: 0,
-        factor_analysis: {},
-        insights: [],
-        days: lookbackDays,
-        status: 'error',
-      });
-      setError(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -169,65 +109,53 @@ export const AnalysisPanel: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-red-500/10 backdrop-blur-lg rounded-xl p-6 border border-red-500/20">
-        <p className="text-red-400">{error}</p>
-        <button 
-          onClick={fetchPerformanceMetrics}
-          className="mt-4 px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-all"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
-  const winRate = metrics?.win_rate || 0;
-  const totalSignals = metrics?.total_signals || 0;
-  const avgReturn = metrics?.avg_return || 0;
-  const profitFactor = metrics?.profit_factor || 0;
+  // Calculate analysis metrics
+  const regimeScore = analysis?.regime?.composite?.score || 50;
+  const techScore = analysis?.technical?.overall_score || 50;
+  const trendScore = analysis?.technical?.trend?.score || 50;
+  const momentumScore = analysis?.technical?.momentum?.score || 50;
+  const volatilityScore = analysis?.technical?.volatility?.score || 50;
 
   const metricCards = [
     {
-      title: 'Win Rate',
-      value: totalSignals > 0 ? `${winRate.toFixed(1)}%` : 'No data yet',
-      icon: '🎯',
-      color: winRate >= 55 ? 'green' : winRate > 0 ? 'yellow' : 'blue',
-      change: totalSignals > 0 ? `Over ${lookbackDays}d` : 'Generate signals first',
-      description: 'Percentage of winning signals',
+      title: 'Regime Score',
+      value: regimeScore.toFixed(1),
+      icon: '🌐',
+      color: regimeScore >= 60 ? 'green' : regimeScore >= 40 ? 'yellow' : 'red',
+      change: analysis?.regime?.composite?.zone || 'N/A',
+      description: 'Market regime analysis',
     },
     {
-      title: 'Total Signals',
-      value: totalSignals.toString(),
+      title: 'Technical Score',
+      value: techScore.toFixed(1),
       icon: '📊',
-      color: 'blue',
-      change: totalSignals > 0 ? `${lookbackDays}d period` : 'Pending',
-      description: 'Signals generated this period',
+      color: techScore >= 60 ? 'green' : techScore >= 40 ? 'yellow' : 'red',
+      change: analysis?.technical?.trend?.signal || 'N/A',
+      description: 'Technical indicator analysis',
     },
     {
-      title: 'Avg Return',
-      value: totalSignals > 0 ? `${avgReturn.toFixed(2)}%` : 'No data yet',
+      title: 'Signal',
+      value: analysis?.verdict?.signal || 'HOLD',
+      icon: '🎯',
+      color: analysis?.verdict?.signal?.includes('BUY') ? 'green' : analysis?.verdict?.signal?.includes('SELL') ? 'red' : 'yellow',
+      change: `Score: ${analysis?.verdict?.combined_score?.toFixed(1) || 'N/A'}`,
+      description: 'Combined verdict',
+    },
+    {
+      title: 'RSI',
+      value: analysis?.technical?.momentum?.rsi?.toFixed(1) || 'N/A',
       icon: '📈',
-      color: avgReturn > 0 ? 'green' : avgReturn < 0 ? 'red' : 'blue',
-      change: totalSignals > 0 ? (avgReturn > 0 ? 'Positive' : 'Negative') : 'Pending',
-      description: 'Average return per signal',
-    },
-    {
-      title: 'Profit Factor',
-      value: totalSignals > 0 ? profitFactor.toFixed(2) : 'No data yet',
-      icon: '💰',
-      color: profitFactor > 1 ? 'green' : 'red',
-      change: totalSignals > 0 ? (profitFactor > 1 ? 'Profitable' : 'Unprofitable') : 'Pending',
-      description: 'Gross profit / gross loss',
+      color: (analysis?.technical?.momentum?.rsi || 50) < 30 ? 'green' : (analysis?.technical?.momentum?.rsi || 50) > 70 ? 'red' : 'blue',
+      change: analysis?.technical?.momentum?.signal || 'N/A',
+      description: 'Relative Strength Index',
     },
   ];
 
   const colorClasses: Record<string, string> = {
-    green: 'from-green-500/20 to-green-600/10 border-green-500/30 hover:from-green-500/30 hover:to-green-600/20',
-    red: 'from-red-500/20 to-red-600/10 border-red-500/30 hover:from-red-500/30 hover:to-red-600/20',
-    blue: 'from-blue-500/20 to-blue-600/10 border-blue-500/30 hover:from-blue-500/30 hover:to-blue-600/20',
-    yellow: 'from-yellow-500/20 to-yellow-600/10 border-yellow-500/30 hover:from-yellow-500/30 hover:to-yellow-600/20',
+    green: 'from-green-500/20 to-green-600/10 border-green-500/30',
+    red: 'from-red-500/20 to-red-600/10 border-red-500/30',
+    blue: 'from-blue-500/20 to-blue-600/10 border-blue-500/30',
+    yellow: 'from-yellow-500/20 to-yellow-600/10 border-yellow-500/30',
   };
 
   const textClasses: Record<string, string> = {
@@ -238,11 +166,11 @@ export const AnalysisPanel: React.FC = () => {
   };
 
   const factorData = [
-    { name: 'Technical', value: metrics?.factor_analysis?.technical?.win_rate ? Math.round(metrics.factor_analysis.technical.win_rate) : 0, color: '#8b5cf6', icon: '📊', description: 'RSI, MACD, EMA, VWAP, Ichimoku' },
-    { name: 'Sentiment', value: metrics?.factor_analysis?.sentiment?.win_rate ? Math.round(metrics.factor_analysis.sentiment.win_rate) : 0, color: '#06b6d4', icon: '😊', description: 'Fear & Greed, social media' },
-    { name: 'News', value: metrics?.factor_analysis?.news?.win_rate ? Math.round(metrics.factor_analysis.news.win_rate) : 0, color: '#f59e0b', icon: '📰', description: 'Crypto news analysis' },
-    { name: 'AI', value: metrics?.factor_analysis?.ai?.win_rate ? Math.round(metrics.factor_analysis.ai.win_rate) : 0, color: '#10b981', icon: '🤖', description: 'ML model predictions' },
-    { name: 'Macro', value: metrics?.factor_analysis?.macro?.win_rate ? Math.round(metrics.factor_analysis.macro.win_rate) : 0, color: '#ec4899', icon: '🌍', description: 'Economic indicators' },
+    { name: 'Regime', value: Math.round(regimeScore), color: '#8b5cf6', icon: '🌐', description: 'Market regime analysis' },
+    { name: 'Trend', value: Math.round(trendScore), color: '#06b6d4', icon: '📈', description: 'EMA alignment & ADX' },
+    { name: 'Momentum', value: Math.round(momentumScore), color: '#f59e0b', icon: '⚡', description: 'RSI, MACD, Stochastic' },
+    { name: 'Volatility', value: Math.round(volatilityScore), color: '#10b981', icon: '📊', description: 'ATR, Bollinger Bands' },
+    { name: 'Overall', value: Math.round(techScore), color: '#ec4899', icon: '🎯', description: 'Combined technical' },
   ];
 
   const charts = [
@@ -253,17 +181,49 @@ export const AnalysisPanel: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Symbol Selector */}
+      <div className="flex items-center gap-4">
+        <div className="flex gap-2">
+          {['BTC', 'ETH', 'SOL', 'BNB', 'XRP'].map((sym) => (
+            <button
+              key={sym}
+              onClick={() => setSelectedSymbol(sym)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                selectedSymbol === sym
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
+              }`}
+            >
+              {sym}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-sm text-purple-200/60">Period:</span>
+          <select
+            value={lookbackDays}
+            onChange={(e) => setLookbackDays(parseInt(e.target.value))}
+            className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value={7} className="bg-slate-800">7 Days</option>
+            <option value={30} className="bg-slate-800">30 Days</option>
+            <option value={90} className="bg-slate-800">90 Days</option>
+            <option value={365} className="bg-slate-800">1 Year</option>
+          </select>
+        </div>
+      </div>
+
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {metricCards.map((card, i) => (
-          <div key={i} className={`bg-gradient-to-br ${colorClasses[card.color]} backdrop-blur-lg rounded-xl p-6 border transition-all cursor-pointer`}>
+          <div key={i} className={`bg-gradient-to-br ${colorClasses[card.color]} backdrop-blur-lg rounded-xl p-5 border transition-all`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-purple-200/60">{card.title}</p>
                 <p className={`text-3xl font-bold mt-2 ${textClasses[card.color]}`}>
                   {card.value}
                 </p>
-                <p className="text-xs text-green-400 mt-1">{card.change}</p>
+                <p className="text-xs text-gray-400 mt-1">{card.change}</p>
               </div>
               <div className="text-3xl">{card.icon}</div>
             </div>
@@ -273,45 +233,29 @@ export const AnalysisPanel: React.FC = () => {
       </div>
 
       {/* Chart Controls */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/10">
-        <div className="flex items-center justify-between">
-          <div className="flex space-x-1 bg-white/5 rounded-lg p-1">
-            {charts.map((chart) => (
-              <button
-                key={chart.id}
-                onClick={() => setActiveChart(chart.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  activeChart === chart.id
-                    ? 'bg-purple-600 text-white shadow-lg'
-                    : 'text-purple-200/60 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <span>{chart.icon}</span>
-                <span>{chart.label}</span>
-              </button>
-            ))}
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <label className="text-sm text-purple-200/60">Period:</label>
-            <select
-              value={lookbackDays}
-              onChange={(e) => setLookbackDays(parseInt(e.target.value))}
-              className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+      <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/10">
+        <div className="flex space-x-1 bg-white/5 rounded-lg p-1 w-fit">
+          {charts.map((chart) => (
+            <button
+              key={chart.id}
+              onClick={() => setActiveChart(chart.id)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeChart === chart.id
+                  ? 'bg-purple-600 text-white shadow-lg'
+                  : 'text-purple-200/60 hover:text-white hover:bg-white/5'
+              }`}
             >
-              <option value={7} className="bg-slate-800">7 Days</option>
-              <option value={30} className="bg-slate-800">30 Days</option>
-              <option value={90} className="bg-slate-800">90 Days</option>
-              <option value={365} className="bg-slate-800">1 Year</option>
-            </select>
-          </div>
+              <span>{chart.icon}</span>
+              <span>{chart.label}</span>
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Active Chart */}
       <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/10">
         {activeChart === 'candlestick' && (
-          <CandlestickChart data={candlestickData.length > 0 ? candlestickData : generateFallbackCandlestickData()} height={450} />
+          <CandlestickChart data={candlestickData.length > 0 ? candlestickData : []} height={450} />
         )}
         
         {activeChart === 'performance' && (
@@ -329,51 +273,86 @@ export const AnalysisPanel: React.FC = () => {
         )}
       </div>
 
-      {/* Insights Section */}
-      {metrics?.insights && metrics.insights.length > 0 && (
+      {/* Regime Components Detail */}
+      {analysis?.regime?.components && (
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/10">
-          <h3 className="text-lg font-semibold text-white mb-4">💡 AI Insights</h3>
-          <div className="space-y-3">
-            {metrics.insights.map((insight: any, i: number) => (
-              <div key={i} className="bg-white/5 rounded-lg p-4 border border-white/5">
-                <p className="text-sm text-purple-200/80">{insight.description || insight.text || JSON.stringify(insight)}</p>
+          <h3 className="text-lg font-semibold text-white mb-4">🌐 Regime Components</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {Object.entries(analysis.regime.components).map(([key, comp]) => (
+              <div key={key} className="bg-white/5 rounded-lg p-4">
+                <div className="text-sm text-gray-400 mb-1">{comp.label}</div>
+                <div className="text-2xl font-bold" style={{ color: comp.score >= 60 ? '#10b981' : comp.score >= 40 ? '#f59e0b' : '#ef4444' }}>
+                  {comp.score.toFixed(1)}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">{comp.signal}</div>
+                <div className="w-full bg-white/10 rounded-full h-1.5 mt-2">
+                  <div className="h-1.5 rounded-full" style={{ width: `${comp.score}%`, backgroundColor: comp.score >= 60 ? '#10b981' : comp.score >= 40 ? '#f59e0b' : '#ef4444' }} />
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Sharpe Ratio Card */}
-      <div className="bg-gradient-to-br from-purple-500/20 to-blue-600/10 backdrop-blur-lg rounded-xl p-6 border border-purple-500/30">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-white">📊 Risk-Adjusted Returns</h2>
-            <div className="flex items-center space-x-8 mt-4">
-              <div>
-                <p className="text-sm text-purple-200/60">Sharpe Ratio</p>
-                <p className="text-4xl font-bold text-purple-400">
-                  {metrics?.sharpe_ratio ? metrics.sharpe_ratio.toFixed(2) : '0.00'}
-                </p>
+      {/* Technical Indicators Detail */}
+      {analysis?.technical && (
+        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/10">
+          <h3 className="text-lg font-semibold text-white mb-4">📈 Technical Indicators</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white/5 rounded-lg p-4 text-center">
+              <div className="text-sm text-gray-400 mb-1">Trend</div>
+              <div className="text-3xl font-bold" style={{ color: trendScore >= 60 ? '#10b981' : trendScore >= 40 ? '#f59e0b' : '#ef4444' }}>
+                {trendScore.toFixed(1)}
               </div>
-              <div className="h-12 w-px bg-white/10"></div>
-              <div>
-                <p className="text-sm text-purple-200/60">Lookback Period</p>
-                <p className="text-4xl font-bold text-blue-400">{lookbackDays}d</p>
+              <div className="text-xs text-gray-500 mt-1">{analysis.technical.trend.signal}</div>
+            </div>
+            <div className="bg-white/5 rounded-lg p-4 text-center">
+              <div className="text-sm text-gray-400 mb-1">Momentum</div>
+              <div className="text-3xl font-bold" style={{ color: momentumScore >= 60 ? '#10b981' : momentumScore >= 40 ? '#f59e0b' : '#ef4444' }}>
+                {momentumScore.toFixed(1)}
               </div>
-              <div className="h-12 w-px bg-white/10"></div>
-              <div>
-                <p className="text-sm text-purple-200/60">Profit Factor</p>
-                <p className={`text-4xl font-bold ${profitFactor > 1 ? 'text-green-400' : 'text-red-400'}`}>
-                  {profitFactor > 0 ? profitFactor.toFixed(2) : '0.00'}
-                </p>
+              <div className="text-xs text-gray-500 mt-1">{analysis.technical.momentum.signal}</div>
+            </div>
+            <div className="bg-white/5 rounded-lg p-4 text-center">
+              <div className="text-sm text-gray-400 mb-1">Volatility</div>
+              <div className="text-3xl font-bold" style={{ color: volatilityScore >= 60 ? '#10b981' : volatilityScore >= 40 ? '#f59e0b' : '#ef4444' }}>
+                {volatilityScore.toFixed(1)}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">{analysis.technical.volatility.signal}</div>
+            </div>
+            <div className="bg-white/5 rounded-lg p-4 text-center">
+              <div className="text-sm text-gray-400 mb-1">VWAP</div>
+              <div className="text-3xl font-bold text-purple-400">
+                {analysis.technical.vwap?.value ? `$${analysis.technical.vwap.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : 'N/A'}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">{analysis.technical.vwap?.signal || 'N/A'}</div>
+            </div>
+          </div>
+          {/* Ichimoku Detail */}
+          {analysis.technical.ichimoku && (
+            <div className="mt-4 bg-white/5 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm text-gray-400">Ichimoku Cloud: </span>
+                  <span className={`text-sm font-medium ${analysis.technical.ichimoku.signal.includes('bullish') ? 'text-green-400' : analysis.technical.ichimoku.signal.includes('bearish') ? 'text-red-400' : 'text-yellow-400'}`}>
+                    {analysis.technical.ichimoku.signal.replace('_', ' ')}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-400">Cloud: </span>
+                  <span className={`text-sm font-medium ${analysis.technical.ichimoku.cloud_color === 'bullish' ? 'text-green-400' : 'text-red-400'}`}>
+                    {analysis.technical.ichimoku.cloud_color}
+                  </span>
+                </div>
               </div>
             </div>
-            <p className="text-sm text-purple-200/40 mt-4">
-              Higher Sharpe ratio indicates better risk-adjusted returns. Above 1.0 is considered good, above 2.0 is excellent.
-            </p>
-          </div>
-          <div className="text-6xl">📊</div>
+          )}
         </div>
+      )}
+
+      {/* Footer */}
+      <div className="text-center text-xs text-gray-600 py-2">
+        {analysis?.data_points || 0} data points | Source: {analysis?.data_source || 'N/A'} | Analysis in {analysis?.execution_time_ms || 0}ms | {selectedSymbol}/USD
       </div>
     </div>
   );

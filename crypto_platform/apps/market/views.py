@@ -57,3 +57,43 @@ def quick_ticker(request):
         return Response(ticker)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def candles(request):
+    """Get OHLCV candle data for a symbol."""
+    symbol = request.query_params.get('symbol', 'BTC')
+    days = int(request.query_params.get('days', 60))
+    try:
+        from .services.unified_data import fetch_market_data
+        data = fetch_market_data(symbol)
+        closes = data['closes']
+        highs = data['highs']
+        lows = data['lows']
+        volumes = data['volumes']
+        # Limit to requested days
+        n = min(days, len(closes))
+        candle_list = []
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        for i in range(n):
+            idx = len(closes) - n + i
+            dt = now - timedelta(days=n - i - 1)
+            candle_list.append({
+                'date': dt.strftime('%b %d'),
+                'timestamp': dt.isoformat(),
+                'open': closes[idx] if idx > 0 else closes[idx],
+                'high': highs[idx],
+                'low': lows[idx],
+                'close': closes[idx],
+                'volume': volumes[idx] if idx < len(volumes) else 0,
+            })
+        return Response({
+            'symbol': symbol,
+            'source': data.get('source', 'unknown'),
+            'candles': candle_list,
+            'current_price': closes[-1] if closes else 0,
+        })
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
