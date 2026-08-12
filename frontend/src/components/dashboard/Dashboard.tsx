@@ -164,14 +164,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                     <TradingViewChart symbol={selectedSymbol} />
                   </div>
                   
-                  {/* Right: OrderBook + ChatBot */}
-                  <div className="w-80 flex-shrink-0 border-l border-[#2a2a3e] flex flex-col">
-                    <div className="flex-1 min-h-0 border-b border-[#2a2a3e]">
-                      <OrderBook symbol={selectedSymbol} />
-                    </div>
-                    <div className="h-80 flex-shrink-0">
-                      <ChatBot />
-                    </div>
+                  {/* Right: OrderBook */}
+                  <div className="w-80 flex-shrink-0 border-l border-[#2a2a3e]">
+                    <OrderBook symbol={selectedSymbol} />
                   </div>
                 </div>
                 
@@ -224,6 +219,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
           </>
         )}
       </main>
+
+      {/* Floating ChatBot */}
+      <ChatBot />
     </div>
   );
 };
