@@ -4,7 +4,7 @@ import APISettings from './APISettings';
 import UserSettings from './UserSettings';
 import NewsSettings from './NewsSettings';
 
-type SettingsTab = 'api' | 'user' | 'news';
+type SettingsTab = 'api' | 'user' | 'news' | 'social';
 
 export const SettingsPanel: React.FC = () => {
   const { t } = useLanguage();
@@ -13,7 +13,8 @@ export const SettingsPanel: React.FC = () => {
   const tabs = [
     { id: 'api' as SettingsTab, label: t('settings.apiKeys'), icon: '🔑' },
     { id: 'user' as SettingsTab, label: t('settings.profile'), icon: '👤' },
-    { id: 'news' as SettingsTab, label: t('settings.notifications'), icon: '📰' },
+    { id: 'news' as SettingsTab, label: '📰 News Sources', icon: '📰' },
+    { id: 'social' as SettingsTab, label: '💬 Social Media', icon: '💬' },
   ];
 
   return (
@@ -21,7 +22,7 @@ export const SettingsPanel: React.FC = () => {
       <h2 className="text-lg font-semibold mb-4">{t('settings.title')}</h2>
       
       {/* Tab Navigation */}
-      <div className="flex gap-2 mb-4 border-b border-gray-700 pb-2">
+      <div className="flex gap-2 mb-4 border-b border-gray-700 pb-2 flex-wrap">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -41,7 +42,9 @@ export const SettingsPanel: React.FC = () => {
       <div className="mt-4">
         {activeTab === 'api' && <APISettings />}
         {activeTab === 'user' && <UserSettings />}
-        {activeTab === 'news' && <NewsSettings />}
+        {(activeTab === 'news' || activeTab === 'social') && (
+          <NewsSettings initialSection={activeTab === 'social' ? 'social' : 'news'} />
+        )}
       </div>
     </div>
   );
