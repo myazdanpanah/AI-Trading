@@ -1,13 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { apiFetch } from '../utils/api';
 
-interface WatchlistItem {
+export interface WatchlistItem {
   id?: string;
   symbol: string;
   display_name: string;
   coin_id: string;
   order: number;
   is_favorite: boolean;
+  current_price?: number;
+  price_change_percent?: number;
 }
 
 interface WatchlistContextType {
@@ -16,6 +18,8 @@ interface WatchlistContextType {
   baseSymbols: string[];       // Base assets ['BTC', 'ETH', 'SOL', ...]
   selectedSymbol: string;      // Currently selected symbol in trading view
   setSelectedSymbol: (symbol: string) => void;
+  addToWatchlist: (symbol: string) => Promise<void>;
+  removeFromWatchlist: (symbol: string) => Promise<void>;
   loading: boolean;
   refreshWatchlist: () => Promise<void>;
 }
@@ -66,6 +70,33 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, []);
 
+  const addToWatchlist = useCallback(async (symbol: string) => {
+    try {
+      const response = await apiFetch('/users/watchlist/', {
+        method: 'POST',
+        body: JSON.stringify({ symbol }),
+      });
+      if (response.ok) {
+        await refreshWatchlist();
+      }
+    } catch (error) {
+      console.error('Failed to add to watchlist:', error);
+    }
+  }, [refreshWatchlist]);
+
+  const removeFromWatchlist = useCallback(async (symbol: string) => {
+    try {
+      const response = await apiFetch(`/users/watchlist/${symbol}/`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        await refreshWatchlist();
+      }
+    } catch (error) {
+      console.error('Failed to remove from watchlist:', error);
+    }
+  }, [refreshWatchlist]);
+
   useEffect(() => {
     refreshWatchlist();
   }, [refreshWatchlist]);
@@ -77,6 +108,8 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
       baseSymbols,
       selectedSymbol,
       setSelectedSymbol,
+      addToWatchlist,
+      removeFromWatchlist,
       loading,
       refreshWatchlist,
     }}>
@@ -93,4 +126,4 @@ export const useWatchlist = (): WatchlistContextType => {
   return context;
 };
 
-export type { WatchlistItem };
+export type { WatchlistContextType };

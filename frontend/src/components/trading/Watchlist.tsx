@@ -288,14 +288,18 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onSelectSymbol, selectedSy
         >+ Manage</button>
       </div>
 
-      {/* Watchlist Manager Modal */}
-      {showManager && (
-        <WatchlistManager
-          watchlist={watchlist}
-          onUpdate={handleWatchlistUpdate}
-          onClose={() => setShowManager(false)}
-        />
-      )}
+    {/* Watchlist Manager Modal */}
+    {showManager && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-4 w-96">
+          <WatchlistManager
+            selectedSymbol={selectedSymbol || 'BTCUSDT'}
+            onSelectSymbol={(s) => { onSelectSymbol?.(s); setShowManager(false); }}
+          />
+          <button onClick={() => setShowManager(false)} className="mt-2 text-gray-400 text-sm">Close</button>
+        </div>
+      </div>
+    )}
     </div>
   );
 };

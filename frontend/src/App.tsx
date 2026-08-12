@@ -1,57 +1,51 @@
-import React, { useState, useEffect } from 'react';
-import { Dashboard } from './components/dashboard/Dashboard';
-import { LoginForm } from './components/auth/LoginForm';
-import { isAuthenticated } from './utils/api';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WatchlistProvider } from './contexts/WatchlistContext';
 import { LanguageProvider } from './contexts/LanguageContext';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import { Dashboard } from './components/dashboard/Dashboard';
 
-const App: React.FC = () => {
-  const [isAuth, setIsAuth] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (isAuthenticated()) {
-      setIsAuth(true);
-    }
-    setLoading(false);
-  }, []);
-
-  const handleLogin = () => {
-    setIsAuth(true);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    setIsAuth(false);
-  };
-
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+  
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto"></div>
-          <p className="mt-4 text-purple-200">Loading...</p>
-        </div>
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
       </div>
     );
   }
-
-  if (!isAuth) {
-    return (
-      <LanguageProvider>
-        <LoginForm onLogin={handleLogin} />
-      </LanguageProvider>
-    );
-  }
-
-  return (
-    <LanguageProvider>
-      <WatchlistProvider>
-        <Dashboard onLogout={handleLogout} />
-      </WatchlistProvider>
-    </LanguageProvider>
-  );
+  
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
+
+function App() {
+  return (
+    <Router>
+      <LanguageProvider>
+        <AuthProvider>
+          <WatchlistProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/" element={<Navigate to="/dashboard" />} />
+              <Route path="*" element={<Navigate to="/dashboard" />} />
+            </Routes>
+          </WatchlistProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </Router>
+  );
+}
 
 export default App;

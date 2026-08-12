@@ -1,290 +1,239 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { apiFetch } from '../../utils/api';
 import { useWatchlist } from '../../contexts/WatchlistContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { apiFetch } from '../../utils/api';
 
 interface Message {
-  id: number;
+  id: string;
   role: 'user' | 'assistant';
   content: string;
-  recommendation?: string;
-  confidence?: number;
-  model_used?: string;
-  timestamp: string;
-}
-
-interface ChatResponse {
-  answer: string;
-  recommendation: string;
-  confidence: number;
-  symbol: string;
-  model_used: string;
-  analysis_summary: {
-    trend: string;
-    technical_score: number;
-    candlestick_score: number;
-    regime_zone: string;
+  timestamp: Date;
+  metadata?: {
+    confidence?: number;
+    recommendation?: string;
+    model_used?: string;
+    execution_time_ms?: number;
   };
-  risk_factors: string[];
-  key_levels: Record<string, number>;
-  execution_time_ms: number;
 }
 
 export const ChatBot: React.FC = () => {
+  const { selectedSymbol } = useWatchlist();
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { selectedSymbol } = useWatchlist();
-  const symbol = selectedSymbol.replace('USDT', '');
-
-  useEffect(() => {
-    if (isOpen) {
-      scrollToBottom();
-    }
-  }, [messages, isOpen]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const suggestedQuestions = [
+    t('chatbot.shouldIBuy'),
+    t('chatbot.goodTimeToSell'),
+    t('chatbot.whatsTheTrend'),
+  ];
+
+  const handleSendMessage = async (question?: string) => {
+    const text = question || inputValue.trim();
+    if (!text) return;
 
     const userMessage: Message = {
-      id: Date.now(),
+      id: Date.now().toString(),
       role: 'user',
-      content: input,
-      timestamp: new Date().toISOString(),
+      content: text,
+      timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setLoading(true);
+    setMessages((prev) => [...prev, userMessage]);
+    setInputValue('');
+    setIsLoading(true);
 
     try {
       const response = await apiFetch('/skills/chat/', {
         method: 'POST',
         body: JSON.stringify({
-          question: input,
-          symbol: symbol,
+          symbol: selectedSymbol.replace('USDT', ''),
+          question: text,
         }),
       });
 
-      if (response.ok) {
-        const data: ChatResponse = await response.json();
-        
-        const assistantMessage: Message = {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: data.answer,
-          recommendation: data.recommendation,
-          confidence: data.confidence,
-          model_used: data.model_used,
-          timestamp: new Date().toISOString(),
-        };
+      const data = await response.json();
 
-        setMessages(prev => [...prev, assistantMessage]);
-      } else {
-        const errorMsg: Message = {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: 'Sorry, I encountered an error analyzing the market. Please try again.',
-          timestamp: new Date().toISOString(),
-        };
-        setMessages(prev => [...prev, errorMsg]);
-      }
-    } catch (error) {
-      const errorMsg: Message = {
-        id: Date.now() + 1,
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Network error. Please check your connection and try again.',
-        timestamp: new Date().toISOString(),
+        content: data.answer,
+        timestamp: new Date(),
+        metadata: {
+          confidence: data.confidence,
+          recommendation: data.recommendation,
+          model_used: data.model_used,
+          execution_time_ms: data.execution_time_ms,
+        },
       };
-      setMessages(prev => [...prev, errorMsg]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: t('common.error'),
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const getRecommendationColor = (rec: string) => {
-    if (rec === 'BUY') return 'bg-green-500/20 text-green-400 border border-green-500/30';
-    if (rec === 'SELL') return 'bg-red-500/20 text-red-400 border border-red-500/30';
-    return 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30';
+    switch (rec?.toUpperCase()) {
+      case 'BUY':
+        return 'bg-green-500';
+      case 'SELL':
+        return 'bg-red-500';
+      default:
+        return 'bg-yellow-500';
+    }
   };
-
-  const getConfidenceColor = (conf: number) => {
-    if (conf >= 70) return 'text-green-400';
-    if (conf >= 50) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
-  const suggestedQuestions = [
-    `Should I buy ${symbol} now?`,
-    `Is it a good time to sell?`,
-    `What's the trend?`,
-    `Analyze ${symbol}`,
-    `Should I hold?`,
-  ];
 
   return (
     <>
-      {/* Floating Chat Button */}
+      {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${
-          isOpen 
-            ? 'bg-red-500 hover:bg-red-600 rotate-0' 
-            : 'bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 hover:scale-110'
-        }`}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full shadow-lg flex items-center justify-center text-white text-2xl hover:scale-110 transition-transform z-50"
       >
-        {isOpen ? (
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        ) : (
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-        )}
+        💬
       </button>
 
-      {/* Notification Badge */}
-      {!isOpen && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && (
-        <div className="fixed bottom-16 right-6 z-50 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-      )}
-
-      {/* Chat Popup */}
+      {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-96 h-[500px] bg-[#1e1e2e] rounded-xl shadow-2xl border border-[#2a2a3e] flex flex-col overflow-hidden">
+        <div className="fixed bottom-24 right-6 w-96 h-[500px] bg-gray-800 rounded-xl shadow-2xl border border-gray-700 flex flex-col z-50">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <span className="text-xl">🤖</span>
-              </div>
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 rounded-t-xl">
+            <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-white font-semibold">Trading AI</h3>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-green-400 rounded-full" />
-                  <span className="text-white/70 text-xs">Online • {symbol}/USD</span>
+                <h3 className="font-semibold">{t('chatbot.title')}</h3>
+                <div className="text-xs text-blue-200">
+                  ● {t('chatbot.online')} • {selectedSymbol.replace('USDT', '')}
                 </div>
               </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-white/80 hover:text-white"
+              >
+                ✕
+              </button>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-white/70 hover:text-white"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {messages.length === 0 && (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-3xl">💬</span>
-                </div>
-                <p className="text-white font-medium">Ask me about {symbol}</p>
-                <p className="text-gray-400 text-sm mt-1">I'll analyze the market and give you a recommendation</p>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.length === 0 ? (
+              <div className="text-center text-gray-400 mt-8">
+                <div className="text-4xl mb-4">🤖</div>
+                <p>{t('chatbot.title')}</p>
+                <p className="text-sm mt-2">{t('chatbot.placeholder').replace('{symbol}', selectedSymbol.replace('USDT', ''))}</p>
                 
-                {/* Suggested Questions */}
-                <div className="mt-6 space-y-2">
+                <div className="mt-4 space-y-2">
                   {suggestedQuestions.map((q, i) => (
                     <button
                       key={i}
-                      onClick={() => setInput(q)}
-                      className="block w-full text-left px-4 py-2 bg-[#2a2a3e] text-gray-300 text-sm rounded-lg hover:bg-[#3a3a4e] hover:text-white transition-colors"
+                      onClick={() => handleSendMessage(q)}
+                      className="block w-full text-left px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors"
                     >
                       {q}
                     </button>
                   ))}
                 </div>
               </div>
-            )}
-
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                  msg.role === 'user' 
-                    ? 'bg-blue-600 text-white rounded-br-md' 
-                    : 'bg-[#2a2a3e] text-gray-200 rounded-bl-md'
-                }`}>
-                  {msg.role === 'assistant' && msg.recommendation && (
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${getRecommendationColor(msg.recommendation)}`}>
-                        {msg.recommendation}
-                      </span>
-                      {msg.confidence !== undefined && (
-                        <span className={`text-xs font-bold ${getConfidenceColor(msg.confidence)}`}>
-                          {msg.confidence.toFixed(0)}%
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <div className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</div>
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/10">
-                    <span className="text-[10px] text-gray-400">
-                      {new Date(msg.timestamp).toLocaleTimeString()}
-                    </span>
-                    {msg.model_used && (
-                      <span className="text-[10px] text-gray-500">
-                        via {msg.model_used}
-                      </span>
+            ) : (
+              messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-lg p-3 ${
+                      msg.role === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-100'
+                    }`}
+                  >
+                    <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                    
+                    {msg.metadata && (
+                      <div className="mt-2 pt-2 border-t border-gray-600 flex items-center gap-2 text-xs">
+                        {msg.metadata.recommendation && (
+                          <span
+                            className={`px-2 py-0.5 rounded ${getRecommendationColor(
+                              msg.metadata.recommendation
+                            )} text-white font-semibold`}
+                          >
+                            {msg.metadata.recommendation}
+                          </span>
+                        )}
+                        {msg.metadata.confidence && (
+                          <span className="text-gray-400">
+                            {(msg.metadata.confidence * 100).toFixed(0)}%
+                          </span>
+                        )}
+                        {msg.metadata.model_used && (
+                          <span className="text-gray-500">
+                            via {msg.metadata.model_used}
+                          </span>
+                        )}
+                      </div>
                     )}
+                    
+                    <div className="text-xs text-gray-400 mt-1">
+                      {msg.timestamp.toLocaleTimeString()}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-
-            {loading && (
+              ))
+            )}
+            
+            {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-[#2a2a3e] rounded-2xl rounded-bl-md px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                    <span className="text-sm text-gray-400">Analyzing...</span>
+                <div className="bg-gray-700 rounded-lg p-3">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '100ms' }} />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
                   </div>
                 </div>
               </div>
             )}
-
+            
             <div ref={messagesEndRef} />
           </div>
 
           {/* Input */}
-          <div className="p-4 border-t border-[#2a2a3e] bg-[#131722]">
-            <div className="flex items-center gap-2">
+          <div className="p-4 border-t border-gray-700">
+            <div className="flex gap-2">
               <input
                 type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={`Ask about ${symbol}...`}
-                className="flex-1 px-4 py-3 bg-[#1e1e2e] border border-[#2a2a3e] rounded-xl text-white text-sm focus:outline-none focus:border-blue-500 placeholder-gray-500"
-                disabled={loading}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder={t('chatbot.placeholder').replace('{symbol}', selectedSymbol.replace('USDT', ''))}
+                className="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={isLoading}
               />
               <button
-                onClick={sendMessage}
-                disabled={loading || !input.trim()}
-                className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-all"
+                onClick={() => handleSendMessage()}
+                disabled={isLoading || !inputValue.trim()}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
+                {t('chatbot.send')}
               </button>
             </div>
           </div>
@@ -293,5 +242,3 @@ export const ChatBot: React.FC = () => {
     </>
   );
 };
-
-export default ChatBot;

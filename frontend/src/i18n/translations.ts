@@ -1,488 +1,270 @@
-export type Language = 'en' | 'fa';
+/**
+ * i18n - Internationalization System
+ * Supports English (EN) and Persian (FA)
+ */
 
-export interface Translations {
+const translations = {
   // Navigation
-  trading: string;
-  signals: string;
-  journal: string;
-  feedback: string;
-  analysis: string;
-  backtest: string;
-  news: string;
-  settings: string;
-  profile: string;
-  logout: string;
-  live: string;
-  
-  // Trading
-  watchlist: string;
-  orderBook: string;
-  portfolio: string;
-  hide: string;
-  show: string;
-  manage: string;
-  search: string;
-  
-  // Signals
-  signalDashboard: string;
-  finalSignal: string;
-  combined: string;
-  regime: string;
-  technical: string;
-  exposurePosture: string;
-  maxExposure: string;
-  historicalPerformance: string;
-  winRate: string;
-  totalSignals: string;
-  scoreAdj: string;
-  fiveFactorAnalysis: string;
-  regimeAnalyzer: string;
-  technicalAnalysis: string;
-  positionSizer: string;
-  entryPrice: string;
-  stopLoss: string;
-  takeProfit: string;
-  positionSize: string;
-  positionValue: string;
-  riskReward: string;
-  risk: string;
-  account: string;
-  
-  // Analysis
-  regimeScore: string;
-  technicalScore: string;
-  signal: string;
-  rsi: string;
-  period: string;
-  priceChart: string;
-  performance: string;
-  factors: string;
-  regimeComponents: string;
-  trend: string;
-  momentum: string;
-  volatility: string;
-  overall: string;
-  vwap: string;
-  ichimoku: string;
-  cloud: string;
-  
-  // Feedback
-  learningInsights: string;
-  insights: string;
-  recommendations: string;
-  memory: string;
-  cycles: string;
-  adjustWeights: string;
-  runCycle: string;
-  
-  // Journal
-  journalEntries: string;
-  generateEntry: string;
-  marketAnalysis: string;
-  signalReview: string;
-  newsDigest: string;
-  technicalReview: string;
-  dailySummary: string;
-  lessonsLearned: string;
-  
-  // News
-  newsSources: string;
-  addSource: string;
-  loadDefaults: string;
-  sourceName: string;
-  sourceUrl: string;
-  category: string;
-  reliability: string;
-  
-  // Settings
-  ollamaLocal: string;
-  connected: string;
-  disconnected: string;
-  activeModel: string;
-  installedModels: string;
-  pullModel: string;
-  exchanges: string;
-  general: string;
-  defaultPair: string;
-  riskLevel: string;
-  conservative: string;
-  moderate: string;
-  aggressive: string;
-  autoTrading: string;
-  
-  // Common
-  buy: string;
-  sell: string;
-  hold: string;
-  loading: string;
-  error: string;
-  retry: string;
-  save: string;
-  cancel: string;
-  delete: string;
-  edit: string;
-  add: string;
-  remove: string;
-  close: string;
-  open: string;
-  yes: string;
-  no: string;
-  confirm: string;
-  success: string;
-  failed: string;
-  analyzing: string;
-  generatedBy: string;
-  dataPoints: string;
-  source: string;
-  executionTime: string;
-  
-  // Chatbot
-  tradingAI: string;
-  askAbout: string;
-  recommend: string;
-  confidence: string;
-  suggestedQuestions: string;
-  shouldIBuy: string;
-  goodTimeToSell: string;
-  whatsTheTrend: string;
-  analyzeSymbol: string;
-  shouldIHold: string;
-  
-  // Direction
-  bullish: string;
-  bearish: string;
-  neutral: string;
-  strongBuy: string;
-  strongSell: string;
-  
-  // Regime zones
-  riskOn: string;
-  riskOff: string;
-  unknown: string;
-}
-
-export const translations: Record<Language, Translations> = {
-  en: {
-    // Navigation
-    trading: 'Trading',
-    signals: 'Signals',
-    journal: 'Journal',
-    feedback: 'Feedback',
-    analysis: 'Analysis',
-    backtest: 'Backtest',
-    news: 'News',
-    settings: 'Settings',
-    profile: 'Profile',
-    logout: 'Logout',
-    live: 'Live',
-    
-    // Trading
-    watchlist: 'Watchlist',
-    orderBook: 'Order Book',
-    portfolio: 'Portfolio',
-    hide: 'Hide',
-    show: 'Show',
-    manage: 'Manage',
-    search: 'Search',
-    
-    // Signals
-    signalDashboard: 'Signal Analysis Dashboard',
-    finalSignal: 'FINAL SIGNAL',
-    combined: 'Combined',
-    regime: 'Regime',
-    technical: 'Technical',
-    exposurePosture: 'EXPOSURE POSTURE',
-    maxExposure: 'Max Exposure',
-    historicalPerformance: 'Historical Performance Feedback',
-    winRate: 'Win Rate',
-    totalSignals: 'Total Signals',
-    scoreAdj: 'Score Adj',
-    fiveFactorAnalysis: '5-Factor Analysis',
-    regimeAnalyzer: 'Regime Analyzer',
-    technicalAnalysis: 'Technical Analysis',
-    positionSizer: 'Position Sizer',
-    entryPrice: 'Entry Price',
-    stopLoss: 'Stop Loss',
-    takeProfit: 'Take Profit',
-    positionSize: 'Position Size',
-    positionValue: 'Position Value',
-    riskReward: 'R:R Ratio',
-    risk: 'Risk',
-    account: 'Account',
-    
-    // Analysis
-    regimeScore: 'Regime Score',
-    technicalScore: 'Technical Score',
-    signal: 'Signal',
-    rsi: 'RSI',
-    period: 'Period',
-    priceChart: 'Price Chart',
-    performance: 'Performance',
-    factors: 'Factors',
-    regimeComponents: 'Regime Components',
-    trend: 'Trend',
-    momentum: 'Momentum',
-    volatility: 'Volatility',
-    overall: 'Overall',
-    vwap: 'VWAP',
-    ichimoku: 'Ichimoku',
-    cloud: 'Cloud',
-    
-    // Feedback
-    learningInsights: 'Learning Insights',
-    insights: 'Insights',
-    recommendations: 'Recommendations',
-    memory: 'Memory',
-    cycles: 'Cycles',
-    adjustWeights: 'Adjust Weights',
-    runCycle: 'Run Cycle',
-    
-    // Journal
-    journalEntries: 'Journal Entries',
-    generateEntry: 'Generate Entry',
-    marketAnalysis: 'Market Analysis',
-    signalReview: 'Signal Review',
-    newsDigest: 'News Digest',
-    technicalReview: 'Technical Review',
-    dailySummary: 'Daily Summary',
-    lessonsLearned: 'Lessons Learned',
-    
-    // News
-    newsSources: 'News Sources',
-    addSource: 'Add Source',
-    loadDefaults: 'Load Defaults',
-    sourceName: 'Source Name',
-    sourceUrl: 'Source URL',
-    category: 'Category',
-    reliability: 'Reliability',
-    
-    // Settings
-    ollamaLocal: 'Ollama (Local)',
-    connected: 'Connected',
-    disconnected: 'Disconnected',
-    activeModel: 'Active Model',
-    installedModels: 'Installed Models',
-    pullModel: 'Pull Model',
-    exchanges: 'Exchanges',
-    general: 'General',
-    defaultPair: 'Default Trading Pair',
-    riskLevel: 'Risk Level',
-    conservative: 'Conservative',
-    moderate: 'Moderate',
-    aggressive: 'Aggressive',
-    autoTrading: 'Auto-trading',
-    
-    // Common
-    buy: 'BUY',
-    sell: 'SELL',
-    hold: 'HOLD',
-    loading: 'Loading',
-    error: 'Error',
-    retry: 'Retry',
-    save: 'Save',
-    cancel: 'Cancel',
-    delete: 'Delete',
-    edit: 'Edit',
-    add: 'Add',
-    remove: 'Remove',
-    close: 'Close',
-    open: 'Open',
-    yes: 'Yes',
-    no: 'No',
-    confirm: 'Confirm',
-    success: 'Success',
-    failed: 'Failed',
-    analyzing: 'Analyzing',
-    generatedBy: 'Generated by',
-    dataPoints: 'data points',
-    source: 'Source',
-    executionTime: 'Execution time',
-    
-    // Chatbot
-    tradingAI: 'Trading AI',
-    askAbout: 'Ask about',
-    recommend: 'Recommend',
-    confidence: 'Confidence',
-    suggestedQuestions: 'Suggested questions',
-    shouldIBuy: 'Should I buy now?',
-    goodTimeToSell: 'Is it a good time to sell?',
-    whatsTheTrend: "What's the trend?",
-    analyzeSymbol: 'Analyze this symbol',
-    shouldIHold: 'Should I hold?',
-    
-    // Direction
-    bullish: 'Bullish',
-    bearish: 'Bearish',
-    neutral: 'Neutral',
-    strongBuy: 'STRONG BUY',
-    strongSell: 'STRONG SELL',
-    
-    // Regime zones
-    riskOn: 'RISK ON',
-    riskOff: 'RISK OFF',
-    unknown: 'UNKNOWN',
+  nav: {
+    trading: { en: 'Trading', fa: 'ترید' },
+    signals: { en: 'Signals', fa: 'سیگنال‌ها' },
+    analysis: { en: 'Analysis', fa: 'تحلیل' },
+    journal: { en: 'Journal', fa: 'ژورنال' },
+    settings: { en: 'Settings', fa: 'تنظیمات' },
+    logout: { en: 'Logout', fa: 'خروج' },
+    login: { en: 'Login', fa: 'ورود' },
   },
-  
-  fa: {
-    // Navigation
-    trading: '\u062a\u0631\u0627\u062f',
-    signals: '\u0633\u06cc\u06af\u0646\u0627\u0644\u200c\u0647\u0627',
-    journal: '\u062f\u0648\u0646\u0628\u0633\u062a',
-    feedback: '\u0628\u0627\u0632\u062e\u0634',
-    analysis: '\u062a\u062d\u0644\u06cc\u0644',
-    backtest: '\u0622\u0632\u0645\u0627\u06cc\u0634',
-    news: '\u0627\u062e\u0628\u0627\u0631',
-    settings: '\u062a\u0646\u0638\u06cc\u0645\u0627\u062a',
-    profile: '\u067e\u0631\u0648\u0641\u0627\u06cc\u0644',
-    logout: '\u062e\u0631\u0648\u062c',
-    live: '\u0632\u0646\u062f\u0647',
-    
-    // Trading
-    watchlist: '\u0644\u06cc\u0633\u062a \u062a\u0647\u0631\u0636\u0639\u0627\u062a',
-    orderBook: '\u062f\u0641\u062a\u0631\u0633 \u0633\u0641\u0627\u0631\u0634\u0627\u062a',
-    portfolio: '\u0635\u0641\u062d\u0647 \u062e\u0631\u0648\u062c',
-    hide: '\u0645\u0634\u0631\u0648\u0641',
-    show: '\u0646\u0645\u0627\u06cc\u0634',
-    manage: '\u0645\u062f\u06cc\u0631\u06cc\u062a',
-    search: '\u062c\u0633\u062a\u062c\u0648',
-    
-    // Signals
-    signalDashboard: '\u062f\u0634\u0628\u0631\u062f \u062a\u062d\u0644\u06cc\u0644 \u0633\u06cc\u06af\u0646\u0627\u0644',
-    finalSignal: '\u0633\u06cc\u06af\u0646\u0627\u0644 \u0646\u0647\u0627\u06cc\u06cc',
-    combined: '\u062a\u0631\u06a9\u06cc\u0628\u06cc',
-    regime: '\u0631\u0648\u0632\u0647',
-    technical: '\u0641\u0646\u06cc',
-    exposurePosture: '\u0648\u0636\u0639\u06cc\u062a \u0627\u0639\u0645\u0627\u0644',
-    maxExposure: '\u062d\u062f\u0627\u06a9\u062b\u0631 \u0627\u0639\u0645\u0627\u0644',
-    historicalPerformance: '\u0628\u0627\u0632\u062e\u0634 \u0627\u0637\u0644\u0627\u0639\u0627\u062a \u06af\u0630\u0634\u062a\u0647',
-    winRate: '\u0646\u0631\u062e \u0628\u0631\u062f',
-    totalSignals: '\u06a9\u0644 \u0633\u06cc\u06af\u0646\u0627\u0644\u200c\u0647\u0627',
-    scoreAdj: '\u062a\u0635\u062d\u06cc\u062d \u0627\u0645\u062a\u06cc\u0627\u0632',
-    fiveFactorAnalysis: '\u062a\u062d\u0644\u06cc\u0644 \u067e\u0646\u062c\u0631\u0647\u200c\u0627\u06cc',
-    regimeAnalyzer: '\u062a\u062d\u0644\u06cc\u0644\u06af\u0631 \u0631\u0648\u0632\u0647',
-    technicalAnalysis: '\u062a\u062d\u0644\u06cc\u0644 \u0641\u0646\u06cc',
-    positionSizer: '\u0627\u0646\u062f\u0627\u0632\u0647 \u0645\u0648\u0642\u0639\u06cc\u062a',
-    entryPrice: '\u0642\u06cc\u0645\u062a \u0648\u0631\u0648\u062f',
-    stopLoss: '\u0633\u0648\u062f \u0644\u0648\u0633',
-    takeProfit: '\u062d\u062f \u0633\u0648\u062f',
-    positionSize: '\u062d\u062c\u0645 \u0645\u0648\u0642\u0639\u06cc\u062a',
-    positionValue: '\u0627\u0631\u0632\u0634 \u0645\u0648\u0642\u0639\u06cc\u062a',
-    riskReward: '\u0646\u0633\u0628\u062a \u0628\u0647 \u0631\u06cc\u0633\u06a9',
-    risk: '\u0631\u06cc\u0633\u06a9',
-    account: '\u062d\u0633\u0627\u0628',
-    
-    // Analysis
-    regimeScore: '\u0627\u0645\u062a\u06cc\u0627\u0632 \u0631\u0648\u0632\u0647',
-    technicalScore: '\u0627\u0645\u062a\u06cc\u0627\u0632 \u0641\u0646\u06cc',
-    signal: '\u0633\u06cc\u06af\u0646\u0627\u0644',
-    rsi: '\u0634\u0627\u063a\u0636\u06cc \u0646\u0633\u0628\u062a\u06cc',
-    period: '\u0627\u0635\u0644',
-    priceChart: '\u0646\u0645\u0648\u062f\u0627\u0631 \u0642\u06cc\u0645\u062a',
-    performance: '\u0627\u0639\u062a\u0645\u0627\u062f',
-    factors: '\u0639\u0648\u0627\u0645\u0644',
-    regimeComponents: '\u0627\u0639\u0635\u0627\u0626\u0631 \u0631\u0648\u0632\u0647',
-    trend: '\u0631\u0648\u0646\u062f',
-    momentum: '\u062a\u0634\u0631\u0639',
-    volatility: '\u0646\u0648\u0633\u0627\u0646',
-    overall: '\u06a9\u0644\u06cc',
-    vwap: '\u0642\u06cc\u0645\u062a \u0645\u062a\u0648\u0636\u0639 \u062d\u062c\u0645',
-    ichimoku: '\u0627\u06cc\u0686\u06cc\u0645\u0648\u06a9\u0648',
-    cloud: '\u0627\u0628\u0631',
-    
-    // Feedback
-    learningInsights: '\u0628\u0631\u0635\u062f \u06cc\u0627\u062f\u06af\u0631\u06cc',
-    insights: '\u0628\u0631\u0635\u062f\u0647\u0627',
-    recommendations: '\u06a9\u0645\u06a9\u0647\u0627',
-    memory: '\u062d\u0627\u0641\u0638\u0647',
-    cycles: '\u0698\u0631\u0646\u0647\u200c\u0647\u0627',
-    adjustWeights: '\u062a\u0635\u062d\u06cc\u062d \u0630\u0648\u0646',
-    runCycle: '\u0627\u062c\u0631\u0627\u06cc \u0698\u0631\u0646\u0647',
-    
-    // Journal
-    journalEntries: '\u0622\u062e\u0631\u06cc\u0646 \u0627\u0637\u0644\u0627\u0639\u0627\u062a',
-    generateEntry: '\u0627\u06cc\u062c\u0627\u062f \u0627\u0637\u0644\u0627\u0639\u0647',
-    marketAnalysis: '\u062a\u062d\u0644\u06cc\u0644 \u0628\u0627\u0632\u0627\u0631',
-    signalReview: '\u0628\u0627\u0631\u0633\u06cc \u0633\u06cc\u06af\u0646\u0627\u0644',
-    newsDigest: '\u062e\u0631\u062f\u0633\u0637 \u0627\u062e\u0628\u0627\u0631',
-    technicalReview: '\u0628\u0627\u0631\u0633\u06cc \u0641\u0646\u06cc',
-    dailySummary: '\u062e\u0644\u0635\u0647 \u0631\u0648\u0632\u0627\u0646\u0647',
-    lessonsLearned: '\u062f\u0631\u0633 \u0647\u0627\u06cc \u0622\u0645\u0648\u0632\u062a\u0647',
-    
-    // News
-    newsSources: '\u0645\u0646\u0627\u0628\u0639 \u0627\u062e\u0628\u0627\u0631',
-    addSource: '\u0627\u0636\u0627\u0641\u0647 \u0645\u0646\u0628\u0639',
-    loadDefaults: '\u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc',
-    sourceName: '\u0646\u0627\u0645 \u0645\u0646\u0628\u0639',
-    sourceUrl: '\u0644\u06cc\u0646\u06a9 \u0645\u0646\u0628\u0639',
-    category: '\u062f\u0633\u062a\u0647',
-    reliability: '\u0642\u0627\u0628\u0644\u06cc\u062a',
-    
-    // Settings
-    ollamaLocal: '\u0627\u0648\u0644\u0627\u0645\u0627 (\u0645\u062d\u0644\u06cc)',
-    connected: '\u0645\u062a\u0635\u0644',
-    disconnected: '\u0642\u0637\u0639 \u0634\u062f\u0647',
-    activeModel: '\u0645\u062f\u0644 \u0641\u0639\u0627\u0644',
-    installedModels: '\u0645\u062f\u0644\u0647\u0627\u06cc \u0646\u0635\u0628',
-    pullModel: '\u062f\u0646\u0644\u0648\u062f \u0645\u062f\u0644',
-    exchanges: '\u0635\u0631\u0641\u0647\u200c\u062e\u0627\u0646\u0647\u200c\u0647\u0627',
-    general: '\u0639\u0645\u0648\u0645\u06cc',
-    defaultPair: '\u062c\u0641\u062a \u067e\u06cc\u0634\u0631\u0636 \u062a\u0631\u0627\u062f',
-    riskLevel: '\u0633\u0637\u062d\u0647 \u0631\u06cc\u0633\u06a9',
-    conservative: '\u0645\u062d\u0627\u0641\u0638\u0627\u0646\u0647',
-    moderate: '\u0645\u062a\u0648\u0633\u0637',
-    aggressive: '\u062a\u0647\u0632\u0631',
-    autoTrading: '\u062a\u0631\u0627\u062f \u062e\u0648\u062f\u06a9\u0627\u0631',
-    
-    // Common
-    buy: '\u062e\u0631\u06cc\u062f',
-    sell: '\u0641\u0631\u0648\u0634',
-    hold: '\u0646\u06af\u0647 \u062f\u0627\u0634\u062a\u0646',
-    loading: '\u062f\u0631 \u062d\u0627\u0644 \u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc',
-    error: '\u062e\u0637\u0627',
-    retry: '\u062a\u0644\u0627\u0634 \u0645\u062c\u062f\u0648',
-    save: '\u0630\u062e\u06cc\u0631\u0647 \u06a9\u0631\u062f\u0646',
-    cancel: '\u0644\u063a\u0648',
-    delete: '\u062d\u0630\u0641',
-    edit: '\u0648\u06cc\u0631\u0627\u06cc\u0634',
-    add: '\u0627\u0636\u0627\u0641\u0647',
-    remove: '\u062d\u0630\u0641',
-    close: '\u0628\u0633\u062a\u0646',
-    open: '\u0628\u0627\u0632',
-    yes: '\u0628\u0644\u0647',
-    no: '\u062e\u06cc\u0631',
-    confirm: '\u062a\u0623\u06a9\u06cc\u062f',
-    success: '\u0645\u0648\u0641\u0642\u06cc\u062a',
-    failed: '\u0646\u0627\u0645\u0648\u0641\u0642',
-    analyzing: '\u062a\u062d\u0644\u06cc\u0644',
-    generatedBy: '\u062a\u0648\u0633\u0637 \u0628\u062f\u0647',
-    dataPoints: '\u0646\u0642\u0637\u0647 \u062f\u0627\u062f\u0647',
-    source: '\u0645\u0646\u0628\u0639',
-    executionTime: '\u0632\u0645\u0627\u0646 \u0627\u062c\u0631\u0627',
-    
-    // Chatbot
-    tradingAI: '\u0647\u0634\u0648\u0627\u0631 \u062a\u0631\u0627\u062f',
-    askAbout: '\u0628\u067e\u0631\u0633\u0631\u0648 \u062f\u0631\u0628\u0627\u0631\u0647',
-    recommend: '\u062a\u0648\u0635\u06cc\u0647',
-    confidence: '\u0627\u0637\u0645\u06cc\u0646\u0627\u0646',
-    suggestedQuestions: '\u0633\u0648\u0627\u0644\u0627\u062a \u067e\u06cc\u0634\u0646\u0647\u0627\u0626\u06cc',
-    shouldIBuy: '\u0622\u06cc\u0627 \u0628\u062e\u0631\u0645 \u062e\u0648\u062f\u0631\u0645\u061f',
-    goodTimeToSell: '\u0632\u0645\u0627\u0646 \u062e\u0648\u0628 \u0641\u0631\u0648\u0634\u0633\u062a\u061f',
-    whatsTheTrend: '\u0631\u0648\u0646\u062f \u0685\u0627\u0634 \u0628\u0627\u0631\u0627\u062e\u062a\u0631 \u0627\u0633\u062a\u061f',
-    analyzeSymbol: '\u062a\u062d\u0644\u06cc\u0644 \u06a9\u0646\u06cc\u062f',
-    shouldIHold: '\u0622\u06cc\u0627 \u0646\u06af\u0647 \u062f\u0627\u0634\u062a\u0646\u061f',
-    
-    // Direction
-    bullish: '\u0635\u0639\u0648\u062f\u06cc',
-    bearish: '\u0646\u0632\u0648\u0644\u06cc',
-    neutral: '\u062e\u0646\u062b\u06cc',
-    strongBuy: '\u062e\u0631\u06cc\u062f \u0642\u0648\u06cc',
-    strongSell: '\u0641\u0631\u0648\u0634 \u0642\u0648\u06cc',
-    
-    // Regime zones
-    riskOn: '\u0631\u06cc\u0633\u06a9 \u067e\u0630\u06cc\u0631\u0641\u062a\u0647',
-    riskOff: '\u0631\u06cc\u0633\u06a9 \u06af\u0631\u06cc\u0632',
-    unknown: '\u0646\u0627\u0634\u0646\u0627\u062e\u062a\u0647',
+
+  // Trading Section
+  trading: {
+    watchlist: { en: 'Watchlist', fa: 'لیست مشاهده' },
+    orderBook: { en: 'Order Book', fa: 'دفتر سفارشات' },
+    portfolio: { en: 'Portfolio', fa: 'پورتفولیو' },
+    addSymbol: { en: 'Add Symbol', fa: 'افزودن نماد' },
+    removeSymbol: { en: 'Remove', fa: 'حذف' },
+    search: { en: 'Search...', fa: 'جستجو...' },
+    price: { en: 'Price', fa: 'قیمت' },
+    change: { en: 'Change', fa: 'تغییر' },
+    volume: { en: 'Volume', fa: 'حجم' },
+    bid: { en: 'Bid', fa: 'پیشنهاد' },
+    ask: { en: 'Ask', fa: 'درخواست' },
+    spread: { en: 'Spread', fa: 'اسپرد' },
+    total: { en: 'Total', fa: 'جمع' },
+    balance: { en: 'Balance', fa: 'مانده' },
+    pnl: { en: 'P&L', fa: 'سود/زیان' },
+    unrealized: { en: 'Unrealized', fa: 'محاسبه نشده' },
+    buyingPower: { en: 'Buying Power', fa: 'قدرت خرید' },
+    positions: { en: 'Positions', fa: 'موقعیت‌ها' },
+    noPositions: { en: 'No open positions', fa: 'هیچ موقعیت بازی وجود ندارد' },
+    loading: { en: 'Loading...', fa: 'در حال بارگذاری...' },
+    error: { en: 'Error', fa: 'خطا' },
+    retry: { en: 'Retry', fa: 'تلاش مجدد' },
+  },
+
+  // Signals Section
+  signals: {
+    title: { en: 'Trading Signals', fa: 'سیگنال‌های ترید' },
+    finalSignal: { en: 'Final Signal', fa: 'سیگنال نهایی' },
+    generate: { en: 'Generate Signal', fa: 'تولید سیگنال' },
+    history: { en: 'Signal History', fa: 'تاریخچه سیگنال‌ها' },
+    active: { en: 'Active', fa: 'فعال' },
+    expired: { en: 'Expired', fa: 'منقضی شده' },
+    confidence: { en: 'Confidence', fa: 'اطمینان' },
+    technical: { en: 'Technical', fa: 'تکنیکال' },
+    sentiment: { en: 'Sentiment', fa: 'احساسات' },
+    ai: { en: 'AI Analysis', fa: 'تحلیل هوش مصنوعی' },
+    macro: { en: 'Macro', fa: 'کلان' },
+    news: { en: 'News', fa: 'اخبار' },
+    regime: { en: 'Market Regime', fa: 'حالت بازار' },
+    overall: { en: 'Overall', fa: 'کلی' },
+    trend: { en: 'Trend', fa: 'روند' },
+    momentum: { en: 'Momentum', fa: 'مومنتوم' },
+    volatility: { en: 'Volatility', fa: 'نوسان' },
+    buy: { en: 'BUY', fa: 'خرید' },
+    sell: { en: 'SELL', fa: 'فروش' },
+    hold: { en: 'HOLD', fa: 'نگه داشتن' },
+    strong: { en: 'Strong', fa: 'قوی' },
+    weak: { en: 'Weak', fa: 'ضعیف' },
+    neutral: { en: 'Neutral', fa: 'خنثی' },
+  },
+
+  // Analysis Section
+  analysis: {
+    title: { en: 'Market Analysis', fa: 'تحلیل بازار' },
+    regimeScore: { en: 'Regime Score', fa: 'امتیاز وضعیت بازار' },
+    technicalScore: { en: 'Technical Score', fa: 'امتیاز تکنیکال' },
+    rsi: { en: 'RSI', fa: 'RSI' },
+    macd: { en: 'MACD', fa: 'MACD' },
+    vwap: { en: 'VWAP', fa: 'میانگین حجمی' },
+    ichimoku: { en: 'Ichimoku', fa: 'ایچیموکو' },
+    support: { en: 'Support', fa: 'حمایت' },
+    resistance: { en: 'Resistance', fa: 'مقاومت' },
+    candlestick: { en: 'Candlestick Analysis', fa: 'تحلیل کندل استیک' },
+    patterns: { en: 'Patterns', fa: 'الگوها' },
+    bullish: { en: 'Bullish', fa: 'صعودی' },
+    bearish: { en: 'Bearish', fa: 'نزولی' },
+    overbought: { en: 'Overbought', fa: 'بیش از حد خرید' },
+    oversold: { en: 'Oversold', fa: 'بیش از حد فروش' },
+    high: { en: 'High', fa: 'بالا' },
+    low: { en: 'Low', fa: 'پایین' },
+    open: { en: 'Open', fa: 'باز' },
+    close: { en: 'Close', fa: 'بسته' },
+    factorAnalysis: { en: 'Factor Analysis', fa: 'تحلیل عوامل' },
+    regimeComponents: { en: 'Regime Components', fa: 'اجزای وضعیت بازار' },
+    technicalIndicators: { en: 'Technical Indicators', fa: 'اندیکاتورهای تکنیکال' },
+    performanceMetrics: { en: 'Performance Metrics', fa: 'معیارهای عملکرد' },
+    winRate: { en: 'Win Rate', fa: 'نرخ برد' },
+    totalSignals: { en: 'Total Signals', fa: 'کل سیگنال‌ها' },
+    avgReturn: { en: 'Avg Return', fa: 'میانگین بازده' },
+    profitFactor: { en: 'Profit Factor', fa: 'فاکتور سود' },
+    sharpeRatio: { en: 'Sharpe Ratio', fa: 'نسبت شارپ' },
+  },
+
+  // Journal Section
+  journal: {
+    title: { en: 'Trading Journal', fa: 'ژورنال ترید' },
+    entries: { en: 'Entries', fa: 'ورودی‌ها' },
+    newEntry: { en: 'New Entry', fa: 'ورودی جدید' },
+    date: { en: 'Date', fa: 'تاریخ' },
+    symbol: { en: 'Symbol', fa: 'نماد' },
+    action: { en: 'Action', fa: 'عمل' },
+    entryPrice: { en: 'Entry Price', fa: 'قیمت ورود' },
+    exitPrice: { en: 'Exit Price', fa: 'قیمت خروج' },
+    pnl: { en: 'P&L', fa: 'سود/زیان' },
+    notes: { en: 'Notes', fa: 'یادداشت‌ها' },
+    tags: { en: 'Tags', fa: 'برچسب‌ها' },
+    save: { en: 'Save', fa: 'ذخیره' },
+    cancel: { en: 'Cancel', fa: 'لغو' },
+    edit: { en: 'Edit', fa: 'ویرایش' },
+    delete: { en: 'Delete', fa: 'حذف' },
+    noEntries: { en: 'No journal entries yet', fa: 'هنوز هیچ ژورنالی ثبت نشده' },
+    addFirst: { en: 'Add your first entry', fa: 'اولین ورودی خود را اضافه کنید' },
+  },
+
+  // Settings Section
+  settings: {
+    title: { en: 'Settings', fa: 'تنظیمات' },
+    general: { en: 'General', fa: 'عمومی' },
+    apiKeys: { en: 'API Keys', fa: 'کلیدهای API' },
+    notifications: { en: 'Notifications', fa: 'اعلانات' },
+    language: { en: 'Language', fa: 'زبان' },
+    theme: { en: 'Theme', fa: 'قالب' },
+    darkMode: { en: 'Dark Mode', fa: 'حالت تاریک' },
+    lightMode: { en: 'Light Mode', fa: 'حالت روشن' },
+    account: { en: 'Account', fa: 'حساب کاربری' },
+    profile: { en: 'Profile', fa: 'پروفایل' },
+    changePassword: { en: 'Change Password', fa: 'تغییر رمز عبور' },
+    saveChanges: { en: 'Save Changes', fa: 'ذخیره تغییرات' },
+    discard: { en: 'Discard', fa: 'لغو' },
+    confirm: { en: 'Confirm', fa: 'تأیید' },
+    cancel: { en: 'Cancel', fa: 'لغو' },
+    ollama: { en: 'Ollama (Local LLM)', fa: 'اولاما (مدل محلی)' },
+    connected: { en: 'Connected', fa: 'متصل' },
+    disconnected: { en: 'Disconnected', fa: 'قطع شده' },
+    refreshModels: { en: 'Refresh Models', fa: 'بازخوانی مدل‌ها' },
+    installedModels: { en: 'Installed Models', fa: 'مدل‌های نصب شده' },
+    activeModel: { en: 'Active Model', fa: 'مدل فعال' },
+    selectModel: { en: 'Select Model', fa: 'انتخاب مدل' },
+    testConnection: { en: 'Test Connection', fa: 'تست اتصال' },
+  },
+
+  // Chatbot
+  chatbot: {
+    title: { en: 'Trading AI', fa: 'هوش ترید' },
+    online: { en: 'Online', fa: 'آنلاین' },
+    offline: { en: 'Offline', fa: 'آفلاین' },
+    placeholder: { en: 'Ask about {symbol}...', fa: 'درباره {symbol} بپرسید...' },
+    send: { en: 'Send', fa: 'ارسال' },
+    clear: { en: 'Clear', fa: 'پاک کردن' },
+    suggestedQuestions: { en: 'Suggested Questions', fa: 'سوالات پیشنهادی' },
+    shouldIBuy: { en: 'Should I buy?', fa: 'آیا بخرم؟' },
+    goodTimeToSell: { en: 'Good time to sell?', fa: 'زمان خوبی برای فروش است؟' },
+    whatsTheTrend: { en: "What's the trend?", fa: 'روند چیست؟' },
+    analyzing: { en: 'Analyzing...', fa: 'در حال تحلیل...' },
+    modelUsed: { en: 'Model', fa: 'مدل' },
+    executionTime: { en: 'Execution time', fa: 'زمان اجرا' },
+  },
+
+  // Common
+  common: {
+    loading: { en: 'Loading...', fa: 'در حال بارگذاری...' },
+    error: { en: 'Error', fa: 'خطا' },
+    retry: { en: 'Retry', fa: 'تلاش مجدد' },
+    noData: { en: 'No data available', fa: 'داده‌ای موجود نیست' },
+    tryAgain: { en: 'Try Again', fa: 'تلاش مجدد' },
+    close: { en: 'Close', fa: 'بستن' },
+    open: { en: 'Open', fa: 'باز کردن' },
+    refresh: { en: 'Refresh', fa: 'بازخوانی' },
+    search: { en: 'Search', fa: 'جستجو' },
+    filter: { en: 'Filter', fa: 'فیلتر' },
+    sort: { en: 'Sort', fa: 'مرتب‌سازی' },
+    date: { en: 'Date', fa: 'تاریخ' },
+    time: { en: 'Time', fa: 'زمان' },
+    status: { en: 'Status', fa: 'وضعیت' },
+    type: { en: 'Type', fa: 'نوع' },
+    name: { en: 'Name', fa: 'نام' },
+    description: { en: 'Description', fa: 'توضیحات' },
+    actions: { en: 'Actions', fa: 'عملیات' },
+    save: { en: 'Save', fa: 'ذخیره' },
+    cancel: { en: 'Cancel', fa: 'لغو' },
+    confirm: { en: 'Confirm', fa: 'تأیید' },
+    delete: { en: 'Delete', fa: 'حذف' },
+    edit: { en: 'Edit', fa: 'ویرایش' },
+    add: { en: 'Add', fa: 'افزودن' },
+    remove: { en: 'Remove', fa: 'حذف' },
+    yes: { en: 'Yes', fa: 'بله' },
+    no: { en: 'No', fa: 'خیر' },
+    none: { en: 'None', fa: 'هیچکدام' },
+    all: { en: 'All', fa: 'همه' },
+    back: { en: 'Back', fa: 'بازگشت' },
+    next: { en: 'Next', fa: 'بعدی' },
+    previous: { en: 'Previous', fa: 'قبلی' },
+    first: { en: 'First', fa: 'اول' },
+    last: { en: 'Last', fa: 'آخر' },
+    more: { en: 'More', fa: 'بیشتر' },
+    less: { en: 'Less', fa: 'کمتر' },
+    show: { en: 'Show', fa: 'نمایش' },
+    hide: { en: 'Hide', fa: 'پنهان' },
+    expand: { en: 'Expand', fa: 'باز کردن' },
+    collapse: { en: 'Collapse', fa: 'جمع کردن' },
+    copy: { en: 'Copy', fa: 'کپی' },
+    paste: { en: 'Paste', fa: 'چسباندن' },
+    select: { en: 'Select', fa: 'انتخاب' },
+    deselect: { en: 'Deselect', fa: 'لغو انتخاب' },
+    checkAll: { en: 'Check All', fa: 'انتخاب همه' },
+    uncheckAll: { en: 'Uncheck All', fa: 'لغو انتخاب همه' },
+  },
+
+  // Timeframes
+  timeframes: {
+    '1m': { en: '1 Min', fa: '۱ دقیقه' },
+    '5m': { en: '5 Min', fa: '۵ دقیقه' },
+    '15m': { en: '15 Min', fa: '۱۵ دقیقه' },
+    '1h': { en: '1 Hour', fa: '۱ ساعت' },
+    '4h': { en: '4 Hours', fa: '۴ ساعت' },
+    '1d': { en: '1 Day', fa: '۱ روز' },
+    '1w': { en: '1 Week', fa: '۱ هفته' },
+    '1M': { en: '1 Month', fa: '۱ ماه' },
+  },
+
+  // Numbers (for RTL display)
+  numbers: {
+    '0': '۰',
+    '1': '۱',
+    '2': '۲',
+    '3': '۳',
+    '4': '۴',
+    '5': '۵',
+    '6': '۶',
+    '7': '۷',
+    '8': '۸',
+    '9': '۹',
+    '.': '٫',
+  },
+
+  // Messages
+  messages: {
+    welcome: { en: 'Welcome to Crypto AI Platform', fa: 'به پلتفرم هوش مصنوعی ارز دیجیتال خوش آمدید' },
+    loginSuccess: { en: 'Login successful', fa: 'ورود موفقیت‌آمیز' },
+    loginFailed: { en: 'Login failed', fa: 'ورود ناموفق' },
+    logoutSuccess: { en: 'Logged out successfully', fa: 'خروج موفقیت‌آمیز' },
+    saveSuccess: { en: 'Saved successfully', fa: 'ذخیره موفقیت‌آمیز' },
+    deleteSuccess: { en: 'Deleted successfully', fa: 'حذف موفقیت‌آمیز' },
+    errorOccurred: { en: 'An error occurred', fa: 'خطایی رخ داد' },
+    networkError: { en: 'Network error', fa: 'خطای شبکه' },
+    timeoutError: { en: 'Request timed out', fa: 'درخواست منقضی شد' },
+    unauthorized: { en: 'Unauthorized', fa: 'غیرمجاز' },
+    forbidden: { en: 'Forbidden', fa: 'ممنوع' },
+    notFound: { en: 'Not found', fa: 'یافت نشد' },
+    serverError: { en: 'Server error', fa: 'خطای سرور' },
   },
 };
+
+export type TranslationKey = keyof typeof translations;
+export type NestedKey<T> = {
+  [K in keyof T]: T[K] extends object
+    ? { [J in keyof T[K]]: string }
+    : never;
+}[keyof T];
 
 export default translations;
