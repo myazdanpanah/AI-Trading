@@ -14,12 +14,13 @@ interface Message {
     recommendation?: string;
     model_used?: string;
     execution_time_ms?: number;
+    language?: string;
   };
 }
 
 export const ChatBot: React.FC = () => {
   const { selectedSymbol } = useWatchlist();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { selectedModel } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -35,11 +36,31 @@ export const ChatBot: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  const suggestedQuestions = [
-    t('chatbot.shouldIBuy'),
-    t('chatbot.goodTimeToSell'),
-    t('chatbot.whatsTheTrend'),
-  ];
+  const getPlaceholder = () => {
+    if (language === 'fa') {
+      return `درباره ${selectedSymbol.replace('USDT', '')} بپرسید... (فارسی یا انگلیسی)`;
+    }
+    return `Ask about ${selectedSymbol.replace('USDT', '')}... (English or Persian)`;
+  };
+
+  const getSuggestedQuestions = () => {
+    if (language === 'fa') {
+      return [
+        'آیا الان وقتشه بخرم؟',
+        '趋势 BTC چطوره؟',
+        'تحلیل کن ببینم',
+        ' risks چیه؟',
+        'بهترین قیمت ورود چنده؟',
+      ];
+    }
+    return [
+      'Should I buy now?',
+      'What do you think about BTC?',
+      'Give me your analysis',
+      'What are the risks?',
+      'What\'s a good entry price?',
+    ];
+  };
 
   const handleSendMessage = async (question?: string) => {
     const text = question || inputValue.trim();
@@ -62,7 +83,7 @@ export const ChatBot: React.FC = () => {
         body: JSON.stringify({
           symbol: selectedSymbol.replace('USDT', ''),
           question: text,
-          model: selectedModel,  // Send the selected model
+          model: selectedModel,
         }),
       });
 
@@ -78,6 +99,7 @@ export const ChatBot: React.FC = () => {
           recommendation: data.recommendation,
           model_used: data.model_used,
           execution_time_ms: data.execution_time_ms,
+          language: data.language,
         },
       };
 
@@ -86,7 +108,9 @@ export const ChatBot: React.FC = () => {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: t('common.error'),
+        content: language === 'fa' 
+          ? 'متأسفانه خطایی رخ داد. لطفاً دوباره امتحان کن.' 
+          : 'Sorry, something went wrong. Please try again.',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -123,9 +147,11 @@ export const ChatBot: React.FC = () => {
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 rounded-t-xl">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold">{t('chatbot.title')}</h3>
+                <h3 className="font-semibold">
+                  {language === 'fa' ? 'هوش ترید' : 'Trading AI'}
+                </h3>
                 <div className="text-xs text-blue-200">
-                  ● {t('chatbot.online')} • {selectedSymbol.replace('USDT', '')} • {selectedModel}
+                  ● {language === 'fa' ? 'آنلاین' : 'Online'} • {selectedSymbol.replace('USDT', '')} • {selectedModel}
                 </div>
               </div>
               <button
@@ -142,12 +168,18 @@ export const ChatBot: React.FC = () => {
             {messages.length === 0 ? (
               <div className="text-center text-gray-400 mt-8">
                 <div className="text-4xl mb-4">🤖</div>
-                <p>{t('chatbot.title')}</p>
-                <p className="text-sm mt-2">{t('chatbot.placeholder').replace('{symbol}', selectedSymbol.replace('USDT', ''))}</p>
-                <p className="text-xs mt-1 text-gray-500">Model: {selectedModel}</p>
+                <p>{language === 'fa' ? 'سلام! من دستیار ترید شما هستم.' : 'Hey! I\'m your trading assistant.'}</p>
+                <p className="text-sm mt-2">
+                  {language === 'fa' 
+                    ? `هر سوالی درباره ${selectedSymbol.replace('USDT', '')} دارید بپرسید.`
+                    : `Ask me anything about ${selectedSymbol.replace('USDT', '')}.`}
+                </p>
+                <p className="text-xs mt-1 text-gray-500">
+                  {language === 'fa' ? 'فارسی یا انگلیسی صحبت کنید' : 'Speak in English or Persian'}
+                </p>
                 
                 <div className="mt-4 space-y-2">
-                  {suggestedQuestions.map((q, i) => (
+                  {getSuggestedQuestions().map((q, i) => (
                     <button
                       key={i}
                       onClick={() => handleSendMessage(q)}
@@ -165,16 +197,16 @@ export const ChatBot: React.FC = () => {
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg p-3 ${
+                    className={`max-w-[85%] rounded-lg p-3 ${
                       msg.role === 'user'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-700 text-gray-100'
                     }`}
                   >
-                    <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                    <div className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</div>
                     
                     {msg.metadata && (
-                      <div className="mt-2 pt-2 border-t border-gray-600 flex items-center gap-2 text-xs">
+                      <div className="mt-2 pt-2 border-t border-gray-600 flex items-center gap-2 text-xs flex-wrap">
                         {msg.metadata.recommendation && (
                           <span
                             className={`px-2 py-0.5 rounded ${getRecommendationColor(
@@ -186,7 +218,12 @@ export const ChatBot: React.FC = () => {
                         )}
                         {msg.metadata.confidence && (
                           <span className="text-gray-400">
-                            {(msg.metadata.confidence * 100).toFixed(0)}%
+                            {msg.metadata.confidence.toFixed(0)}%
+                          </span>
+                        )}
+                        {msg.metadata.language && (
+                          <span className="text-gray-500">
+                            {msg.metadata.language === 'fa' ? '🇫🇦' : '🇬🇧'}
                           </span>
                         )}
                         {msg.metadata.model_used && (
@@ -228,16 +265,17 @@ export const ChatBot: React.FC = () => {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder={t('chatbot.placeholder').replace('{symbol}', selectedSymbol.replace('USDT', ''))}
+                placeholder={getPlaceholder()}
                 className="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={isLoading}
+                dir="auto"
               />
               <button
                 onClick={() => handleSendMessage()}
                 disabled={isLoading || !inputValue.trim()}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50"
               >
-                {t('chatbot.send')}
+                {language === 'fa' ? 'ارسال' : 'Send'}
               </button>
             </div>
           </div>
