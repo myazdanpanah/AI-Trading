@@ -106,17 +106,11 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
                 calculate_composite_score, calculate_exposure_posture,
                 analyze_technical, calculate_position_size,
             )
-            from apps.trading_skills.views import _fetch_market_data
+            from apps.market.services.unified_data import fetch_market_data
             from apps.technical_analysis.services.indicator_engine import IndicatorEngine
 
-            coin_id_map = {
-                'BTC': 'bitcoin', 'ETH': 'ethereum', 'SOL': 'solana',
-                'BNB': 'binancecoin', 'XRP': 'ripple', 'ADA': 'cardano',
-            }
-            coin_id = coin_id_map.get(symbol.upper(), 'bitcoin')
-
             try:
-                market = _fetch_market_data(symbol.upper(), coin_id)
+                market = fetch_market_data(symbol.upper())
                 closes = market['closes']
                 highs = market['highs']
                 lows = market['lows']

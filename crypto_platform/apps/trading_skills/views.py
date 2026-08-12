@@ -25,69 +25,10 @@ from .services.skills_engine import (
 
 engine = TradingSkillsEngine()
 
-# In-memory cache for market data (avoid CoinGecko rate limits)
-_market_cache = {}  # {symbol: {data: {...}, timestamp: float}}
-_CACHE_TTL = 300  # 5 minutes
-
-
-def _fetch_market_data(symbol: str, coin_id: str, max_retries: int = 3):
-    """Fetch market data with retry and caching."""
-    import numpy as np
-    import random
-
-    # Check cache first
-    cache_key = symbol.upper()
-    if cache_key in _market_cache:
-        cached = _market_cache[cache_key]
-        if time.time() - cached['timestamp'] < _CACHE_TTL:
-            return cached['data']
-
-    # Fetch with retry
-    for attempt in range(max_retries):
-        try:
-            url = f'https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days=365&interval=daily'
-            req = urllib.request.Request(url, headers={
-                'User-Agent': 'Mozilla/5.0',
-                'Accept': 'application/json',
-            })
-            r = urllib.request.urlopen(req, timeout=30)
-            data = json.loads(r.read())
-            closes = [p[1] for p in data['prices']]
-
-            # Generate synthetic OHLCV
-            np.random.seed(42)
-            highs = [c * (1 + abs(np.random.normal(0, 0.015))) for c in closes]
-            lows = [c * (1 - abs(np.random.normal(0, 0.015))) for c in closes]
-            volumes = [float(np.random.uniform(1e9, 5e9)) for _ in closes]
-
-            result = {
-                'closes': closes,
-                'highs': highs,
-                'lows': lows,
-                'volumes': volumes,
-                'current_price': closes[-1],
-            }
-
-            # Cache the result
-            _market_cache[cache_key] = {'data': result, 'timestamp': time.time()}
-            return result
-
-        except urllib.error.HTTPError as e:
-            if e.code == 429:  # Rate limited
-                wait = (attempt + 1) * 5  # 5, 10, 15 seconds
-                time.sleep(wait)
-                continue
-            raise
-        except Exception as e:
-            if attempt < max_retries - 1:
-                time.sleep(2)
-                continue
-            raise
-
-    # All retries failed, use cached data if available
-    if cache_key in _market_cache:
-        return _market_cache[cache_key]['data']
-    raise Exception('CoinGecko API rate limited. Please wait a few minutes and try again.')
+def _fetch_market_data(symbol: str, coin_id: str = None, max_retries: int = 3):
+    """Fetch market data using unified data service (Binance -> CoinGecko fallback)."""
+    from apps.market.services.unified_data import fetch_market_data
+    return fetch_market_data(symbol)
 
 
 @api_view(['GET'])
@@ -202,16 +143,9 @@ def full_analysis(request):
     risk_pct = float(request.query_params.get('risk_pct', 0.02))
 
     try:
-        # Fetch live data from CoinGecko (with retry + cache)
-        coin_id_map = {
-            'BTC': 'bitcoin', 'ETH': 'ethereum', 'SOL': 'solana',
-            'BNB': 'binancecoin', 'XRP': 'ripple', 'ADA': 'cardano',
-            'DOGE': 'dogecoin', 'DOT': 'polkadot', 'AVAX': 'avalanche-2',
-            'LINK': 'chainlink',
-        }
-        coin_id = coin_id_map.get(symbol, 'bitcoin')
-
-        market = _fetch_market_data(symbol, coin_id)
+        # Fetch live data (Binance first, CoinGecko fallback)
+        from apps.market.services.unified_data import fetch_market_data
+        market = fetch_market_data(symbol)
         closes = market['closes']
         highs = market['highs']
         lows = market['lows']
