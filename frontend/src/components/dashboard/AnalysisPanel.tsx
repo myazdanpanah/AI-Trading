@@ -221,6 +221,7 @@ export const AnalysisPanel: React.FC = () => {
   const [activeSection, setActiveSection] = useState<'overview' | 'technical' | 'regime' | 'journal'>('overview');
   const [error, setError] = useState<string | null>(null);
   const [priceHistory, setPriceHistory] = useState<number[]>([]);
+  const [autoJournal, setAutoJournal] = useState<any>(null);
 
   const loadAnalysis = async () => {
     try {
@@ -229,7 +230,7 @@ export const AnalysisPanel: React.FC = () => {
       const [analysisResp, weightsResp, journalResp] = await Promise.all([
         apiFetch(`/skills/full-analysis/?symbol=${activeSymbol}`),
         apiFetch('/signals/factor-weights/current/'),
-        apiFetch('/journal/entries/?limit=5'),
+        apiFetch('/journal/entries/?limit=3'),
       ]);
 
       if (analysisResp.ok) {
@@ -239,6 +240,8 @@ export const AnalysisPanel: React.FC = () => {
         if (data.technical?.closes) {
           setPriceHistory(data.technical.closes.slice(-30));
         }
+        // Auto-generate journal from analysis
+        generateJournalFromAnalysis(data);
       }
 
       if (weightsResp.ok) {
@@ -256,6 +259,79 @@ export const AnalysisPanel: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const generateJournalFromAnalysis = (data: any) => {
+    const verdict = data.verdict || {};
+    const technical = data.technical || {};
+    const regime = data.regime || {};
+    const position = data.position || {};
+    const sentiment = data.sentiment || {};
+    const news = data.news || {};
+    const macro = data.macro || {};
+
+    const signal = verdict.signal || 'HOLD';
+    const score = verdict.combined_score || 50;
+    const rsi = technical?.momentum?.rsi || 50;
+    const macd = technical?.momentum?.macd_signal || 'neutral';
+    const trend = technical?.trend?.signal || 'neutral';
+    const fearGreed = sentiment?.fear_greed_index || 50;
+
+    // Generate key findings
+    const findings: string[] = [];
+    if (rsi > 70) findings.push(`RSI at ${rsi.toFixed(0)} - overbought territory, potential pullback`);
+    else if (rsi < 30) findings.push(`RSI at ${rsi.toFixed(0)} - oversold territory, potential bounce`);
+    else findings.push(`RSI at ${rsi.toFixed(0)} - neutral momentum`);
+
+    if (macd.includes('bullish')) findings.push('MACD showing bullish crossover - upward momentum building');
+    else if (macd.includes('bearish')) findings.push('MACD showing bearish crossover - downward pressure increasing');
+    else findings.push('MACD neutral - no clear momentum direction');
+
+    if (trend.includes('up')) findings.push(`Trend is ${trend} - price above key moving averages`);
+    else if (trend.includes('down')) findings.push(`Trend is ${trend} - price below key moving averages`);
+    else findings.push('Trend neutral - price consolidating in range');
+
+    // Generate risks
+    const risks: string[] = [];
+    if (rsi > 70) risks.push('Overbought RSI suggests limited upside');
+    if (technical?.volatility?.signal === 'high') risks.push('High volatility - wider stop losses recommended');
+    if (fearGreed > 75) risks.push('Extreme greed - market may be overheated');
+    if (fearGreed < 25) risks.push('Extreme fear - panic selling may continue');
+    if (verdict.risk_score > 70) risks.push(`Risk score elevated at ${verdict.risk_score}`);
+
+    // Generate opportunities
+    const opportunities: string[] = [];
+    if (rsi < 30) opportunities.push('Oversold RSI - potential mean reversion opportunity');
+    if (macd.includes('bullish')) opportunities.push('Bullish MACD crossover - trend reversal signal');
+    if (fearGreed < 30) opportunities.push('Fear in market - contrarian buying opportunity');
+    if (position.take_profits?.[0]) opportunities.push(`Take profit target at $${position.take_profits[0].price}`);
+    if (technical?.volatility?.signal === 'low') opportunities.push('Low volatility - breakout potential building');
+
+    // Generate summary
+    const summary = `${activeSymbol} analysis shows ${signal} signal with ${score.toFixed(0)}% composite score. ` +
+      `RSI at ${rsi.toFixed(0)}, MACD ${macd}, trend ${trend}. ` +
+      `Fear & Greed index at ${fearGreed}. ` +
+      (position.entry_price ? `Entry: $${position.entry_price}, SL: $${position.stop_loss}` : '');
+
+    setAutoJournal({
+      title: `${activeSymbol} Market Analysis - ${new Date().toLocaleDateString('en-US', { timeZone: 'Asia/Tehran', month: 'short', day: 'numeric' })}`,
+      content: summary,
+      summary,
+      entry_type: 'market_analysis',
+      ai_model: data.ai_model || 'analysis-engine',
+      ai_confidence: data.ai_confidence || 0.75,
+      news_count: data.news?.articles_count || 0,
+      market_sentiment: fearGreed > 60 ? 'bullish' : fearGreed < 40 ? 'bearish' : 'neutral',
+      composite_score: score,
+      symbols_analyzed: [activeSymbol],
+      key_findings: findings,
+      risks_identified: risks,
+      opportunities,
+      indicators_used: ['RSI', 'MACD', 'EMA', 'VWAP', 'Ichimoku', 'Bollinger', 'ATR'],
+      data_sources: [data.data_source || 'binance'],
+      weights_used: weights,
+      created_at: new Date().toISOString(),
+    });
   };
 
   useEffect(() => { loadAnalysis(); }, [activeSymbol]);
@@ -561,20 +637,21 @@ export const AnalysisPanel: React.FC = () => {
           {/* Journal Summary Section */}
           {activeSection === 'journal' && (
             <div className="space-y-4">
-              {journalSummary ? (
+              {(journalSummary || autoJournal) ? (
                 <>
                   <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-xl">📝</span>
-                      <h3 className="text-sm font-semibold text-gray-300">{language === 'fa' ? 'آخرین یادداشت ژورنال' : 'Latest Journal Entry'}</h3>
-                      <span className="text-xs text-gray-500">{new Date(journalSummary.created_at).toLocaleDateString('en-US', { timeZone: 'Asia/Tehran' })}</span>
+                      <h3 className="text-sm font-semibold text-gray-300">{language === 'fa' ? 'تحلیل خودکار بازار' : 'Auto-Generated Market Journal'}</h3>
+                      <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">{language === 'fa' ? 'خودکار' : 'AUTO'}</span>
                     </div>
-                    <div className="text-sm text-white font-medium mb-2">{journalSummary.title}</div>
-                    <div className="text-xs text-gray-400 mb-3 line-clamp-3">{journalSummary.summary || journalSummary.content?.slice(0, 200)}</div>
+                    <div className="text-sm text-white font-medium mb-2">{(journalSummary || autoJournal).title}</div>
+                    <div className="text-xs text-gray-400 mb-3">{(journalSummary || autoJournal).summary || (journalSummary || autoJournal).content?.slice(0, 300)}</div>
                     <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span>{language === 'fa' ? 'مدل' : 'Model'}: {journalSummary.ai_model}</span>
-                      <span>{language === 'fa' ? 'اطمینان' : 'Confidence'}: {((journalSummary.ai_confidence || 0) * 100).toFixed(0)}%</span>
-                      <span>{language === 'fa' ? 'منابع' : 'Sources'}: {journalSummary.news_count || 0}</span>
+                      <span>{language === 'fa' ? 'مدل' : 'Model'}: {(journalSummary || autoJournal).ai_model}</span>
+                      <span>{language === 'fa' ? 'اطمینان' : 'Confidence'}: {(((journalSummary || autoJournal).ai_confidence || 0) * 100).toFixed(0)}%</span>
+                      <span>{language === 'fa' ? 'منابع' : 'Sources'}: {(journalSummary || autoJournal).news_count || 0}</span>
+                      <span>{language === 'fa' ? 'منابع داده' : 'Data'}: {(journalSummary || autoJournal).data_sources?.join(', ') || 'N/A'}</span>
                     </div>
                   </div>
 
@@ -639,8 +716,8 @@ export const AnalysisPanel: React.FC = () => {
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <div className="text-4xl mb-4">📝</div>
-                  <p>{language === 'fa' ? 'هنوز یادداشتی نیست' : 'No journal entries yet'}</p>
-                  <p className="text-sm mt-2">{language === 'fa' ? 'از تب ژورنال یادداشت تولید کنید' : 'Generate entries in the Journal tab'}</p>
+                  <p>{language === 'fa' ? 'در حال بارگذاری تحلیل...' : 'Loading analysis...'}</p>
+                  <p className="text-sm mt-2">{language === 'fa' ? 'ژورنال خودکار ایجاد می‌شود' : 'Journal will be auto-generated from analysis'}</p>
                 </div>
               )}
             </div>
