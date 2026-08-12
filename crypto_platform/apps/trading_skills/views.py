@@ -329,6 +329,25 @@ def full_analysis(request):
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
+def chat_with_ai(request):
+    """Chat with AI about trading decisions."""
+    question = request.data.get('question', '')
+    symbol = request.data.get('symbol', 'BTC')
+    
+    if not question:
+        return Response(
+            {'error': 'Question is required'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    
+    from .services.chatbot import TradingChatBot
+    result = TradingChatBot.answer(question, symbol)
+    
+    return Response(result)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
 def run_candlestick_analysis(request):
     """Run candlestick pattern analysis on price data."""
     start = time.time()

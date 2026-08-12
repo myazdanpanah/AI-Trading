@@ -14,4 +14,5 @@ urlpatterns = [
     path('technical-analysis/', views.run_technical_analysis, name='run-technical-analysis'),
     path('full-analysis/', views.full_analysis, name='full-analysis'),
     path('candlestick-analysis/', views.run_candlestick_analysis, name='candlestick-analysis'),
+    path('chat/', views.chat_with_ai, name='chat-with-ai'),
 ]

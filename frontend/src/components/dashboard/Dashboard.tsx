@@ -7,6 +7,7 @@ import { Watchlist } from '../trading/Watchlist';
 import { TradingViewChart } from '../trading/TradingViewChart';
 import { Backtester } from '../trading/Backtester';
 import { PortfolioTracker } from '../trading/PortfolioTracker';
+import { ChatBot } from '../trading/ChatBot';
 import { APISettings } from '../settings/APISettings';
 import { UserSettings } from '../settings/UserSettings';
 import { NewsSettings } from '../settings/NewsSettings';
@@ -64,6 +65,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'trading' | 'signals' | 'journal' | 'feedback' | 'analysis' | 'forecast' | 'backtest' | 'settings' | 'news-settings' | 'user-settings'>('trading');
   const [loading, setLoading] = useState(true);
   const [showPortfolio, setShowPortfolio] = useState(true);
+  const [showChat, setShowChat] = useState(true);
   const { selectedSymbol, setSelectedSymbol } = useWatchlist();
 
   useEffect(() => {
@@ -150,7 +152,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
           <>
             {activeTab === 'trading' && (
               <div className="h-full flex flex-col">
-                {/* Top: Watchlist + Chart + OrderBook */}
+                {/* Top: Watchlist + Chart + OrderBook + ChatBot */}
                 <div className="flex-1 min-h-0 flex">
                   {/* Left: Watchlist */}
                   <div className="w-72 flex-shrink-0 border-r border-[#2a2a3e]">
@@ -162,9 +164,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                     <TradingViewChart symbol={selectedSymbol} />
                   </div>
                   
-                  {/* Right: OrderBook */}
-                  <div className="w-80 flex-shrink-0 border-l border-[#2a2a3e]">
-                    <OrderBook symbol={selectedSymbol} />
+                  {/* Right: OrderBook + ChatBot */}
+                  <div className="w-80 flex-shrink-0 border-l border-[#2a2a3e] flex flex-col">
+                    <div className="flex-1 min-h-0 border-b border-[#2a2a3e]">
+                      <OrderBook symbol={selectedSymbol} />
+                    </div>
+                    <div className="h-80 flex-shrink-0">
+                      <ChatBot />
+                    </div>
                   </div>
                 </div>
                 
