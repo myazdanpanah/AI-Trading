@@ -23,7 +23,11 @@ interface Message {
 
 const STORAGE_KEY = 'trading_chat_history';
 
-export const ChatBot: React.FC = () => {
+interface ChatBotProps {
+  activeTab?: string;
+}
+
+export const ChatBot: React.FC<ChatBotProps> = ({ activeTab = 'trading' }) => {
   const { selectedSymbol } = useWatchlist();
   const { t, language } = useLanguage();
   const { selectedModel } = useSettings();
@@ -73,30 +77,138 @@ export const ChatBot: React.FC = () => {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  const getPlaceholder = () => {
-    if (language === 'fa') {
-      return `درباره ${selectedSymbol.replace('USDT', '')} بپرسید...`;
+  // Get tab-specific context
+  const getTabContext = () => {
+    const symbol = selectedSymbol.replace('USDT', '');
+    switch (activeTab) {
+      case 'trading':
+        return {
+          name: 'Trading',
+          description: `Viewing ${symbol} chart, order book, watchlist, and portfolio`,
+          capabilities: ['price charts', 'order book', 'watchlist management', 'portfolio tracking'],
+        };
+      case 'signals':
+        return {
+          name: 'Signals',
+          description: `Generating and viewing trading signals for ${symbol}`,
+          capabilities: ['signal generation', 'signal history', 'multi-factor scoring', 'confidence levels'],
+        };
+      case 'comparison':
+        return {
+          name: 'Comparison',
+          description: 'Comparing multiple symbols side by side',
+          capabilities: ['multi-symbol analysis', 'side-by-side comparison', 'sorting by scores'],
+        };
+      case 'analysis':
+        return {
+          name: 'Analysis',
+          description: `Full market analysis for ${symbol} with technical indicators`,
+          capabilities: ['technical analysis', 'regime analysis', 'factor scores', 'price chart', 'support/resistance'],
+        };
+      case 'journal':
+        return {
+          name: 'Journal',
+          description: 'AI-generated journal entries and market insights',
+          capabilities: ['journal entries', 'news sources', 'market context', 'AI reasoning'],
+        };
+      case 'feedback':
+        return {
+          name: 'Feedback',
+          description: 'AI learning loop and performance tracking',
+          capabilities: ['signal evaluation', 'win rate tracking', 'factor performance', 'weight adjustment'],
+        };
+      case 'settings':
+        return {
+          name: 'Settings',
+          description: 'Configure AI models, news sources, alerts, and user preferences',
+          capabilities: ['AI model selection', 'news sources', 'alert rules', 'user settings'],
+        };
+      default:
+        return {
+          name: 'Dashboard',
+          description: 'Crypto AI Trading Platform',
+          capabilities: ['trading', 'analysis', 'signals'],
+        };
     }
-    return `Ask about ${selectedSymbol.replace('USDT', '')}...`;
+  };
+
+  const getPlaceholder = () => {
+    const tabCtx = getTabContext();
+    if (language === 'fa') {
+      return `سوالی درباره ${tabCtx.name} دارید?`;
+    }
+    return `Ask about ${tabCtx.name.toLowerCase()}...`;
   };
 
   const getSuggestedQuestions = () => {
+    const symbol = selectedSymbol.replace('USDT', '');
+    const tabCtx = getTabContext();
+    
+    // Tab-specific questions
+    const tabQuestions: Record<string, string[]> = {
+      trading: [
+        `Should I buy ${symbol} now?`,
+        `What's the current trend for ${symbol}?`,
+        `Show me the order book analysis`,
+        `What's in my portfolio?`,
+        `Add ETH to my watchlist`,
+      ],
+      signals: [
+        `Generate a signal for ${symbol}`,
+        `What's the latest signal for ${symbol}?`,
+        `How accurate are the signals?`,
+        `What factors are used in signals?`,
+        `Compare signals for BTC vs ETH`,
+      ],
+      comparison: [
+        `Which coin has the best score?`,
+        `Compare BTC, ETH, and SOL`,
+        `Which is most oversold right now?`,
+        `What are the buy signals today?`,
+        `Show me the best performer`,
+      ],
+      analysis: [
+        `Explain the current analysis for ${symbol}`,
+        `What do the technical indicators show?`,
+        `What's the market regime?`,
+        `What are the support and resistance levels?`,
+        `Explain the factor scores`,
+      ],
+      journal: [
+        `What's in the latest journal entry?`,
+        `Summarize today's market analysis`,
+        `What news is affecting the market?`,
+        `What are the key findings?`,
+        `What risks should I watch for?`,
+      ],
+      feedback: [
+        `How is the AI performing?`,
+        `What's the win rate?`,
+        `Which factors work best?`,
+        `Run a feedback cycle`,
+        `How does the AI learn?`,
+      ],
+      settings: [
+        `How do I configure alerts?`,
+        `Which AI model is best?`,
+        `How do I add news sources?`,
+        `What timezone is set?`,
+        `How do I change my password?`,
+      ],
+    };
+    
+    const questions = tabQuestions[activeTab] || tabQuestions.trading;
+    
     if (language === 'fa') {
       return [
-        'آیا الان وقتشه بخرم?',
-        '趋势 BTC چطوره?',
-        'تحلیل کن ببینم',
-        ' risks چیه?',
-        'بهترین قیمت ورود چنده?',
+        `الان وقتشه ${symbol} بخرم?`,
+        `تحلیل ${symbol} چطوره?`,
+        `ریسک‌ها چیه?`,
+        `بهترین قیمت ورود چنده?`,
+        `سیگنال خرید داریم?`,
       ];
     }
-    return [
-      'Should I buy now?',
-      'What do you think about BTC?',
-      'Give me your analysis',
-      'What are the risks?',
-      'What\'s a good entry price?',
-    ];
+    return questions;
   };
 
   const handleSendMessage = async (question?: string) => {
@@ -122,13 +234,20 @@ export const ChatBot: React.FC = () => {
         content: m.content,
       }));
 
+      const tabCtx = getTabContext();
       const response = await apiFetch('/skills/chat/', {
         method: 'POST',
         body: JSON.stringify({
           symbol: selectedSymbol.replace('USDT', ''),
           question: text,
           model: selectedModel,
-          history: history, // Send conversation history
+          history: history,
+          tab_context: {
+            active_tab: activeTab,
+            tab_name: tabCtx.name,
+            tab_description: tabCtx.description,
+            capabilities: tabCtx.capabilities,
+          },
         }),
       });
 

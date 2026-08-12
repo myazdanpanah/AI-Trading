@@ -170,7 +170,7 @@ class TradingChatBot:
     @classmethod
     def answer(cls, question: str, symbol: str = 'BTC', market_data: Dict = None, 
                model: str = 'gemma4:latest', temperature: float = 0.7, 
-               history: list = None) -> Dict:
+               history: list = None, tab_context: Dict = None) -> Dict:
         """
         Answer a user's trading question.
         
@@ -208,9 +208,21 @@ class TradingChatBot:
         # Create a more conversational prompt for the LLM
         system_prompt = cls._get_system_prompt(language)
         
+        # Build tab context string
+        tab_info = ''
+        if tab_context:
+            tab_name = tab_context.get('tab_name', 'Dashboard')
+            tab_desc = tab_context.get('tab_description', '')
+            capabilities = tab_context.get('capabilities', [])
+            tab_info = f"""
+User is currently on the {tab_name} tab.
+{tab_desc}
+Capabilities available: {', '.join(capabilities)}
+You can answer questions about this tab and any other tabs. If the user asks about something not on this tab, explain what's available elsewhere."""
+        
         llm_prompt = f"""{system_prompt}
 
-The user is asking about {symbol}/USD trading.
+The user is asking about {symbol}/USD trading.{tab_info}
 
 Current market data:
 - Price: ${analysis.get('current_price', 'N/A'):,.2f}
@@ -218,12 +230,13 @@ Current market data:
 - Technical Score: {analysis.get('technical', {}).get('overall_score', 50)}/100
 - Candlestick Score: {analysis.get('candlestick', {}).get('overall_score', {}).get('overall', 50)}/100
 - RSI: {analysis.get('technical', {}).get('momentum', {}).get('rsi', 50)}
+- Fear & Greed: {analysis.get('sentiment', {}).get('fear_greed_index', 50)}
 
 My analysis suggests: {response['recommendation']} with {confidence}% confidence.
 
 User's question: {question}
 
-Respond naturally and conversationally in the same language as the user. Be helpful, explain your reasoning clearly, and provide actionable insights. Do not use markdown formatting - just write naturally like a knowledgeable friend would explain it."""
+Respond naturally and conversationally in the same language as the user. Be helpful, explain your reasoning clearly, and provide actionable insights. Do not use markdown formatting - just write naturally like a knowledgeable friend would explain it. You can answer questions about any tab (Trading, Signals, Analysis, Journal, Feedback, Settings) - not just the current one."""
 
         # Try to enhance response with LLM if available
         llm_response = cls._generate_with_llm(llm_prompt, actual_model, temperature, history=history, system_prompt=system_prompt)

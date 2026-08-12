@@ -335,7 +335,8 @@ def chat_with_ai(request):
     symbol = request.data.get('symbol', 'BTC')
     model = request.data.get('model', 'gemma4:latest')
     temperature = request.data.get('temperature', 0.7)
-    history = request.data.get('history', [])  # Conversation history
+    history = request.data.get('history', [])
+    tab_context = request.data.get('tab_context', {})  # Current tab context
     
     if not question:
         return Response(
@@ -344,7 +345,10 @@ def chat_with_ai(request):
         )
     
     from .services.chatbot import TradingChatBot
-    result = TradingChatBot.answer(question, symbol, model=model, temperature=temperature, history=history)
+    result = TradingChatBot.answer(
+        question, symbol, model=model, temperature=temperature, 
+        history=history, tab_context=tab_context
+    )
     
     return Response(result)
 

@@ -188,7 +188,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialTab = 'trading' }) 
       </main>
 
       {/* Floating ChatBot */}
-      <ChatBot />
+      <ChatBot activeTab={activeTab} />
     </div>
   );
 };
