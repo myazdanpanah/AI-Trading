@@ -39,9 +39,26 @@ class AIProviderViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def health(self, request):
         """Check provider health."""
-        asyncio.run(ai_gateway.initialize())
-        health = asyncio.run(ai_gateway.health_check())
-        return Response(health)
+        import httpx
+        import os
+        base_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
+        
+        result = {
+            'ollama': False,
+            'base_url': base_url,
+            'models_count': 0,
+        }
+        
+        try:
+            response = httpx.get(f"{base_url}/api/tags", timeout=5.0)
+            if response.status_code == 200:
+                data = response.json()
+                result['ollama'] = True
+                result['models_count'] = len(data.get('models', []))
+        except Exception:
+            pass
+        
+        return Response(result)
 
     @action(detail=False, methods=['get'], url_path='ollama-models')
     def ollama_models(self, request):

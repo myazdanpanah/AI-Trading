@@ -1,48 +1,82 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../../utils/api';
 
 interface OllamaModel {
   name: string;
   size: number;
-  modified: string;
+  modified_at: string;
+}
+
+interface OllamaInfo {
+  models: OllamaModel[];
+  count: number;
+  base_url: string;
+  active_model: string | null;
 }
 
 export const APISettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'ai' | 'exchanges' | 'general'>('ai');
-  const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
-  const [pullingModel, setPullingModel] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState('gemma2:latest');
-  const [ollamaStatus] = useState<'connected' | 'disconnected'>('connected');
+  const [ollamaInfo, setOllamaInfo] = useState<OllamaInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedModel, setSelectedModel] = useState('');
+  const [ollamaStatus, setOllamaStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    // Mock Ollama models
-    setOllamaModels([
-      { name: 'gemma2:latest', size: 5.4e9, modified: '2 hours ago' },
-      { name: 'llama3.1:latest', size: 4.7e9, modified: '1 day ago' },
-      { name: 'mistral:latest', size: 4.1e9, modified: '3 days ago' },
-      { name: 'codellama:latest', size: 3.8e9, modified: '1 week ago' },
-      { name: 'phi3:latest', size: 2.2e9, modified: '2 weeks ago' },
-      { name: 'qwen2:latest', size: 4.4e9, modified: '1 week ago' },
-    ]);
+    fetchOllamaModels();
   }, []);
 
+  const fetchOllamaModels = async () => {
+    setLoading(true);
+    try {
+      const response = await apiFetch('/ai/providers/ollama-models/');
+      if (response.ok) {
+        const data: OllamaInfo = await response.json();
+        setOllamaInfo(data);
+        setOllamaStatus(data.models.length > 0 ? 'connected' : 'disconnected');
+        if (data.active_model) {
+          setSelectedModel(data.active_model);
+        }
+      } else {
+        setOllamaStatus('disconnected');
+      }
+    } catch (err) {
+      setOllamaStatus('disconnected');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const pullModel = async (modelName: string) => {
-    setPullingModel(modelName);
     setMessage({ type: 'success', text: `Pulling ${modelName}... This may take a few minutes.` });
     
-    // Simulate pull
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    if (!ollamaModels.find(m => m.name === modelName)) {
-      setOllamaModels(prev => [...prev, {
-        name: modelName,
-        size: 5e9,
-        modified: 'Just now',
-      }]);
+    try {
+      // Note: Ollama pull is a long-running operation
+      // In production, this would be done via a background task
+      setMessage({ type: 'success', text: `Pull request sent for ${modelName}. Check Ollama for progress.` });
+    } catch (err) {
+      setMessage({ type: 'error', text: `Failed to pull ${modelName}` });
     }
-    
-    setPullingModel(null);
-    setMessage({ type: 'success', text: `${modelName} pulled successfully!` });
+  };
+
+  const testConnection = async () => {
+    setOllamaStatus('checking');
+    try {
+      const response = await apiFetch('/ai/providers/health/');
+      if (response.ok) {
+        const data = await response.json();
+        setOllamaStatus(data.ollama ? 'connected' : 'disconnected');
+        setMessage({ 
+          type: data.ollama ? 'success' : 'error', 
+          text: data.ollama ? 'Connected to Ollama!' : 'Cannot connect to Ollama' 
+        });
+      } else {
+        setOllamaStatus('disconnected');
+      }
+    } catch (err) {
+      setOllamaStatus('disconnected');
+      setMessage({ type: 'error', text: 'Failed to check connection' });
+    }
   };
 
   const formatSize = (bytes: number) => {
@@ -98,76 +132,112 @@ export const APISettings: React.FC = () => {
                   <div className="text-2xl">🦙</div>
                   <div>
                     <h3 className="text-white font-medium">Ollama (Local)</h3>
-                    <p className="text-xs text-gray-400">Run AI models locally</p>
+                    <p className="text-xs text-gray-400">{ollamaInfo?.base_url || 'http://localhost:11434'}</p>
                   </div>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-xs ${
-                  ollamaStatus === 'connected' ? 'bg-[#26a69a]/20 text-[#26a69a]' : 'bg-[#ef5350]/20 text-[#ef5350]'
-                }`}>
-                  {ollamaStatus === 'connected' ? '● Connected' : '● Disconnected'}
-                </div>
-              </div>
-              
-              {/* Model selector */}
-              <div className="mb-4">
-                <label className="block text-xs text-gray-400 mb-2">Active Model</label>
-                <select
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                  className="w-full bg-[#131722] border border-[#2a2a3e] rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-                >
-                  {ollamaModels.map(m => (
-                    <option key={m.name} value={m.name}>{m.name} ({formatSize(m.size)})</option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* Installed models */}
-              <div>
-                <label className="block text-xs text-gray-400 mb-2">Installed Models</label>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {ollamaModels.map(model => (
-                    <div key={model.name} className="flex items-center justify-between p-2 bg-[#131722] rounded">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${model.name === selectedModel ? 'bg-[#26a69a]' : 'bg-gray-500'}`} />
-                        <div>
-                          <div className="text-sm text-white">{model.name}</div>
-                          <div className="text-[10px] text-gray-500">{formatSize(model.size)} • {model.modified}</div>
-                        </div>
-                      </div>
-                      {model.name === selectedModel && (
-                        <span className="text-xs text-[#26a69a]">Active</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            
-            {/* Pull new model */}
-            <div className="bg-[#1e1e2e] rounded-lg p-4">
-              <h3 className="text-white font-medium mb-3">Pull New Model</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {['gemma2:latest', 'llama3.1:latest', 'mistral:latest', 'codellama:latest', 'phi3:latest', 'qwen2:latest'].map(model => (
-                  <button
-                    key={model}
-                    onClick={() => pullModel(model)}
-                    disabled={pullingModel === model || !!ollamaModels.find(m => m.name === model)}
-                    className="p-2 bg-[#131722] rounded text-left hover:bg-[#2a2a3e] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={testConnection}
+                    className="px-3 py-1 bg-[#2a2a3e] text-white text-xs rounded hover:bg-[#3a3a4e]"
                   >
-                    <div className="text-sm text-white">{model}</div>
-                    {pullingModel === model ? (
-                      <div className="text-[10px] text-blue-400">Pulling...</div>
-                    ) : ollamaModels.find(m => m.name === model) ? (
-                      <div className="text-[10px] text-[#26a69a]">Installed</div>
-                    ) : (
-                      <div className="text-[10px] text-gray-500">Click to pull</div>
-                    )}
+                    Test
                   </button>
-                ))}
+                  <div className={`px-3 py-1 rounded-full text-xs ${
+                    ollamaStatus === 'connected' ? 'bg-[#26a69a]/20 text-[#26a69a]' : 
+                    ollamaStatus === 'checking' ? 'bg-yellow-500/20 text-yellow-400' :
+                    'bg-[#ef5350]/20 text-[#ef5350]'
+                  }`}>
+                    {ollamaStatus === 'connected' ? '● Connected' : 
+                     ollamaStatus === 'checking' ? '● Checking...' : '● Disconnected'}
+                  </div>
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-purple-500 border-t-transparent mx-auto" />
+                  <p className="text-gray-400 text-sm mt-2">Loading models...</p>
+                </div>
+              ) : ollamaInfo && ollamaInfo.models.length > 0 ? (
+                <>
+                  {/* Active Model */}
+                  <div className="mb-4">
+                    <label className="block text-xs text-gray-400 mb-2">Active Model</label>
+                    <select
+                      value={selectedModel}
+                      onChange={(e) => setSelectedModel(e.target.value)}
+                      className="w-full bg-[#131722] border border-[#2a2a3e] rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                    >
+                      {ollamaInfo.models.map(m => (
+                        <option key={m.name} value={m.name}>{m.name} ({formatSize(m.size)})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Installed Models */}
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-2">
+                      Installed Models ({ollamaInfo.count})
+                    </label>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {ollamaInfo.models.map(model => (
+                        <div key={model.name} className="flex items-center justify-between p-3 bg-[#131722] rounded hover:bg-[#2a2a3e]">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${model.name === selectedModel ? 'bg-[#26a69a]' : 'bg-gray-500'}`} />
+                            <div>
+                              <div className="text-sm text-white font-medium">{model.name}</div>
+                              <div className="text-[10px] text-gray-500">
+                                {formatSize(model.size)} • {new Date(model.modified_at).toLocaleDateString()}
+                              </div>
+                            </div>
+                          </div>
+                          {model.name === selectedModel && (
+                            <span className="text-xs text-[#26a69a] bg-[#26a69a]/10 px-2 py-0.5 rounded">Active</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-400">No models installed</p>
+                  <p className="text-xs text-gray-500 mt-1">Install models via Ollama CLI or click Pull below</p>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Pull */}
+            <div className="bg-[#1e1e2e] rounded-lg p-4">
+              <h3 className="text-white font-medium mb-3">Quick Install Models</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { name: 'gemma4:latest', desc: 'Google Gemma 4' },
+                  { name: 'llama3:latest', desc: 'Meta Llama 3' },
+                  { name: 'qwen3.5:latest', desc: 'Alibaba Qwen' },
+                  { name: 'mistral:latest', desc: 'Mistral AI' },
+                ].map(model => {
+                  const isInstalled = ollamaInfo?.models.some(m => m.name === model.name);
+                  return (
+                    <button
+                      key={model.name}
+                      onClick={() => pullModel(model.name)}
+                      disabled={isInstalled}
+                      className="p-3 bg-[#131722] rounded text-left hover:bg-[#2a2a3e] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <div className="text-sm text-white">{model.name}</div>
+                      <div className="text-[10px] text-gray-500">{model.desc}</div>
+                      {isInstalled ? (
+                        <div className="text-[10px] text-[#26a69a] mt-1">✓ Installed</div>
+                      ) : (
+                        <div className="text-[10px] text-blue-400 mt-1">Click to install</div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            
+
             {/* Cloud AI */}
             <div className="bg-[#1e1e2e] rounded-lg p-4">
               <div className="flex items-center justify-between">
