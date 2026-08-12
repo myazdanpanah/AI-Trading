@@ -7,6 +7,8 @@ import { apiFetch } from '../../utils/api';
 const safe = {
   num: (v: any, d = 0): number => {
     if (v === null || v === undefined || v === '') return d;
+    if (Array.isArray(v)) return v.length > 0 ? safe.num(v[0], d) : d;
+    if (typeof v === 'object') return d;
     const n = typeof v === 'string' ? parseFloat(v) : v;
     return isNaN(n) ? d : n;
   },
@@ -243,7 +245,8 @@ export const SignalDashboard: React.FC = () => {
             const confidence = safe.num(signal.confidence);
             const entryPrice = signal.entry_price || signal.entry;
             const stopLoss = signal.stop_loss || signal.sl;
-            const takeProfit = signal.take_profit || signal.tp;
+            const takeProfitRaw = signal.take_profit || signal.tp;
+            const takeProfit = Array.isArray(takeProfitRaw) ? takeProfitRaw[0] : takeProfitRaw;
             
             return (
               <div key={signal.id || index} className="bg-gray-900 rounded-lg border border-gray-600 p-4 hover:border-gray-500 transition-colors">
