@@ -3,6 +3,7 @@ import { Dashboard } from './components/dashboard/Dashboard';
 import { LoginForm } from './components/auth/LoginForm';
 import { isAuthenticated } from './utils/api';
 import { WatchlistProvider } from './contexts/WatchlistContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 
 const App: React.FC = () => {
   const [isAuth, setIsAuth] = useState(false);
@@ -37,13 +38,19 @@ const App: React.FC = () => {
   }
 
   if (!isAuth) {
-    return <LoginForm onLogin={handleLogin} />;
+    return (
+      <LanguageProvider>
+        <LoginForm onLogin={handleLogin} />
+      </LanguageProvider>
+    );
   }
 
   return (
-    <WatchlistProvider>
-      <Dashboard onLogout={handleLogout} />
-    </WatchlistProvider>
+    <LanguageProvider>
+      <WatchlistProvider>
+        <Dashboard onLogout={handleLogout} />
+      </WatchlistProvider>
+    </LanguageProvider>
   );
 };
 
