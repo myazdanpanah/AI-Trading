@@ -120,11 +120,19 @@ export const SignalDashboard: React.FC = () => {
     }
   };
 
-  const formatPrice = (price: number) => {
-    if (!price) return '---';
-    if (price >= 1000) return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (price >= 1) return price.toFixed(2);
-    return price.toFixed(6);
+  const formatPrice = (price: any): string => {
+    // Handle null, undefined, empty string
+    if (price === null || price === undefined || price === '') return '---';
+    
+    // Convert to number if it's a string
+    const num = typeof price === 'string' ? parseFloat(price) : price;
+    
+    // Check if it's a valid number
+    if (isNaN(num)) return '---';
+    
+    if (num >= 1000) return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (num >= 1) return num.toFixed(2);
+    return num.toFixed(6);
   };
 
   // Ensure baseSymbols has at least some options
@@ -212,7 +220,7 @@ export const SignalDashboard: React.FC = () => {
                       {getActionLabel(signal.direction)}
                     </span>
                     <span className="text-sm text-gray-400">
-                      Confidence: {(signal.confidence * 100).toFixed(1)}%
+                      Confidence: {((signal.confidence || 0) * 100).toFixed(1)}%
                     </span>
                     <span className="text-xs px-2 py-0.5 bg-gray-700 rounded text-gray-300">
                       {signal.timeframe}
