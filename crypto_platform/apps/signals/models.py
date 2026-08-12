@@ -190,6 +190,70 @@ class PortfolioPosition(models.Model):
         return f"{self.symbol} {self.side} - {self.quantity} @ {self.entry_price}"
 
 
+class AlertRule(models.Model):
+    """User-configurable alert rules that trigger when scores cross thresholds."""
+    ALERT_TYPES = [
+        ('rsi_above', 'RSI Above'),
+        ('rsi_below', 'RSI Below'),
+        ('confidence_above', 'Confidence Above'),
+        ('confidence_below', 'Confidence Below'),
+        ('composite_above', 'Composite Score Above'),
+        ('composite_below', 'Composite Score Below'),
+        ('technical_above', 'Technical Score Above'),
+        ('technical_below', 'Technical Score Below'),
+        ('sentiment_above', 'Sentiment Score Above'),
+        ('sentiment_below', 'Sentiment Score Below'),
+        ('price_above', 'Price Above'),
+        ('price_below', 'Price Below'),
+        ('change_pct_above', '24h Change Above %'),
+        ('change_pct_below', '24h Change Below %'),
+        ('signal_buy', 'Buy Signal'),
+        ('signal_sell', 'Sell Signal'),
+        ('signal_strong_buy', 'Strong Buy Signal'),
+        ('signal_strong_sell', 'Strong Sell Signal'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='alert_rules')
+    symbol = models.CharField(max_length=20, db_index=True)
+    alert_type = models.CharField(max_length=30, choices=ALERT_TYPES)
+    threshold = models.FloatField(default=50, help_text='Threshold value to trigger alert')
+    is_active = models.BooleanField(default=True)
+    cooldown_minutes = models.IntegerField(default=60, help_text='Minutes between repeated alerts')
+    last_triggered = models.DateTimeField(null=True, blank=True)
+    message_template = models.CharField(max_length=200, blank=True, help_text='Custom alert message')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'alert rule'
+        verbose_name_plural = 'alert rules'
+        db_table = 'alert_rules'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.symbol} {self.get_alert_type_display()} {self.threshold}"
+
+
+class AlertHistory(models.Model):
+    """Record of triggered alerts."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    rule = models.ForeignKey(AlertRule, on_delete=models.CASCADE, related_name='history')
+    triggered_at = models.DateTimeField(auto_now_add=True)
+    trigger_value = models.FloatField(default=0, help_text='Actual value that triggered the alert')
+    message = models.TextField(blank=True)
+    read = models.BooleanField(default=False)
+    
+    class Meta:
+        verbose_name = 'alert history'
+        verbose_name_plural = 'alert histories'
+        db_table = 'alert_history'
+        ordering = ['-triggered_at']
+
+    def __str__(self):
+        return f"{self.rule.symbol} - {self.rule.get_alert_type_display()} at {self.triggered_at}"
+
+
 class SignalPerformance(models.Model):
     """Track signal performance for learning."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

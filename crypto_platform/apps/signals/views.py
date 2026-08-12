@@ -18,7 +18,9 @@ from .serializers import (
     SignalPerformanceSerializer, BacktestResultSerializer,
     SignalGenerationInputSerializer, RiskCalculationInputSerializer,
     BacktestInputSerializer,
+    AlertRuleSerializer, AlertHistorySerializer,
 )
+from .models import AlertRule, AlertHistory
 from .services import SignalGenerator, RiskManager, PortfolioTracker, SignalBacktester
 
 logger = logging.getLogger(__name__)
@@ -489,6 +491,139 @@ class SignalPerformanceViewSet(viewsets.ModelViewSet):
     destroy=extend_schema(tags=['Signals'], summary='Delete backtest result'),
     run=extend_schema(tags=['Signals'], summary='Run a backtest'),
 )
+class AlertRuleViewSet(viewsets.ModelViewSet):
+    """ViewSet for AlertRule CRUD and checking."""
+    serializer_class = AlertRuleSerializer
+
+    def get_queryset(self):
+        return AlertRule.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['post'])
+    def check(self, request):
+        """Check all active alert rules against current data."""
+        from apps.market.services.unified_data import fetch_market_data
+        from apps.technical_analysis.services.indicator_engine import IndicatorEngine
+        from django.utils import timezone
+        
+        user_rules = AlertRule.objects.filter(user=request.user, is_active=True)
+        triggered = []
+        
+        # Group rules by symbol
+        symbols = set(r.symbol for r in user_rules)
+        
+        for symbol in symbols:
+            try:
+                market = fetch_market_data(symbol)
+                current_price = market.get('current_price', 0)
+                closes = market.get('closes', [])[-50:]
+                
+                # Calculate indicators
+                indicators = {}
+                if closes:
+                    indicators = IndicatorEngine.calculate_all_indicators(
+                        [{'close': c, 'high': c, 'low': c, 'volume': 1000} for c in closes]
+                    )
+                
+                rsi = indicators.get('rsi_14', {}).get('value', 50)
+                
+                symbol_rules = user_rules.filter(symbol=symbol)
+                for rule in symbol_rules:
+                    # Check cooldown
+                    if rule.last_triggered:
+                        elapsed = (timezone.now() - rule.last_triggered).total_seconds() / 60
+                        if elapsed < rule.cooldown_minutes:
+                            continue
+                    
+                    triggered_value = None
+                    should_trigger = False
+                    
+                    if rule.alert_type == 'rsi_above' and rsi > rule.threshold:
+                        should_trigger = True
+                        triggered_value = rsi
+                    elif rule.alert_type == 'rsi_below' and rsi < rule.threshold:
+                        should_trigger = True
+                        triggered_value = rsi
+                    elif rule.alert_type == 'price_above' and current_price > rule.threshold:
+                        should_trigger = True
+                        triggered_value = current_price
+                    elif rule.alert_type == 'price_below' and current_price < rule.threshold:
+                        should_trigger = True
+                        triggered_value = current_price
+                    
+                    if should_trigger and triggered_value is not None:
+                        # Create alert history
+                        message = rule.message_template or f"{symbol} {rule.get_alert_type_display()}: {triggered_value:.2f} (threshold: {rule.threshold})"
+                        history = AlertHistory.objects.create(
+                            rule=rule,
+                            trigger_value=triggered_value,
+                            message=message,
+                        )
+                        rule.last_triggered = timezone.now()
+                        rule.save(update_fields=['last_triggered'])
+                        triggered.append({
+                            'rule_id': str(rule.id),
+                            'symbol': symbol,
+                            'alert_type': rule.alert_type,
+                            'triggered_value': triggered_value,
+                            'threshold': rule.threshold,
+                            'message': message,
+                        })
+            except Exception as e:
+                logger.warning(f"Failed to check alerts for {symbol}: {e}")
+        
+        return Response({
+            'checked_symbols': len(symbols),
+            'triggered_alerts': triggered,
+            'total_triggered': len(triggered),
+        })
+
+    @action(detail=False, methods=['get'])
+    def defaults(self, request):
+        """Get default alert rules for common scenarios."""
+        default_rules = [
+            {'symbol': 'BTCUSDT', 'alert_type': 'rsi_above', 'threshold': 70, 'message_template': 'BTC RSI overbought (>70) - potential sell signal'},
+            {'symbol': 'BTCUSDT', 'alert_type': 'rsi_below', 'threshold': 30, 'message_template': 'BTC RSI oversold (<30) - potential buy signal'},
+            {'symbol': 'ETHUSDT', 'alert_type': 'rsi_above', 'threshold': 70, 'message_template': 'ETH RSI overbought (>70) - potential sell signal'},
+            {'symbol': 'ETHUSDT', 'alert_type': 'rsi_below', 'threshold': 30, 'message_template': 'ETH RSI oversold (<30) - potential buy signal'},
+            {'symbol': 'BTCUSDT', 'alert_type': 'confidence_above', 'threshold': 80, 'message_template': 'High confidence BTC signal (>{threshold}%)'},
+            {'symbol': 'ETHUSDT', 'alert_type': 'confidence_above', 'threshold': 80, 'message_template': 'High confidence ETH signal (>{threshold}%)'},
+            {'symbol': 'BTCUSDT', 'alert_type': 'composite_above', 'threshold': 75, 'message_template': 'BTC composite score strong bullish (>{threshold})'},
+            {'symbol': 'BTCUSDT', 'alert_type': 'composite_below', 'threshold': 25, 'message_template': 'BTC composite score strong bearish (<{threshold})'},
+        ]
+        return Response(default_rules)
+
+
+class AlertHistoryViewSet(viewsets.ModelViewSet):
+    """ViewSet for AlertHistory."""
+    serializer_class = AlertHistorySerializer
+
+    def get_queryset(self):
+        return AlertHistory.objects.filter(rule__user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        """Mark an alert as read."""
+        history = self.get_object()
+        history.read = True
+        history.save(update_fields=['read'])
+        return Response({'status': 'ok'})
+
+    @action(detail=False, methods=['post'])
+    def mark_all_read(self, request):
+        """Mark all alerts as read."""
+        updated = AlertHistory.objects.filter(rule__user=request.user, read=False).update(read=True)
+        return Response({'marked_read': updated})
+
+    @action(detail=False, methods=['get'])
+    def unread_count(self, request):
+        """Get count of unread alerts."""
+        count = AlertHistory.objects.filter(rule__user=request.user, read=False).count()
+        return Response({'count': count})
+
+
 class BacktestResultViewSet(viewsets.ModelViewSet):
     """ViewSet for BacktestResult CRUD."""
     queryset = BacktestResult.objects.all()

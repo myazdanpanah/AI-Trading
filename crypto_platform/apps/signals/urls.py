@@ -11,6 +11,8 @@ router.register(r'risk-profiles', views.RiskProfileViewSet)
 router.register(r'positions', views.PortfolioPositionViewSet)
 router.register(r'performance', views.SignalPerformanceViewSet)
 router.register(r'backtests', views.BacktestResultViewSet)
+router.register(r'alerts', views.AlertRuleViewSet, basename='alert-rules')
+router.register(r'alert-history', views.AlertHistoryViewSet, basename='alert-history')
 
 urlpatterns = [
     path('', include(router.urls)),

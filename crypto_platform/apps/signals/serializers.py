@@ -4,6 +4,7 @@ from .models import (
     Signal, SignalReason, SignalGenerationRequest,
     FactorWeight, RiskProfile, PortfolioPosition,
     SignalPerformance, BacktestResult,
+    AlertRule, AlertHistory,
 )
 
 
@@ -42,6 +43,24 @@ class RiskProfileSerializer(serializers.ModelSerializer):
 class PortfolioPositionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PortfolioPosition
+        fields = '__all__'
+
+
+class AlertRuleSerializer(serializers.ModelSerializer):
+    alert_type_display = serializers.CharField(source='get_alert_type_display', read_only=True)
+    
+    class Meta:
+        model = AlertRule
+        fields = '__all__'
+        read_only_fields = ['user', 'last_triggered']
+
+
+class AlertHistorySerializer(serializers.ModelSerializer):
+    rule_symbol = serializers.CharField(source='rule.symbol', read_only=True)
+    rule_alert_type = serializers.CharField(source='rule.get_alert_type_display', read_only=True)
+    
+    class Meta:
+        model = AlertHistory
         fields = '__all__'
 
 

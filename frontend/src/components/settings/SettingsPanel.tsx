@@ -3,8 +3,9 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import APISettings from './APISettings';
 import UserSettings from './UserSettings';
 import NewsSettings from './NewsSettings';
+import AlertManager from './AlertManager';
 
-type SettingsTab = 'api' | 'user' | 'news' | 'social';
+type SettingsTab = 'api' | 'user' | 'news' | 'social' | 'alerts';
 
 export const SettingsPanel: React.FC = () => {
   const { t } = useLanguage();
@@ -15,6 +16,7 @@ export const SettingsPanel: React.FC = () => {
     { id: 'user' as SettingsTab, label: t('settings.profile'), icon: '👤' },
     { id: 'news' as SettingsTab, label: '📰 News Sources', icon: '📰' },
     { id: 'social' as SettingsTab, label: '💬 Social Media', icon: '💬' },
+    { id: 'alerts' as SettingsTab, label: '🔔 Alerts', icon: '🔔' },
   ];
 
   return (
@@ -45,6 +47,7 @@ export const SettingsPanel: React.FC = () => {
         {(activeTab === 'news' || activeTab === 'social') && (
           <NewsSettings initialSection={activeTab === 'social' ? 'social' : 'news'} />
         )}
+        {activeTab === 'alerts' && <AlertManager />}
       </div>
     </div>
   );
