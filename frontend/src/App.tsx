@@ -28,7 +28,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // Dashboard wrapper that handles tab routing
 const DashboardRoute: React.FC = () => {
   const { tab } = useParams();
-  const validTabs = ['trading', 'signals', 'analysis', 'journal', 'settings'];
+  const validTabs = ['trading', 'signals', 'analysis', 'journal', 'feedback', 'settings'];
   const activeTab = validTabs.includes(tab || '') ? tab as string : 'trading';
   
   return (
