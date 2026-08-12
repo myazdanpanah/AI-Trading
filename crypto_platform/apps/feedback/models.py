@@ -170,6 +170,90 @@ class LearningInsight(models.Model):
         return f"{self.insight_type}: {self.title}"
 
 
+class CandleData(models.Model):
+    """Store OHLCV candle data for AI training and analysis."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    symbol = models.CharField(max_length=20, db_index=True)
+    timeframe = models.CharField(max_length=10, db_index=True)
+    
+    # OHLCV data
+    open_price = models.DecimalField(max_digits=20, decimal_places=8)
+    high_price = models.DecimalField(max_digits=20, decimal_places=8)
+    low_price = models.DecimalField(max_digits=20, decimal_places=8)
+    close_price = models.DecimalField(max_digits=20, decimal_places=8)
+    volume = models.DecimalField(max_digits=20, decimal_places=8)
+    
+    # Technical indicators at this candle
+    indicators = models.JSONField(default=dict, help_text='RSI, MACD, EMA, VWAP, etc.')
+    
+    # Pattern and context
+    pattern = models.CharField(max_length=50, blank=True, help_text='Detected candle pattern')
+    market_condition = models.CharField(max_length=50, blank=True)
+    
+    # Price change from previous candle
+    price_change = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    price_change_pct = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    volume_change_pct = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    
+    # Source
+    source = models.CharField(max_length=50, default='binance', help_text='binance, coingecko, etc.')
+    
+    timestamp = models.DateTimeField(db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'candle data'
+        verbose_name_plural = 'candle data'
+        db_table = 'candle_data'
+        ordering = ['-timestamp']
+        unique_together = ['symbol', 'timeframe', 'timestamp']
+        indexes = [
+            models.Index(fields=['symbol', 'timeframe', 'timestamp']),
+        ]
+
+    def __str__(self):
+        return f"{self.symbol} {self.timeframe} @ {self.timestamp}"
+
+
+class TrainingSample(models.Model):
+    """AI training samples linking signals to outcomes with candle context."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    signal_memory = models.ForeignKey('SignalMemory', on_delete=models.CASCADE, related_name='training_samples')
+    candle_data = models.ForeignKey(CandleData, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Input features for AI training
+    input_features = models.JSONField(default=dict, help_text='Features used to make the prediction')
+    
+    # Expected output (what actually happened)
+    actual_outcome = models.CharField(max_length=20, help_text='buy, sell, hold - what happened')
+    actual_return = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    
+    # Candle context at signal creation
+    candle_open = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    candle_high = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    candle_low = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    candle_close = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    candle_volume = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    
+    # Subsequent candles (for pattern learning)
+    next_candles = models.JSONField(default=list, help_text='Next N candles after signal for pattern learning')
+    
+    # Training metadata
+    was_correct = models.BooleanField(default=False)
+    model_version = models.CharField(max_length=50, default='v1')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'training sample'
+        verbose_name_plural = 'training samples'
+        db_table = 'training_samples'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Sample for {self.signal_memory} - {'Correct' if self.was_correct else 'Wrong'}"
+
+
 class FeedbackCycle(models.Model):
     """Track the complete feedback loop cycles."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

@@ -146,6 +146,14 @@ class SignalEvaluator:
                 evaluated_at=timezone.now(),
             )
 
+            # Create training sample with candle data
+            try:
+                from apps.feedback.services.candle_collector import candle_collector
+                training_result = candle_collector.create_training_sample(signal_memory)
+                logger.info(f"Created training sample for signal {signal.id}: {training_result}")
+            except Exception as e:
+                logger.warning(f"Failed to create training sample: {e}")
+
             logger.info(f"Recorded outcome for signal {signal.id}: {'WIN' if evaluation['was_correct'] else 'LOSS'} ({evaluation['return_percent']:.2f}%)")
             return True
 

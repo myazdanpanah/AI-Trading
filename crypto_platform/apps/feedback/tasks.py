@@ -43,6 +43,48 @@ def run_weekly_feedback_cycle(self):
         raise self.retry(exc=e, countdown=600, max_retries=3)
 
 
+@shared_task(bind=True, name='feedback.collect_candles')
+def collect_candles_task(self, symbols=None, timeframe='1h', limit=100):
+    """Collect candle data for AI training."""
+    from .services.candle_collector import candle_collector
+    
+    if symbols is None:
+        symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT']
+    
+    results = []
+    for symbol in symbols:
+        try:
+            result = candle_collector.collect_candles(symbol, timeframe, limit)
+            results.append(result)
+            logger.info(f"Collected candles for {symbol}: {result.get('stored', 0)} new")
+        except Exception as e:
+            logger.error(f"Failed to collect candles for {symbol}: {e}")
+            results.append({'symbol': symbol, 'error': str(e)})
+    
+    # Create training samples from recent signal memories
+    from .models import SignalMemory, TrainingSample
+    from apps.feedback.services.candle_collector import candle_collector
+    
+    recent_memories = SignalMemory.objects.filter(
+        evaluated_at__isnull=False,
+        training_samples__isnull=True
+    )[:20]
+    
+    samples_created = 0
+    for memory in recent_memories:
+        try:
+            candle_collector.create_training_sample(memory)
+            samples_created += 1
+        except Exception as e:
+            logger.warning(f"Failed to create training sample: {e}")
+    
+    return {
+        'candles_collected': sum(r.get('stored', 0) for r in results if 'stored' in r),
+        'training_samples_created': samples_created,
+        'symbols': symbols,
+    }
+
+
 @shared_task(bind=True, name='feedback.record_signal_outcome')
 def record_signal_outcome_task(self, signal_id, exit_price, profit_loss_percent, holding_period_hours=0):
     """Record a signal outcome for learning."""

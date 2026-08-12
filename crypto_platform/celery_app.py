@@ -48,6 +48,12 @@ app.conf.beat_schedule = {
         },
         'kwargs': {'lookback_days': 7},
     },
+    # Collect candle data every 4 hours for AI training
+    'feedback-collect-candles': {
+        'task': 'feedback.collect_candles',
+        'schedule': 14400.0,  # Every 4 hours
+        'kwargs': {'timeframe': '1h', 'limit': 100},
+    },
     # Cleanup old memories monthly
     'feedback-cleanup-monthly': {
         'task': 'feedback.cleanup_old_memories',
