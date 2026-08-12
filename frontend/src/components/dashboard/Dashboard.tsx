@@ -12,10 +12,11 @@ import { SignalDashboard } from './SignalDashboard';
 import { AnalysisPanel } from './AnalysisPanel';
 import JournalPanel from '../journal/JournalPanel';
 import SettingsPanel from '../settings/SettingsPanel';
+import ComparisonPanel from './ComparisonPanel';
 import FeedbackPanel from './FeedbackPanel';
 import { ChatBot } from '../trading/ChatBot';
 
-type TabType = 'trading' | 'signals' | 'analysis' | 'journal' | 'feedback' | 'settings';
+type TabType = 'trading' | 'signals' | 'comparison' | 'analysis' | 'journal' | 'feedback' | 'settings';
 
 // Error Boundary Component
 class ErrorBoundary extends Component<{ children: ReactNode; tabName: string }, { hasError: boolean; error: string }> {
@@ -67,7 +68,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialTab = 'trading' }) 
   const tabs: { id: TabType; label: string; icon: string }[] = [
     { id: 'trading', label: t('nav.trading'), icon: '📈' },
     { id: 'signals', label: t('nav.signals'), icon: '🔔' },
-    { id: 'analysis', label: t('nav.analysis'), icon: '📊' },
+    { id: 'comparison', label: language === 'fa' ? 'مقایسه' : 'Compare', icon: '📊' },
+    { id: 'analysis', label: t('nav.analysis'), icon: '📈' },
     { id: 'journal', label: t('nav.journal'), icon: '📝' },
     { id: 'feedback', label: language === 'fa' ? 'بازخورد' : 'Feedback', icon: '🧠' },
     { id: 'settings', label: t('nav.settings'), icon: '⚙️' },
@@ -105,6 +107,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialTab = 'trading' }) 
         return (
           <ErrorBoundary tabName="Signals">
             <SignalDashboard />
+          </ErrorBoundary>
+        );
+      case 'comparison':
+        return (
+          <ErrorBoundary tabName="Comparison">
+            <ComparisonPanel />
           </ErrorBoundary>
         );
       case 'analysis':
