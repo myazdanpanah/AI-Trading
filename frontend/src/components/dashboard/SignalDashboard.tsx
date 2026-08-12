@@ -72,11 +72,7 @@ function getScoreColor(score: number): string {
   return SCORE_COLORS.low;
 }
 
-function getScoreBg(score: number): string {
-  if (score >= 70) return 'bg-green-500/20 border-green-500/30';
-  if (score >= 40) return 'bg-yellow-500/20 border-yellow-500/30';
-  return 'bg-red-500/20 border-red-500/30';
-}
+
 
 // Radar Chart SVG component
 const RadarChart: React.FC<{ data: Array<{ label: string; value: number }>; size?: number }> = ({ data, size = 280 }) => {

@@ -57,7 +57,7 @@ const TickerTape: React.FC = () => {
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'trading' | 'signals' | 'signal-dashboard' | 'feedback' | 'analysis' | 'backtest' | 'settings' | 'user-settings'>('trading');
+  const [activeTab, setActiveTab] = useState<'trading' | 'signals' | 'feedback' | 'analysis' | 'backtest' | 'settings' | 'user-settings'>('trading');
   const [loading, setLoading] = useState(true);
   const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT');
 
@@ -78,7 +78,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     { id: 'trading' as const, label: 'Trading', icon: '📈' },
     { id: 'signals' as const, label: 'Signals', icon: '🎯' },
     { id: 'feedback' as const, label: 'Feedback', icon: '🧠' },
-    { id: 'signal-dashboard' as const, label: 'Signals', icon: '🎯' },
     { id: 'analysis' as const, label: 'Analysis', icon: '📊' },
     { id: 'backtest' as const, label: 'Backtest', icon: '🔬' },
     { id: 'settings' as const, label: 'Settings', icon: '⚙️' },
