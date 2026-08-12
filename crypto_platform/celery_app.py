@@ -30,6 +30,14 @@ app.conf.beat_schedule = {
         },
         'kwargs': {'lookback_days': 1},
     },
+    # Adjust weights daily based on performance
+    'signals-adjust-weights-daily': {
+        'task': 'signals.adjust_weights_daily',
+        'schedule': {
+            'hour': 2,
+            'minute': 0,
+        },
+    },
     # Weekly comprehensive feedback cycle
     'feedback-weekly-cycle': {
         'task': 'feedback.run_weekly_cycle',

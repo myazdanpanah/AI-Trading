@@ -318,9 +318,50 @@ class SignalReasonViewSet(viewsets.ModelViewSet):
     destroy=extend_schema(tags=['Signals'], summary='Delete factor weight'),
 )
 class FactorWeightViewSet(viewsets.ModelViewSet):
-    """ViewSet for FactorWeight CRUD."""
+    """ViewSet for FactorWeight CRUD and auto-adjustment."""
     queryset = FactorWeight.objects.all()
     serializer_class = FactorWeightSerializer
+
+    @action(detail=False, methods=['post'])
+    def adjust(self, request):
+        """Automatically adjust weights based on signal performance."""
+        try:
+            from .services.weight_adjuster import WeightAdjuster
+            lookback_days = int(request.data.get('lookback_days', 30))
+            result = WeightAdjuster.adjust_weights(lookback_days=lookback_days)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Weight adjustment failed: {e}")
+            return Response(
+                {'error': f'Adjustment failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'])
+    def reset(self, request):
+        """Reset weights to defaults."""
+        try:
+            from .services.weight_adjuster import WeightAdjuster
+            result = WeightAdjuster.reset_weights()
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': f'Reset failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'])
+    def current(self, request):
+        """Get current weights with performance data."""
+        try:
+            from .services.weight_adjuster import WeightAdjuster
+            result = WeightAdjuster.get_current_weights()
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 @extend_schema_view(

@@ -272,6 +272,24 @@ def generate_signals_hourly(self):
         raise self.retry(exc=e, countdown=300, max_retries=3)
 
 
+@shared_task(bind=True, name='signals.adjust_weights_daily')
+def adjust_weights_daily(self):
+    """Adjust signal generator weights based on performance data."""
+    try:
+        logger.info("Starting daily weight adjustment")
+        from apps.signals.services.weight_adjuster import WeightAdjuster
+        
+        result = WeightAdjuster.adjust_weights(lookback_days=30)
+        
+        logger.info(f"Weight adjustment complete: {result.get('status')}, "
+                    f"weights changed: {result.get('weights_changed', False)}")
+        
+        return result
+    except Exception as e:
+        logger.error(f"Daily weight adjustment failed: {e}")
+        raise self.retry(exc=e, countdown=300, max_retries=3)
+
+
 @shared_task(bind=True, name='feedback.evaluate_signals_hourly')
 def evaluate_signals_hourly(self):
     """Evaluate pending signals every hour and record outcomes for learning."""

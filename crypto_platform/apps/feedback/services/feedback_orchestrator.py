@@ -108,10 +108,27 @@ class FeedbackOrchestrator:
                 'updated': embeddings_updated,
             }
             
-            # Step 5: Calculate pre/post accuracy
+            # Step 5: Adjust weights based on performance
+            weight_adjustment = {}
+            try:
+                from apps.signals.services.weight_adjuster import WeightAdjuster
+                weight_result = WeightAdjuster.adjust_weights(lookback_days=lookback_days * 3)
+                weight_adjustment = weight_result
+                cycle.weights_adjusted = weight_result.get('weights_changed', False)
+                results['steps']['weights'] = {
+                    'status': weight_result.get('status'),
+                    'weights_changed': weight_result.get('weights_changed', False),
+                    'summary': weight_result.get('summary', ''),
+                    'new_weights': weight_result.get('new_weights', {}),
+                }
+            except Exception as e:
+                logger.warning(f"Weight adjustment failed: {e}")
+                results['steps']['weights'] = {'status': 'skipped', 'error': str(e)}
+            
+            # Step 6: Calculate pre/post accuracy
             pre_accuracy = cycle.signals_correct / cycle.signals_evaluated * 100 if cycle.signals_evaluated > 0 else 0
             cycle.pre_cycle_accuracy = Decimal(str(round(pre_accuracy, 2)))
-            cycle.post_cycle_accuracy = cycle.pre_cycle_accuracy  # Will be updated later
+            cycle.post_cycle_accuracy = cycle.pre_cycle_accuracy  # Will be updated after next cycle
             
             # Step 6: Generate summary
             cycle.summary = cls._generate_cycle_summary(analysis, results)
