@@ -231,17 +231,26 @@ export const SignalDashboard: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        setError('Not logged in. Please login first.');
+        setLoading(false);
+        return;
+      }
       const response = await apiFetch(
         `/skills/full-analysis/?symbol=${symbol}&account_size=${accountSize}&risk_pct=0.02`
       );
       if (response.ok) {
         const result = await response.json();
         setData(result);
+      } else if (response.status === 401) {
+        setError('Session expired. Please logout and login again.');
       } else {
-        setError('Failed to fetch analysis');
+        const errData = await response.json().catch(() => ({}));
+        setError(errData.error || 'Failed to fetch analysis');
       }
     } catch (err) {
-      setError('Network error');
+      setError('Network error: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
