@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../utils/api';
 
 interface WatchlistItem {
@@ -10,55 +10,145 @@ interface WatchlistItem {
   is_favorite: boolean;
 }
 
+interface BinanceSymbol {
+  symbol: string;
+  baseAsset: string;
+  quoteAsset: string;
+  status: string;
+}
+
 interface Props {
   watchlist: WatchlistItem[];
   onUpdate: (items: WatchlistItem[]) => void;
   onClose: () => void;
 }
 
-// Available symbols to add
-const AVAILABLE_SYMBOLS = [
-  { symbol: 'BTCUSDT', display_name: 'Bitcoin', coin_id: 'bitcoin' },
-  { symbol: 'ETHUSDT', display_name: 'Ethereum', coin_id: 'ethereum' },
-  { symbol: 'SOLUSDT', display_name: 'Solana', coin_id: 'solana' },
-  { symbol: 'BNBUSDT', display_name: 'BNB', coin_id: 'binancecoin' },
-  { symbol: 'XRPUSDT', display_name: 'XRP', coin_id: 'ripple' },
-  { symbol: 'ADAUSDT', display_name: 'Cardano', coin_id: 'cardano' },
-  { symbol: 'DOGEUSDT', display_name: 'Dogecoin', coin_id: 'dogecoin' },
-  { symbol: 'DOTUSDT', display_name: 'Polkadot', coin_id: 'polkadot' },
-  { symbol: 'AVAXUSDT', display_name: 'Avalanche', coin_id: 'avalanche-2' },
-  { symbol: 'LINKUSDT', display_name: 'Chainlink', coin_id: 'chainlink' },
-  { symbol: 'MATICUSDT', display_name: 'Polygon', coin_id: 'matic-network' },
-  { symbol: 'UNIUSDT', display_name: 'Uniswap', coin_id: 'uniswap' },
-  { symbol: 'ATOMUSDT', display_name: 'Cosmos', coin_id: 'cosmos' },
-  { symbol: 'LTCUSDT', display_name: 'Litecoin', coin_id: 'litecoin' },
-  { symbol: 'FILUSDT', display_name: 'Filecoin', coin_id: 'filecoin' },
-  { symbol: 'NEARUSDT', display_name: 'NEAR', coin_id: 'near' },
-  { symbol: 'APTUSDT', display_name: 'Aptos', coin_id: 'aptos' },
-  { symbol: 'ARBUSDT', display_name: 'Arbitrum', coin_id: 'arbitrum' },
-  { symbol: 'OPUSDT', display_name: 'Optimism', coin_id: 'optimism' },
-  { symbol: 'SUIUSDT', display_name: 'Sui', coin_id: 'sui' },
-];
+// CoinGecko ID mapping for common coins
+const COINGECKO_MAP: Record<string, string> = {
+  'BTC': 'bitcoin', 'ETH': 'ethereum', 'SOL': 'solana', 'BNB': 'binancecoin',
+  'XRP': 'ripple', 'ADA': 'cardano', 'DOGE': 'dogecoin', 'DOT': 'polkadot',
+  'AVAX': 'avalanche-2', 'LINK': 'chainlink', 'MATIC': 'matic-network',
+  'UNI': 'uniswap', 'ATOM': 'cosmos', 'LTC': 'litecoin', 'FIL': 'filecoin',
+  'NEAR': 'near', 'APT': 'aptos', 'ARB': 'arbitrum', 'OP': 'optimism',
+  'SUI': 'sui', 'SHIB': 'shiba-inu', 'PEPE': 'pepe', 'FLOKI': 'floki',
+  'AAVE': 'aave', 'MKR': 'maker', 'CRV': 'curve-dao-token',
+  'GRT': 'the-graph', 'INJ': 'injective-protocol', 'SAND': 'the-sandbox',
+  'MANA': 'decentraland', 'AXS': 'axie-infinity', 'IMX': 'immutable-x',
+  'FTM': 'fantom', 'ALGO': 'algorand', 'VET': 'vechain',
+  'HBAR': 'hedera-hashgraph', 'ICP': 'internet-computer', 'EGLD': 'elrond-erd-2',
+  'XTZ': 'tezos', 'RUNE': 'thorchain', 'ENJ': 'enjincoin',
+  'CHZ': 'chiliz', 'BAT': 'basic-attention-token', 'COMP': 'compound-governance-token',
+  'ZRX': '0x', 'SNX': 'havven', 'YFI': 'yearn-finance',
+  '1INCH': '1inch', 'SUSHI': 'sushi', 'BAL': 'balancer',
+  'KNC': 'kyber-network-crystal', 'UMA': 'uma', 'ANKR': 'ankr',
+  'COTI': 'coti', 'CELO': 'celo', 'OCEAN': 'ocean-protocol',
+  'NKN': 'nkn', 'IOTA': 'iota', 'THETA': 'theta-token',
+  'STX': 'blockstack', 'KAVA': 'kava', 'ZIL': 'zilliqa',
+  'ONE': 'harmony', 'SXP': 'swipe', 'REEF': 'reef-finance',
+  'LUNA': 'terra-luna-2', 'USTC': 'terrausd', 'MIR': 'mirror-protocol',
+};
+
+// Generate display name from symbol
+const symbolToName = (baseAsset: string): string => {
+  const nameMap: Record<string, string> = {
+    'BTC': 'Bitcoin', 'ETH': 'Ethereum', 'SOL': 'Solana', 'BNB': 'BNB',
+    'XRP': 'XRP', 'ADA': 'Cardano', 'DOGE': 'Dogecoin', 'DOT': 'Polkadot',
+    'AVAX': 'Avalanche', 'LINK': 'Chainlink', 'MATIC': 'Polygon',
+    'UNI': 'Uniswap', 'ATOM': 'Cosmos', 'LTC': 'Litecoin', 'FIL': 'Filecoin',
+    'NEAR': 'NEAR Protocol', 'APT': 'Aptos', 'ARB': 'Arbitrum',
+    'OP': 'Optimism', 'SUI': 'Sui', 'SHIB': 'Shiba Inu', 'PEPE': 'Pepe',
+    'AAVE': 'Aave', 'MKR': 'Maker', 'CRV': 'Curve', 'GRT': 'The Graph',
+    'INJ': 'Injective', 'SAND': 'Sandbox', 'MANA': 'Decentraland',
+    'FTM': 'Fantom', 'ALGO': 'Algorand', 'VET': 'VeChain',
+    'HBAR': 'Hedera', 'ICP': 'Internet Computer', 'XTZ': 'Tezos',
+    'RUNE': 'THORChain', 'ENJ': 'Enjin', 'CHZ': 'Chiliz',
+    'COMP': 'Compound', 'SNX': 'Synthetix', 'YFI': 'Yearn Finance',
+    'ANKR': 'Ankr', 'COTI': 'COTI', 'IOTA': 'IOTA', 'THETA': 'Theta',
+    'STX': 'Stacks', 'KAVA': 'Kava', 'ZIL': 'Zilliqa',
+    'LUNA': 'Terra', 'BONK': 'Bonk', 'WIF': 'dogwifhat',
+    'JUP': 'Jupiter', 'TIA': 'Celestia', 'SEI': 'Sei',
+    'CELO': 'Celo', 'OCEAN': 'Ocean', 'NKN': 'NKN',
+    'ZRX': '0x', 'BAL': 'Balancer', 'KNC': 'Kyber',
+    'UMA': 'UMA', '1INCH': '1inch', 'SUSHI': 'Sushi',
+  };
+  return nameMap[baseAsset] || baseAsset;
+};
 
 export const WatchlistManager: React.FC<Props> = ({ watchlist, onUpdate, onClose }) => {
   const [items, setItems] = useState<WatchlistItem[]>(watchlist);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [binanceSymbols, setBinanceSymbols] = useState<BinanceSymbol[]>([]);
+  const [loadingSymbols, setLoadingSymbols] = useState(true);
+  const [dataSource, setDataSource] = useState<'binance' | 'static'>('static');
+
+  // Fetch all Binance trading pairs on mount
+  useEffect(() => {
+    fetchBinanceSymbols();
+  }, []);
+
+  const fetchBinanceSymbols = async () => {
+    setLoadingSymbols(true);
+    try {
+      // Try Binance API first
+      const response = await fetch('https://api.binance.com/api/v3/exchangeInfo');
+      if (response.ok) {
+        const data = await response.json();
+        const usdtPairs = data.symbols
+          .filter((s: any) => s.quoteAsset === 'USDT' && s.status === 'TRADING')
+          .map((s: any) => ({
+            symbol: s.symbol,
+            baseAsset: s.baseAsset,
+            quoteAsset: s.quoteAsset,
+            status: s.status,
+          }));
+        setBinanceSymbols(usdtPairs);
+        setDataSource('binance');
+      } else {
+        throw new Error('Binance not available');
+      }
+    } catch (e) {
+      // Fallback: use a comprehensive static list
+      console.warn('Binance API not available, using static list');
+      setDataSource('static');
+      setBinanceSymbols(generateStaticSymbols());
+    } finally {
+      setLoadingSymbols(false);
+    }
+  };
+
+  const generateStaticSymbols = (): BinanceSymbol[] => {
+    const bases = [
+      'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'LINK',
+      'MATIC', 'UNI', 'ATOM', 'LTC', 'FIL', 'NEAR', 'APT', 'ARB', 'OP', 'SUI',
+      'SHIB', 'PEPE', 'FLOKI', 'AAVE', 'MKR', 'CRV', 'GRT', 'INJ', 'SAND', 'MANA',
+      'FTM', 'ALGO', 'VET', 'HBAR', 'ICP', 'EGLD', 'XTZ', 'RUNE', 'ENJ', 'CHZ',
+      'BAT', 'COMP', 'ZRX', 'SNX', 'YFI', '1INCH', 'SUSHI', 'BAL', 'KNC', 'UMA',
+      'ANKR', 'COTI', 'CELO', 'OCEAN', 'NKN', 'IOTA', 'THETA', 'STX', 'KAVA', 'ZIL',
+      'ONE', 'SXP', 'REEF', 'LUNA', 'BONK', 'WIF', 'JUP', 'TIA', 'SEI', 'IMX',
+      'AXS', 'GALA', 'MASK', 'LDO', 'RPL', 'GMX', 'PENDLE', 'WLD', 'PYTH', 'ONDO',
+      'JTO', 'STRK', 'MANTA', 'ALT', 'DYM', 'PORTAL', 'ETHFI', 'ENA', 'TNSR', 'SAGA',
+    ];
+    return bases.map(b => ({
+      symbol: `${b}USDT`,
+      baseAsset: b,
+      quoteAsset: 'USDT',
+      status: 'TRADING',
+    }));
+  };
 
   const isInWatchlist = (symbol: string) => items.some(i => i.symbol === symbol);
 
-  const addSymbol = (symbol: string) => {
-    const found = AVAILABLE_SYMBOLS.find(s => s.symbol === symbol);
-    if (found && !isInWatchlist(symbol)) {
-      setItems(prev => [...prev, {
-        symbol: found.symbol,
-        display_name: found.display_name,
-        coin_id: found.coin_id,
-        order: prev.length,
-        is_favorite: false,
-      }]);
-    }
+  const addSymbol = (symbol: string, baseAsset: string) => {
+    if (isInWatchlist(symbol)) return;
+    setItems(prev => [...prev, {
+      symbol,
+      display_name: symbolToName(baseAsset),
+      coin_id: COINGECKO_MAP[baseAsset] || baseAsset.toLowerCase(),
+      order: prev.length,
+      is_favorite: false,
+    }]);
   };
 
   const removeSymbol = (symbol: string) => {
@@ -112,18 +202,23 @@ export const WatchlistManager: React.FC<Props> = ({ watchlist, onUpdate, onClose
     }
   };
 
-  const filteredAvailable = AVAILABLE_SYMBOLS.filter(s =>
+  const filteredAvailable = binanceSymbols.filter(s =>
     !isInWatchlist(s.symbol) &&
-    (s.display_name.toLowerCase().includes(search.toLowerCase()) ||
+    (s.baseAsset.toLowerCase().includes(search.toLowerCase()) ||
      s.symbol.toLowerCase().includes(search.toLowerCase()))
-  );
+  ).slice(0, 50); // Limit to 50 results for performance
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
       <div className="bg-[#1e1e2e] rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col border border-[#2a2a3e] shadow-2xl">
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#2a2a3e] flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Manage Watchlist</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-white">Manage Watchlist</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              {dataSource === 'binance' ? '⚡ Live Binance symbols' : '📋 Static list'} • {binanceSymbols.length} USDT pairs
+            </p>
+          </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white text-xl">×</button>
         </div>
 
@@ -165,30 +260,46 @@ export const WatchlistManager: React.FC<Props> = ({ watchlist, onUpdate, onClose
           </div>
 
           {/* Available symbols */}
-          <div className="w-64 p-4 overflow-y-auto">
-            <h3 className="text-sm font-medium text-gray-400 mb-3">Add Symbol</h3>
+          <div className="w-72 p-4 overflow-y-auto">
+            <h3 className="text-sm font-medium text-gray-400 mb-3">
+              {dataSource === 'binance' ? 'Search Binance Pairs' : 'Add Symbol'}
+            </h3>
             <input
               type="text"
-              placeholder="Search..."
+              placeholder={dataSource === 'binance' ? 'Search by name or symbol (e.g., BTC, PEPE, ARB)...' : 'Search...'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full px-3 py-2 bg-[#131722] border border-[#2a2a3e] rounded-lg text-white text-sm mb-3 focus:outline-none focus:border-blue-500"
+              autoFocus
             />
-            <div className="space-y-1">
-              {filteredAvailable.map((s) => (
-                <button
-                  key={s.symbol}
-                  onClick={() => addSymbol(s.symbol)}
-                  className="w-full flex items-center justify-between p-2 bg-[#131722] rounded-lg hover:bg-[#2a2a3e] text-left transition-colors"
-                >
-                  <div>
-                    <div className="text-sm text-white">{s.display_name}</div>
-                    <div className="text-xs text-gray-500">{s.symbol}</div>
-                  </div>
-                  <span className="text-blue-400 text-lg">+</span>
-                </button>
-              ))}
-            </div>
+            {loadingSymbols ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
+                <span className="ml-2 text-sm text-gray-400">Loading symbols...</span>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {filteredAvailable.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-4 text-center">
+                    {search ? `No results for "${search}"` : 'Type to search...'}
+                  </p>
+                ) : (
+                  filteredAvailable.map((s) => (
+                    <button
+                      key={s.symbol}
+                      onClick={() => addSymbol(s.symbol, s.baseAsset)}
+                      className="w-full flex items-center justify-between p-2 bg-[#131722] rounded-lg hover:bg-[#2a2a3e] text-left transition-colors"
+                    >
+                      <div>
+                        <div className="text-sm text-white">{symbolToName(s.baseAsset)}</div>
+                        <div className="text-xs text-gray-500">{s.symbol}</div>
+                      </div>
+                      <span className="text-blue-400 text-lg">+</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </div>
 
