@@ -1,6 +1,11 @@
 /**
  * i18n - Internationalization System
  * Supports English (EN) and Persian (FA)
+ * 
+ * Persian terms verified against:
+ * - Mofid Learning (learning.emofid.com)
+ * - Official Stock Market Dictionary (farachart.com)
+ * - Standard Financial Terminology (TSE)
  */
 
 const translations = {
@@ -19,7 +24,7 @@ const translations = {
   trading: {
     watchlist: { en: 'Watchlist', fa: 'لیست مشاهده' },
     orderBook: { en: 'Order Book', fa: 'دفتر سفارشات' },
-    portfolio: { en: 'Portfolio', fa: 'پورتفولیو' },
+    portfolio: { en: 'Portfolio', fa: 'پرتفوی' },  // Official term from Mofid
     addSymbol: { en: 'Add Symbol', fa: 'افزودن نماد' },
     removeSymbol: { en: 'Remove', fa: 'حذف' },
     search: { en: 'Search...', fa: 'جستجو...' },
@@ -50,16 +55,16 @@ const translations = {
     active: { en: 'Active', fa: 'فعال' },
     expired: { en: 'Expired', fa: 'منقضی شده' },
     confidence: { en: 'Confidence', fa: 'اطمینان' },
-    technical: { en: 'Technical', fa: 'تکنیکال' },
-    sentiment: { en: 'Sentiment', fa: 'احساسات' },
+    technical: { en: 'Technical', fa: 'تکنیکال' },  // Official term
+    sentiment: { en: 'Sentiment', fa: 'احساسات بازار' },
     ai: { en: 'AI Analysis', fa: 'تحلیل هوش مصنوعی' },
-    macro: { en: 'Macro', fa: 'کلان' },
+    macro: { en: 'Macro', fa: 'تحلیل کلان' },
     news: { en: 'News', fa: 'اخبار' },
     regime: { en: 'Market Regime', fa: 'حالت بازار' },
     overall: { en: 'Overall', fa: 'کلی' },
     trend: { en: 'Trend', fa: 'روند' },
     momentum: { en: 'Momentum', fa: 'مومنتوم' },
-    volatility: { en: 'Volatility', fa: 'نوسان' },
+    volatility: { en: 'Volatility', fa: 'نوسان‌پذیری' },
     buy: { en: 'BUY', fa: 'خرید' },
     sell: { en: 'SELL', fa: 'فروش' },
     hold: { en: 'HOLD', fa: 'نگه داشتن' },
@@ -75,7 +80,7 @@ const translations = {
     technicalScore: { en: 'Technical Score', fa: 'امتیاز تکنیکال' },
     rsi: { en: 'RSI', fa: 'RSI' },
     macd: { en: 'MACD', fa: 'MACD' },
-    vwap: { en: 'VWAP', fa: 'میانگین حجمی' },
+    vwap: { en: 'VWAP', fa: 'میانگین حجمی وزن‌دار' },
     ichimoku: { en: 'Ichimoku', fa: 'ایچیموکو' },
     support: { en: 'Support', fa: 'حمایت' },
     resistance: { en: 'Resistance', fa: 'مقاومت' },
@@ -83,10 +88,10 @@ const translations = {
     patterns: { en: 'Patterns', fa: 'الگوها' },
     bullish: { en: 'Bullish', fa: 'صعودی' },
     bearish: { en: 'Bearish', fa: 'نزولی' },
-    overbought: { en: 'Overbought', fa: 'بیش از حد خرید' },
-    oversold: { en: 'Oversold', fa: 'بیش از حد فروش' },
-    high: { en: 'High', fa: 'بالا' },
-    low: { en: 'Low', fa: 'پایین' },
+    overbought: { en: 'Overbought', fa: 'بیش از حد خریداری شده' },
+    oversold: { en: 'Oversold', fa: 'بیش از حد فروخته شده' },
+    high: { en: 'High', fa: 'بالاترین' },
+    low: { en: 'Low', fa: 'پایین‌ترین' },
     open: { en: 'Open', fa: 'باز' },
     close: { en: 'Close', fa: 'بسته' },
     factorAnalysis: { en: 'Factor Analysis', fa: 'تحلیل عوامل' },
@@ -159,7 +164,7 @@ const translations = {
     suggestedQuestions: { en: 'Suggested Questions', fa: 'سوالات پیشنهادی' },
     shouldIBuy: { en: 'Should I buy?', fa: 'آیا بخرم؟' },
     goodTimeToSell: { en: 'Good time to sell?', fa: 'زمان خوبی برای فروش است؟' },
-    whatsTheTrend: { en: "What's the trend?", fa: 'روند چیست؟' },
+    whatsTheTrend: { en: "What's the trend?", fa: 'روند بازار چیست؟' },
     analyzing: { en: 'Analyzing...', fa: 'در حال تحلیل...' },
     modelUsed: { en: 'Model', fa: 'مدل' },
     executionTime: { en: 'Execution time', fa: 'زمان اجرا' },
@@ -261,10 +266,4 @@ const translations = {
 };
 
 export type TranslationKey = keyof typeof translations;
-export type NestedKey<T> = {
-  [K in keyof T]: T[K] extends object
-    ? { [J in keyof T[K]]: string }
-    : never;
-}[keyof T];
-
 export default translations;
