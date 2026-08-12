@@ -53,4 +53,5 @@ urlpatterns = [
     path('api/social/', include('apps.social.urls')),
     path('api/portfolio/', include('apps.portfolio.urls')),
     path('api/skills/', include('apps.trading_skills.urls')),
+    path('api/journal/', include('apps.journal.urls')),
 ]
