@@ -12,6 +12,8 @@ class OllamaProvider(BaseProvider):
     """Ollama provider for local AI models."""
 
     DEFAULT_MODELS = [
+        'gemma4:latest',
+        'llama3.2',
         'llama3', 'llama3.1', 'llama3:8b', 'llama3:70b',
         'qwen2.5', 'qwen2.5:7b', 'qwen2.5:72b',
         'deepseek-coder', 'deepseek-chat',
@@ -28,7 +30,7 @@ class OllamaProvider(BaseProvider):
     async def generate(
         self,
         messages: List[PromptMessage],
-        model: str = 'llama3',
+        model: str = 'gemma4:latest',
         temperature: float = 0.7,
         max_tokens: int = 2000,
         **kwargs
@@ -70,7 +72,7 @@ class OllamaProvider(BaseProvider):
     async def generate_stream(
         self,
         messages: List[PromptMessage],
-        model: str = 'llama3',
+        model: str = 'gemma4:latest',
         temperature: float = 0.7,
         max_tokens: int = 2000,
         **kwargs

@@ -1,4 +1,4 @@
-FROM python:3.13-slim AS base
+FROM python:3.12-slim AS base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -15,9 +15,12 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install core Python dependencies (lightweight)
+COPY backend/requirements-core.txt .
+RUN pip install --no-cache-dir -r requirements-core.txt
+
+# Create non-root user
+RUN adduser --disabled-password --gecos '' appuser
 
 # Copy application code
 COPY . .
@@ -25,11 +28,10 @@ COPY . .
 # Set PYTHONPATH for Django imports
 ENV PYTHONPATH=/app:/app/crypto_platform
 
-# Collect static files (non-privileged user)
+# Run migrations and collect static
+RUN python manage.py migrate --no-input 2>/dev/null || true
 RUN python manage.py collectstatic --noinput 2>/dev/null || true
 
-# Create non-root user
-RUN adduser --disabled-password --gecos '' appuser
 USER appuser
 
 EXPOSE 8000
