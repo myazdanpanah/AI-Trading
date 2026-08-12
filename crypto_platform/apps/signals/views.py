@@ -70,16 +70,113 @@ class SignalViewSet(viewsets.ModelViewSet):
             except Exception:
                 pass  # Use defaults if DB unavailable
 
-            # Generate signal
+            # Fetch live data and run technical analysis
+            symbol = data['symbol'].upper()
+            technical_data = data.get('technical_data', {})
+            sentiment_data = data.get('sentiment_data', {})
+            current_price = data.get('current_price')
+
+            try:
+                from apps.market.services.unified_data import fetch_market_data
+                from apps.technical_analysis.services.indicator_engine import IndicatorEngine
+
+                market = fetch_market_data(symbol)
+                closes = market['closes'][-50:]
+                highs = market['highs'][-50:]
+                lows = market['lows'][-50:]
+                volumes = market['volumes'][-50:]
+                current_price = current_price or market['current_price']
+
+                # Run indicator engine
+                indicators = IndicatorEngine.calculate_all_indicators(
+                    [{'close': c, 'high': h, 'low': l, 'volume': v}
+                     for c, h, l, v in zip(closes, highs, lows, volumes)]
+                )
+
+                # Translate indicator engine output to signal generator format
+                rsi_data = indicators.get('rsi_14', {})
+                macd_data = indicators.get('macd', {})
+                ema9 = indicators.get('ema_9', {})
+                ema21 = indicators.get('ema_21', {})
+                ema50 = indicators.get('ema_50', {})
+                bb_data = indicators.get('bollinger_bands', {})
+                atr_data = indicators.get('atr_14', {})
+                vwap_data = indicators.get('vwap', {})
+                ichimoku_data = indicators.get('ichimoku', {})
+                stoch_data = indicators.get('stochastic', {})
+
+                # Determine trend from EMAs
+                if ema9.get('signal') == 'bullish' and ema21.get('signal') == 'bullish':
+                    trend = 'strong_uptrend'
+                elif ema9.get('signal') == 'bullish' or ema50.get('signal') == 'bullish':
+                    trend = 'uptrend'
+                elif ema9.get('signal') == 'bearish' and ema21.get('signal') == 'bearish':
+                    trend = 'strong_downtrend'
+                elif ema9.get('signal') == 'bearish' or ema50.get('signal') == 'bearish':
+                    trend = 'downtrend'
+                else:
+                    trend = 'neutral'
+
+                # Determine support/resistance
+                bb_lower = bb_data.get('lower', 0)
+                bb_upper = bb_data.get('upper', 999999)
+                if current_price and current_price <= bb_lower * 1.01:
+                    sr_signal = 'near_support'
+                elif current_price and current_price >= bb_upper * 0.99:
+                    sr_signal = 'near_resistance'
+                else:
+                    sr_signal = 'neutral'
+
+                # MACD signal string
+                macd_trend = macd_data.get('trend', 'neutral')
+                if macd_trend == 'bullish' and macd_data.get('histogram', 0) > 0:
+                    macd_signal = 'bullish_crossover'
+                elif macd_trend == 'bearish' and macd_data.get('histogram', 0) < 0:
+                    macd_signal = 'bearish_crossover'
+                else:
+                    macd_signal = macd_trend
+
+                technical_data = {
+                    'rsi': rsi_data.get('value', 50),
+                    'macd_signal': macd_signal,
+                    'trend': trend,
+                    'vwap_signal': vwap_data.get('signal', 'neutral'),
+                    'vwap_deviation': vwap_data.get('deviation', 0),
+                    'ichimoku_signal': ichimoku_data.get('signal', 'neutral'),
+                    'volume_signal': 'high_volume_breakout' if atr_data.get('volatility') == 'high' else 'normal',
+                    'sr_signal': sr_signal,
+                    'volatility': atr_data.get('percent', 2),
+                    'atr': atr_data.get('value', current_price * 0.02 if current_price else 1000),
+                    'stochastic_k': stoch_data.get('k', 50),
+                    'stochastic_d': stoch_data.get('d', 50),
+                }
+
+                # Try to fetch sentiment data
+                try:
+                    from apps.journal.services.journal_writer import fetch_fear_greed_index
+                    fg = fetch_fear_greed_index()
+                    sentiment_data = {
+                        'fear_greed_index': fg.get('value', 50),
+                        'social_sentiment': 50,
+                    }
+                except Exception:
+                    sentiment_data = {'fear_greed_index': 50, 'social_sentiment': 50}
+
+            except Exception as data_err:
+                logger.warning(f"Failed to fetch live data for signal: {data_err}")
+                # Use defaults if live data unavailable
+                current_price = current_price or 0
+
+            # Generate signal with real data
             result = generator.generate_signal(
-                symbol=data['symbol'],
+                symbol=symbol,
                 timeframe=data['timeframe'],
-                technical_data=data.get('technical_data', {}),
-                sentiment_data=data.get('sentiment_data', {}),
+                technical_data=technical_data,
+                sentiment_data=sentiment_data,
                 news_data=data.get('news_data', {}),
                 ai_data=data.get('ai_data', {}),
                 macro_data=data.get('macro_data', {}),
-                current_price=data.get('current_price'),
+                current_price=current_price,
             )
 
             # Try to save to database (graceful fallback if DB unavailable)

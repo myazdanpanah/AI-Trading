@@ -375,49 +375,90 @@ class SignalGenerator:
         """Generate human-readable reasons for the signal."""
         reasons = []
         
-        # Technical reasons
-        if scores['technical'] > 65:
+        # Technical reasons - always provide
+        tech_score = float(scores.get('technical', 50))
+        if tech_score > 65:
             reasons.append({
                 'type': 'technical',
-                'description': f"Strong technical indicators (score: {scores['technical']:.1f})",
-                'confidence': int(scores['technical']),
+                'description': f"Strong technical indicators (score: {tech_score:.1f})",
+                'confidence': int(tech_score),
             })
-        elif scores['technical'] < 35:
+        elif tech_score < 35:
             reasons.append({
                 'type': 'technical',
-                'description': f"Weak technical indicators (score: {scores['technical']:.1f})",
-                'confidence': int(100 - scores['technical']),
+                'description': f"Weak technical indicators (score: {tech_score:.1f})",
+                'confidence': int(100 - tech_score),
             })
+        else:
+            reasons.append({
+                'type': 'technical',
+                'description': f"Mixed technical signals (score: {tech_score:.1f}) - no clear direction",
+                'confidence': 50,
+            })
+        
+        # RSI reason
+        rsi = technical_data.get('rsi')
+        if rsi is not None:
+            if rsi > 70:
+                reasons.append({'type': 'technical', 'description': f"RSI overbought ({rsi:.0f}) - potential reversal", 'confidence': 70})
+            elif rsi < 30:
+                reasons.append({'type': 'technical', 'description': f"RSI oversold ({rsi:.0f}) - potential bounce", 'confidence': 70})
+            elif 45 <= rsi <= 55:
+                reasons.append({'type': 'technical', 'description': f"RSI neutral ({rsi:.0f}) - no momentum signal", 'confidence': 40})
+        
+        # Trend reason
+        trend = technical_data.get('trend')
+        if trend and trend != 'neutral':
+            reasons.append({'type': 'technical', 'description': f"Trend: {trend.replace('_', ' ')}", 'confidence': 60})
+        
+        # VWAP reason
+        vwap = technical_data.get('vwap_signal')
+        if vwap and vwap != 'neutral':
+            reasons.append({'type': 'technical', 'description': f"VWAP signal: {vwap} - price {'below' if vwap == 'bearish' else 'above'} VWAP", 'confidence': 55})
         
         # Sentiment reasons
         fear_greed = sentiment_data.get('fear_greed_index')
-        if fear_greed:
+        if fear_greed is not None:
             if fear_greed < 25:
                 reasons.append({
                     'type': 'sentiment',
-                    'description': f"Extreme fear in market (F&G: {fear_greed}) - contrarian opportunity",
+                    'description': f"Extreme fear (F&G: {fear_greed}) - contrarian buy signal",
                     'confidence': 75,
                 })
             elif fear_greed > 75:
                 reasons.append({
                     'type': 'sentiment',
-                    'description': f"Extreme greed in market (F&G: {fear_greed}) - caution advised",
+                    'description': f"Extreme greed (F&G: {fear_greed}) - caution advised",
                     'confidence': 75,
                 })
+            elif fear_greed < 40:
+                reasons.append({'type': 'sentiment', 'description': f"Fear dominant (F&G: {fear_greed}) - market cautious", 'confidence': 55})
+            elif fear_greed > 60:
+                reasons.append({'type': 'sentiment', 'description': f"Greed dominant (F&G: {fear_greed}) - market optimistic", 'confidence': 55})
+            else:
+                reasons.append({'type': 'sentiment', 'description': f"Neutral sentiment (F&G: {fear_greed})", 'confidence': 40})
         
         # AI reasons
-        if scores['ai'] > 65:
+        ai_score = float(scores.get('ai', 50))
+        if ai_score > 65:
             reasons.append({
                 'type': 'ai',
-                'description': f"AI models bullish (score: {scores['ai']:.1f})",
-                'confidence': int(scores['ai']),
+                'description': f"AI models bullish (score: {ai_score:.1f})",
+                'confidence': int(ai_score),
             })
-        elif scores['ai'] < 35:
+        elif ai_score < 35:
             reasons.append({
                 'type': 'ai',
-                'description': f"AI models bearish (score: {scores['ai']:.1f})",
-                'confidence': int(100 - scores['ai']),
+                'description': f"AI models bearish (score: {ai_score:.1f})",
+                'confidence': int(100 - ai_score),
             })
+        
+        # Macro reason
+        macro_score = float(scores.get('macro', 50))
+        if macro_score > 60:
+            reasons.append({'type': 'macro', 'description': f"Favorable macro conditions (score: {macro_score:.1f})", 'confidence': int(macro_score)})
+        elif macro_score < 40:
+            reasons.append({'type': 'macro', 'description': f"Unfavorable macro conditions (score: {macro_score:.1f})", 'confidence': int(100 - macro_score)})
         
         return reasons
     
@@ -427,36 +468,30 @@ class SignalGenerator:
         current_price: Decimal,
         technical_data: Dict
     ) -> Dict:
-        """Calculate entry, stop loss, and take profit levels."""
-        if current_price <= 0:
-            return {'entry_price': None, 'stop_loss': None, 'take_profit': []}
+        """Calculate entry, stop loss, and take profit levels for ALL signals."""
+        price = float(current_price) if current_price else 0
+        if price <= 0:
+            return {'entry_price': 0, 'stop_loss': 0, 'take_profit': []}
         
-        # Default ATR-based levels
-        atr = Decimal(str(technical_data.get('atr', float(current_price) * 0.02)))
+        atr_raw = technical_data.get('atr', price * 0.02)
+        atr = float(atr_raw) if atr_raw else price * 0.02
+        if atr <= 0:
+            atr = price * 0.02
+        
+        entry_price = price
         
         if direction in ('buy', 'strong_buy'):
-            entry_price = current_price
-            stop_loss = current_price - (atr * Decimal('2'))
-            take_profit = [
-                float(current_price + (atr * Decimal('2'))),
-                float(current_price + (atr * Decimal('3'))),
-                float(current_price + (atr * Decimal('5'))),
-            ]
+            stop_loss = price - (atr * 2)
+            take_profit = [price + atr * 2, price + atr * 3, price + atr * 5]
         elif direction in ('sell', 'strong_sell'):
-            entry_price = current_price
-            stop_loss = current_price + (atr * Decimal('2'))
-            take_profit = [
-                float(current_price - (atr * Decimal('2'))),
-                float(current_price - (atr * Decimal('3'))),
-                float(current_price - (atr * Decimal('5'))),
-            ]
+            stop_loss = price + (atr * 2)
+            take_profit = [price - atr * 2, price - atr * 3, price - atr * 5]
         else:
-            entry_price = None
-            stop_loss = None
-            take_profit = []
+            stop_loss = price - (atr * 2)
+            take_profit = [price + atr * 2, price + atr * 3, price - atr * 2]
         
         return {
-            'entry_price': float(entry_price) if entry_price else None,
-            'stop_loss': float(stop_loss) if stop_loss else None,
-            'take_profit': take_profit,
+            'entry_price': round(entry_price, 2),
+            'stop_loss': round(stop_loss, 2),
+            'take_profit': [round(tp, 2) for tp in take_profit],
         }
