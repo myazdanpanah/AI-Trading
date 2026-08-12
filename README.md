@@ -11,8 +11,7 @@
 [![Django](https://img.shields.io/badge/django-5.0+-green.svg)](https://djangoproject.com)
 [![React](https://img.shields.io/badge/react-18+-61dafb.svg)](https://reactjs.org)
 [![React Native](https://img.shields.io/badge/react--native-0.73+-61dafb.svg)](https://reactnative.dev)
-[![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)](https://docker.com)
-[![CI/CD](https://img.shields.io/badge/github--actions-passing-brightgreen.svg)](https://github.com/actions)
+[![PostgreSQL](https://img.shields.io/badge/postgresql-16-blue.svg)](https://postgresql.org)
 
 ---
 
@@ -21,160 +20,138 @@
 ## 📋 Table of Contents
 
 - [Overview](#-overview)
+- [Key Features](#-key-features)
 - [Architecture](#-architecture)
-- [Features](#-features)
 - [Tech Stack](#-tech-stack)
 - [Quick Start](#-quick-start)
-- [Configuration](#%EF%B8%8F-configuration)
-- [Project Structure](#-project-structure)
+- [Dashboard](#-dashboard)
+- [AI Learning Loop](#-ai-learning-loop)
 - [API Documentation](#-api-documentation)
-- [Mobile App](#-mobile-app)
-- [Infrastructure](#-infrastructure)
+- [Configuration](#%EF%B8%8F-configuration)
 - [Development](#-development)
-- [Testing](#-testing)
 - [Deployment](#-deployment)
 - [Roadmap](#-roadmap)
-- [Contributing](#-contributing)
 - [License](#-license)
 
 ---
 
 ## 🌟 Overview
 
-AI-Trading is a full-stack cryptocurrency trading platform that combines **multi-agent AI architecture**, **real-time market analysis**, **self-learning capabilities**, and **social trading** to generate intelligent trading signals. The platform integrates with major exchanges (Binance, Bybit, OKX), uses local AI models via Ollama for privacy-first analysis, and supports cross-exchange arbitrage opportunities.
+AI-Trading is a full-stack cryptocurrency trading platform that combines **multi-agent AI architecture**, **real-time market analysis**, **self-learning capabilities**, and **social trading** to generate intelligent trading signals.
 
-### Key Highlights
+### What Makes It Special
 
-- **🤖 Multi-Agent AI System** — Coordinated AI agents (Market Analyst, Technical Analyst, Sentiment Analyst, Risk Analyst) work together to generate comprehensive trading signals
-- **📊 Multi-Factor Scoring** — Combines technical analysis, sentiment, news, AI predictions, and macro factors with configurable weights
-- **🧠 Self-Learning** — The system learns from past signals, adjusting weights and strategies based on performance
-- **📈 TradingView-Grade UI** — Professional dark-theme interface with real-time charts, order book, and portfolio tracking
-- **🔄 Real-time Streaming** — WebSocket-powered live data feeds for prices, order book, and signal updates
-- **💰 Arbitrage Detection** — Cross-exchange arbitrage opportunity detection and auto-execution
-- **👥 Social Trading** — Follow top traders, copy trades, and share signals
-- **📱 Mobile App** — React Native companion app with real-time alerts
-- **🛡️ Production-Ready** — Docker deployment with monitoring, alerting, and security hardening
+- **🤖 Self-Learning AI** — The system learns from past signals, automatically adjusting weights based on what actually works
+- **📊 Real Data** — Live Binance prices, CoinGecko fallback, TradingView charts
+- **🧠 Feedback Loop** — AI generates signals, evaluates outcomes, records lessons, and improves over time
+- **📈 TradingView UI** — Professional dark-theme interface with real-time charts
+- **🌐 Iran-Optimized** — Timezone support (IRST), VPN-friendly architecture
+
+---
+
+## 🎯 Key Features
+
+### 📈 Trading Interface
+- **TradingView Widget** — Professional candlestick charts with indicators
+- **Real-time Order Book** — Live bid/ask display
+- **Watchlist** — User-defined cryptocurrency pairs with live prices
+- **Portfolio Tracker** — Position tracking with P&L
+
+### 🎯 Signal Engine
+- **Multi-Factor Scoring** — 5 factors: Technical, Sentiment, News, AI, Macro
+- **Configurable Weights** — Auto-adjusted based on performance
+- **Entry/SL/TP Levels** — Always calculated, even for HOLD signals
+- **Detailed Reasons** — 3-5 reasons explaining every signal
+
+### 🧠 AI Self-Learning Loop
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    AI FEEDBACK LOOP                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. GENERATE SIGNAL (Signals tab)                               │
+│     BTC HOLD @ $63,550 | Confidence: 52%                       │
+│     Technical: 48% | Sentiment: 60%                             │
+│                                                                 │
+│  2. EVALUATE SIGNAL (Feedback tab)                              │
+│     Check: what happened to BTC price?                          │
+│     Result: BTC went to $63,538 (-0.02%)                        │
+│                                                                 │
+│  3. RECORD OUTCOME (SignalMemory)                               │
+│     Signal: BTC HOLD | Result: LOSS -0.02%                      │
+│     Lesson: "technical was misleading (48)"                     │
+│                                                                 │
+│  4. AI ANALYZES PATTERNS                                        │
+│     "When technical score is 48%, HOLD signals lose money"      │
+│                                                                 │
+│  5. ADJUST WEIGHTS (WeightAdjuster)                             │
+│     Reduce technical weight, increase sentiment weight          │
+│                                                                 │
+│  6. NEXT SIGNALS BENEFIT                                        │
+│     AI adjusts weights based on what actually worked            │
+│     Win rate improves over time                                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 📊 Interactive Analysis Panel
+- **SVG Gauge Charts** — Visual scores for Combined, Regime, Technical
+- **Factor Score Bars** — Bar charts for all 5 factors
+- **Weight Distribution** — Visual weight visualization
+- **Journal Summary** — Latest AI analysis with findings/risks
+- **Regime Details** — Market regime with posture/exposure
+
+### 🔄 Automated Tasks (Celery)
+| Task | Frequency | Description |
+|------|-----------|-------------|
+| Generate Signals | Every hour | BTC, ETH, SOL, BNB, XRP |
+| Evaluate Signals | Every hour | Check 1+ hour old signals |
+| Feedback Cycle | Daily 1 AM | Analyze patterns, generate insights |
+| Weight Adjustment | Daily 2 AM | Adjust factor weights |
+| Weekly Analysis | Sunday 2 AM | Comprehensive review |
+| Memory Cleanup | Monthly | Remove 90+ day old memories |
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND                                       │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐      │
-│  │ React Web UI │ │ React Native │ │   Trading    │ │   Social     │      │
-│  │  (TradingView)│ │   Mobile App │ │   Backtester │ │   Trading    │      │
-│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘      │
-│                              WebSocket Client                              │
-└───────────────────────────────────┬─────────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────┴─────────────────────────────────────────┐
-│                        NGINX REVERSE PROXY (:80)                            │
-└───────────────────────────────────┬─────────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────┴─────────────────────────────────────────┐
-│                         DJANGO BACKEND (:8000)                              │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐│
-│  │   Market   │ │  Signals   │ │     AI     │ │  Learning  │ │  Feedback  ││
-│  │   Engine   │ │   Engine   │ │   Engine   │ │   Engine   │ │    Loop    ││
-│  └────────────┘ └────────────┘ └────────────┘ └────────────┘ └────────────┘│
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐│
-│  │    News    │ │ Sentiment  │ │ Technical  │ │  Notifi-   │ │  Reports   ││
-│  │ Intelligence│ │  Analysis  │ │  Analysis  │ │  cations   │ │            ││
-│  └────────────┘ └────────────┘ └────────────┘ └────────────┘ └────────────┘│
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐              │
-│  │ Arbitrage  │ │   Social   │ │  Portfolio  │ │   Mobile   │              │
-│  │  Detector  │ │  Trading   │ │ Management │ │     API    │              │
-│  └────────────┘ └────────────┘ └────────────┘ └────────────┘              │
-│                            WebSocket Server                                │
-└───────┬────────────┬────────────┬────────────┬────────────┬────────────────┘
-        │            │            │            │            │
-┌───────┴──────┐┌────┴────┐┌─────┴─────┐┌─────┴─────┐┌─────┴─────┐
-│  PostgreSQL  ││  Redis  ││  Celery   ││  Ollama   ││  Other    │
-│ +TimescaleDB ││  Cache  ││  Workers  ││  (Local   ││   APIs    │
-│  +pgvector   ││ Broker  ││   Beat    ││    AI)    ││           │
-└──────────────┘└─────────┘└───────────┘└───────────┘└───────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        FRONTEND (:3000)                         │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │
+│  │ Trading  │ │ Signals  │ │ Analysis │ │ Journal  │          │
+│  │  Tab     │ │   Tab    │ │   Tab    │ │   Tab    │          │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘          │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐                      │
+│  │ Feedback │ │ Settings │ │ Chatbot  │                      │
+│  │   Tab    │ │   Tab    │ │ (Floating)│                      │
+│  └──────────┘ └──────────┘ └──────────┘                      │
+│  TradingView Widget | Recharts | React Contexts                │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │ HTTP/WebSocket
+┌───────────────────────────┴─────────────────────────────────────┐
+│                     DJANGO BACKEND (:8000)                      │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐  │
+│  │   Market   │ │  Signals   │ │     AI     │ │  Learning  │  │
+│  │   Engine   │ │   Engine   │ │   Engine   │ │   Engine   │  │
+│  │ (Binance)  │ │ (5-factor) │ │ (Ollama)   │ │ (Feedback) │  │
+│  └────────────┘ └────────────┘ └────────────┘ └────────────┘  │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐  │
+│  │    News    │ │ Sentiment  │ │ Technical  │ │  Journal   │  │
+│  │  Sources   │ │  (F&G)     │ │ (RSI/MACD) │ │  (LLM)     │  │
+│  └────────────┘ └────────────┘ └────────────┘ └────────────┘  │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐                 │
+│  │  Feedback  │ │  Weight    │ │   Celery   │                 │
+│  │  Evaluator │ │  Adjuster  │ │   Worker   │                 │
+│  └────────────┘ └────────────┘ └────────────┘                 │
+└───────┬────────────┬────────────┬────────────┬─────────────────┘
+        │            │            │            │
+┌───────┴──────┐┌────┴────┐┌─────┴─────┐┌─────┴─────┐
+│  PostgreSQL  ││  Redis  ││  Ollama   ││  APIs     │
+│  Port 5433   ││  Cache  ││  gemma4   ││ Binance   │
+│  30+ tables  ││ Broker  ││  :latest  ││ CoinGecko │
+└──────────────┘└─────────┘└───────────┘└───────────┘
 ```
-
----
-
-## ✨ Features
-
-### 📈 Trading Interface
-- **TradingView-Style Charts** — Candlestick charts with SMA, EMA, Bollinger Bands overlays
-- **Real-time Order Book** — Live bid/ask display with depth visualization
-- **Watchlist** — 10 cryptocurrency pairs with live prices and sorting
-- **Portfolio Tracker** — Real-time position tracking with P&L and allocation pie chart
-- **Drawing Tools** — Trend lines, horizontal lines, Fibonacci retracement, rectangles
-
-### 🎯 Signal Engine
-- **Multi-Factor Scoring** — Combines 5 factors (Technical, Sentiment, News, AI, Macro)
-- **Configurable Weights** — Adjust factor weights via API or UI
-- **Risk Management** — Kelly criterion, position sizing, max drawdown limits
-- **Signal Reasons** — Human-readable explanations for every signal
-
-### 🤖 AI Engine
-- **Multi-Provider Support** — Ollama (local), OpenAI, Anthropic, OpenRouter
-- **Agent Orchestration** — Pipeline, parallel, consensus, and debate patterns
-- **Strategy Engine** — Advanced AI strategies with multi-agent coordination
-- **Memory System** — Vector embeddings for similarity search and learning
-- **Prompt Versioning** — Track and version AI prompts
-
-### 💰 Arbitrage
-- **Cross-Exchange Detection** — Monitor Binance, Bybit, OKX for opportunities
-- **Auto-Execution** — Automatically execute profitable arbitrage trades
-- **Risk Scoring** — Evaluate opportunity risk before execution
-- **Fee Calculation** — Account for exchange fees in profit calculations
-
-### 👥 Social Trading
-- **Trader Profiles** — Public profiles with performance metrics
-- **Follow System** — Follow top traders
-- **Copy Trading** — Automatically copy trades from followed traders
-- **Leaderboard** — Rank traders by win rate, profit factor, Sharpe ratio
-- **Signal Sharing** — Share and like trading signals
-
-### 📱 Mobile App
-- **Real-time Prices** — Live price tracking with WebSocket
-- **Signal Alerts** — Push notifications for new signals
-- **Portfolio Tracking** — View positions on the go
-- **Price Alerts** — Configure custom price alerts
-
-### 📊 Analytics
-- **Technical Indicators** — RSI, MACD, Bollinger, ATR, Stochastic, EMA/SMA
-- **Pattern Detection** — Head & Shoulders, Double Top/Bottom, Triangles, Flags
-- **Smart Money Concepts** — Order blocks, FVG, liquidity sweeps, BOS/CHoCH
-- **CPR Analysis** — Central Pivot Range with breakout/reversal probability
-
-### 🧠 Learning System
-- **Performance Tracking** — Win rate, Sharpe ratio, profit factor per strategy
-- **Weight Optimization** — Adaptive factor weights based on historical performance
-- **Pattern Memory** — Store and recall successful/failed patterns
-- **Feedback Cycles** — Daily and weekly review cycles with AI insights
-
-### 📰 Intelligence
-- **News Crawling** — RSS feeds, Reddit, Twitter/X monitoring
-- **Sentiment Analysis** — Fear & Greed index, social sentiment, whale tracking
-- **Entity Recognition** — Extract crypto entities and sentiment from news
-- **Event Impact Scoring** — Rate news impact on specific assets
-
-### 🔔 Notifications
-- **Multi-Channel** — Email, Telegram, Discord, Slack, SMS, Webhooks
-- **Smart Rules** — Configure conditions for each notification type
-- **Rate Limiting** — Prevent notification storms
-- **Webhook Logs** — Full delivery tracking and retry logic
-
-### 💼 Portfolio Management
-- **Multi-Portfolio Support** — Manage multiple portfolios
-- **Automated Rebalancing** — AI-driven portfolio rebalancing
-- **Tax Optimization** — Tax-loss harvesting and cost basis tracking
-- **Tax Reports** — Generate tax reports with FIFO/LIFO/HIFO
-
-### 🔬 Backtester
-- **Strategy Testing** — SMA Crossover, RSI Reversal, Bollinger Bounce, MACD
-- **Performance Metrics** — Return, win rate, Sharpe ratio, max drawdown
-- **Equity Curve** — Visual equity curve with trade markers
-- **Trade History** — Detailed trade log with P&L
 
 ---
 
@@ -184,13 +161,12 @@ AI-Trading is a full-stack cryptocurrency trading platform that combines **multi
 | Component | Technology |
 |-----------|-----------|
 | Framework | Django 5.0 + Django REST Framework |
-| Database | PostgreSQL 16 + TimescaleDB + pgvector |
+| Database | PostgreSQL 18 (port 5433) |
 | Cache/Broker | Redis 7 |
 | Task Queue | Celery 5.3 |
-| AI | Ollama (local), OpenAI, Anthropic |
-| Market Data | CCXT (Binance, Bybit, OKX) |
+| AI | Ollama (gemma4:latest), OpenAI, Anthropic |
+| Market Data | Binance API, CoinGecko API |
 | API Docs | drf-spectacular (OpenAPI/Swagger) |
-| Monitoring | Prometheus + Grafana |
 
 ### Frontend
 | Component | Technology |
@@ -198,29 +174,17 @@ AI-Trading is a full-stack cryptocurrency trading platform that combines **multi
 | Framework | React 18 + TypeScript |
 | Build Tool | Vite 5 |
 | Styling | TailwindCSS 3 |
-| Charts | Recharts |
-| State | React Hooks (useState, useEffect, useMemo) |
-| HTTP | Fetch API with auth interceptor |
-| WebSocket | Native WebSocket API |
-
-### Mobile
-| Component | Technology |
-|-----------|-----------|
-| Framework | React Native 0.73 |
-| Navigation | React Navigation 6 |
-| State | React Hooks |
-| HTTP | Axios with auth interceptor |
-| Storage | AsyncStorage |
+| Charts | Recharts, TradingView Widget |
+| State | React Contexts |
+| Language | English / Persian (فارسی) |
 
 ### Infrastructure
 | Component | Technology |
 |-----------|-----------|
-| Containers | Docker + Docker Compose |
-| Reverse Proxy | Nginx |
+| Database | PostgreSQL 18 |
+| Timezone | Asia/Tehran (IRST, UTC+3:30) |
 | CI/CD | GitHub Actions |
-| Linting | Black, isort, Ruff, ESLint |
-| Testing | pytest, React Testing Library |
-| Pre-commit | pre-commit hooks |
+| Code Quality | Black, isort, Ruff, ESLint |
 
 ---
 
@@ -228,203 +192,157 @@ AI-Trading is a full-stack cryptocurrency trading platform that combines **multi
 
 ### Prerequisites
 
-- **Docker** 24.0+ and **Docker Compose** v2.20+
-- **Python** 3.11+ (for local development)
-- **Node.js** 20+ and **npm** (for local development)
-- **PostgreSQL** 16+ with TimescaleDB (if running locally)
-- **Redis** 7+ (if running locally)
+- **Python** 3.11+
+- **Node.js** 20+
+- **PostgreSQL** 16+ (port 5433)
+- **Redis** 7+ (optional, for Celery)
 
-### Option 1: Docker (Recommended)
+### 1. Clone & Setup
 
 ```bash
-# Clone the repository
 git clone https://github.com/myazdanpanah/AI-Trading.git
 cd AI-Trading
-
-# Copy environment variables
-cp .env.example .env
-# Edit .env with your settings
-
-# Start all services
-docker-compose up -d
-
-# Apply database migrations
-docker-compose exec backend python manage.py migrate
-
-# Create a superuser
-docker-compose exec backend python manage.py createsuperuser
-
-# Access the platform
-# Frontend: http://localhost:3000
-# Backend: http://localhost:8000
-# API Docs: http://localhost:8000/api/docs/
-# Admin: http://localhost:8000/admin/
-# Grafana: http://localhost:3001
 ```
 
-### Option 2: Local Development
+### 2. PostgreSQL Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/myazdanpanah/AI-Trading.git
-cd AI-Trading
+# Create database
+PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -c "CREATE DATABASE crypto_platform;"
 
-# --- Backend Setup ---
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# Run migrations
+DJANGO_SETTINGS_MODULE=crypto_platform.settings.local python manage.py migrate
+
+# Create user
+DJANGO_SETTINGS_MODULE=crypto_platform.settings.local python manage.py shell -c "
+from django.contrib.auth.models import User
+if not User.objects.filter(username='myazdanpanah').exists():
+    User.objects.create_user('myazdanpanah', password='123456')
+"
+```
+
+### 3. Backend
+
+```bash
+# Install dependencies
 pip install -r backend/requirements.txt
 
-# Set environment variables
-export DJANGO_SETTINGS_MODULE=crypto_platform.settings.development
-export DB_HOST=localhost
-export REDIS_URL=redis://localhost:6379/0
+# Run server
+DJANGO_SETTINGS_MODULE=crypto_platform.settings.local python manage.py runserver
+# → http://localhost:8000
+```
 
-# Apply migrations
-python manage.py migrate
-python manage.py createsuperuser
+### 4. Frontend
 
-# Start the backend
-python manage.py runserver
-
-# --- Frontend Setup (new terminal) ---
+```bash
 cd frontend
 npm install
 npm run dev
-
-# --- Mobile App Setup (optional) ---
-cd mobile
-npm install
-npm start
+# → http://localhost:3000
 ```
 
----
+### 5. Login
 
-## ⚙️ Configuration
+```
+URL:      http://localhost:3000
+Username: myazdanpanah
+Password: 123456
+```
 
-### Environment Variables
-
-Create a `.env` file from the template:
+### 6. (Optional) Start Celery for Auto Tasks
 
 ```bash
-cp .env.example .env
-```
+# Terminal 1: Worker
+celery -A crypto_platform worker -l info
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DJANGO_SECRET_KEY` | Django secret key | (must set) |
-| `DJANGO_SETTINGS_MODULE` | Settings module | `crypto_platform.settings.development` |
-| `DB_NAME` | PostgreSQL database name | `crypto_platform` |
-| `DB_USER` | PostgreSQL username | `postgres` |
-| `DB_PASSWORD` | PostgreSQL password | `postgres` |
-| `DB_HOST` | PostgreSQL host | `localhost` |
-| `DB_PORT` | PostgreSQL port | `5432` |
-| `REDIS_URL` | Redis connection URL | `redis://localhost:6379/0` |
-| `OLLAMA_BASE_URL` | Ollama API URL | `http://localhost:11434` |
-| `OPENAI_API_KEY` | OpenAI API key | (optional) |
-| `ANTHROPIC_API_KEY` | Anthropic API key | (optional) |
-
-### Exchange Configuration
-
-Configure exchange API keys via the Settings page in the UI or through the API:
-
-```
-POST /api/market/exchanges/configure/
-{
-  "exchange": "binance",
-  "api_key": "your-api-key",
-  "api_secret": "your-api-secret",
-  "testnet": true
-}
-```
-
-### AI Provider Configuration
-
-```python
-# Ollama (default, local)
-OLLAMA_BASE_URL=http://localhost:11434
-
-# OpenAI (optional)
-OPENAI_API_KEY=sk-...
-
-# Anthropic (optional)
-ANTHROPIC_API_KEY=sk-ant-...
+# Terminal 2: Beat (Scheduler)
+celery -A crypto_platform beat -l info
 ```
 
 ---
 
-## 📁 Project Structure
+## 📊 Dashboard
+
+### Tabs Overview
+
+| Tab | Description |
+|-----|-------------|
+| 📈 **Trading** | Live TradingView chart, Order Book, Watchlist, Portfolio |
+| 🔔 **Signals** | Generate trading signals with multi-factor analysis |
+| 📊 **Analysis** | Interactive gauges, charts, regime analysis, journal summary |
+| 📝 **Journal** | AI-generated journal entries with news sources |
+| 🧠 **Feedback** | Performance metrics, AI insights, learning cycles |
+| ⚙️ **Settings** | AI models, news sources, user settings |
+
+### Signal Example
 
 ```
-AI-Trading/
-├── backend/                    # Backend Dockerfile & requirements
-│   ├── Dockerfile
-│   └── requirements.txt
-├── crypto_platform/            # Django project
-│   ├── settings/               # Environment-specific settings
-│   │   ├── base.py            # Base settings (shared)
-│   │   ├── development.py     # Local development
-│   │   ├── production.py      # Production settings
-│   │   └── docker.py          # Docker settings
-│   ├── apps/                   # Django applications (19 apps)
-│   │   ├── core/              # Shared utilities, health checks
-│   │   ├── users/             # User management
-│   │   ├── authentication/    # JWT authentication
-│   │   ├── market/            # Market data engine + exchanges
-│   │   ├── ai_engine/         # AI integration + strategy engine
-│   │   ├── signals/           # Signal generation + backtester
-│   │   ├── technical_analysis/ # Indicators & patterns
-│   │   ├── sentiment/         # Sentiment analysis
-│   │   ├── news/              # News intelligence
-│   │   ├── analytics/         # Event tracking & CPR
-│   │   ├── learning/          # Performance tracking
-│   │   ├── feedback/          # AI memory & self-improvement
-│   │   ├── notifications/     # Alerts & webhooks
-│   │   ├── reports/           # Report generation
-│   │   ├── mobile/            # Mobile app API
-│   │   ├── arbitrage/         # Cross-exchange arbitrage
-│   │   ├── social/            # Social trading
-│   │   └── portfolio/         # Portfolio management
-│   ├── urls.py                # URL routing
-│   ├── ws_urls.py             # WebSocket URL routing
-│   ├── celery_app.py          # Celery configuration
-│   └── asgi.py                # ASGI (WebSocket support)
-├── frontend/                   # React frontend
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── auth/          # Login form
-│   │   │   ├── dashboard/     # Main dashboard, signals, analysis
-│   │   │   ├── trading/       # Chart, order book, portfolio, backtester
-│   │   │   ├── charts/        # Reusable chart components
-│   │   │   ├── feedback/      # Learning insights
-│   │   │   ├── social/        # Leaderboard, copy trading
-│   │   │   └── settings/      # API settings
-│   │   └── utils/
-│   │       ├── api.ts         # API client with auth & mock fallback
-│   │       └── websocket.ts   # WebSocket utility
-│   ├── Dockerfile
-│   └── package.json
-├── mobile/                     # React Native mobile app
-│   ├── src/
-│   │   ├── screens/           # Home, Signals, Portfolio, Alerts, Settings
-│   │   ├── components/        # PriceCard, MiniChart
-│   │   └── services/          # API, Auth services
-│   ├── App.tsx
-│   └── package.json
-├── docker/                     # Docker configurations
-│   ├── nginx/                 # Nginx reverse proxy
-│   ├── prometheus/            # Prometheus metrics
-│   └── grafana/               # Grafana dashboards
-├── scripts/                    # Utility scripts
-│   └── init-db.sql            # Database initialization
-├── docker-compose.yml          # Docker Compose orchestration
-├── docker-compose.prod.yml     # Production override
-├── .github/workflows/ci.yml    # GitHub Actions CI/CD
-├── manage.py                   # Django management
-├── plan.md                     # Development plan
-├── progress.md                 # Progress tracker
-├── changelog.md                # Changelog
-└── README.md                   # This file
+Symbol: BTC | Direction: HOLD | Confidence: 52%
+Entry: $63,550 | SL: $61,039 | TP: $66,060, $67,315
+
+Reasons:
+  [technical] Mixed signals (score: 48) - no clear direction
+  [technical] RSI neutral (47) - no momentum signal
+  [technical] VWAP bearish - price below VWAP
+  [sentiment] Fear dominant (F&G: 27) - market cautious
+
+Factor Scores:
+  Technical: 48% | Sentiment: 60% | News: 50%
+  AI: 50% | Macro: 50%
 ```
+
+### Analysis Panel
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  FINAL VERDICT: HOLD                                     │
+│  Posture: MODERATE | Max Exposure: 15%                   │
+│                                                          │
+│    ╭───╮      ╭───╮      ╭───╮                          │
+│   │ 49 │     │ 65 │     │ 48 │   ← SVG Gauges          │
+│   ╰───╯      ╰───╯      ╰───╯                          │
+│  Combined  Regime   Technical                            │
+└──────────────────────────────────────────────────────────┘
+
+Factor Scores:          Weight Distribution:
+Tech: 48 ▓▓▓▓░░        technical 32%
+Sent: 60 ▓▓▓▓▓▓        sentiment 20%
+News: 50 ▓▓▓▓░░        news 14% | ai 20% | macro 14%
+AI:   50 ▓▓▓▓░░
+Macro:50 ▓▓▓▓░░
+```
+
+---
+
+## 🧠 AI Learning Loop
+
+### How the AI Improves Over Time
+
+```
+Hour 1: Generate 5 signals → Evaluate 0 (too new)
+Hour 2: Generate 5 signals → Evaluate 5 (from Hour 1) → Record outcomes
+Hour 3: Generate 5 signals → Evaluate 5 (from Hour 2) → Record outcomes
+...
+Daily: Analyze all outcomes → Generate insights → Adjust weights
+```
+
+### Factor Weight Adjustment
+
+| Factor | Initial Weight | After Learning | Change |
+|--------|---------------|----------------|--------|
+| Technical | 0.30 | 0.316 | +5.3% |
+| Sentiment | 0.20 | 0.200 | — |
+| News | 0.15 | 0.142 | -5.3% |
+| AI | 0.20 | 0.200 | — |
+| Macro | 0.15 | 0.142 | -5.3% |
+
+### Performance Tracking
+
+- **Win Rate** — Percentage of profitable signals
+- **Avg Return** — Average return per signal
+- **Profit Factor** — Gross profit / gross loss
+- **Sharpe Ratio** — Risk-adjusted return
+- **Per-Factor Analysis** — Which factors contribute most to wins
 
 ---
 
@@ -436,8 +354,8 @@ AI-Trading/
 # Login (get JWT tokens)
 POST /api/auth/login/
 {
-  "username": "admin",
-  "password": "your-password"
+  "username": "myazdanpanah",
+  "password": "123456"
 }
 # Returns: { "access": "...", "refresh": "..." }
 
@@ -449,21 +367,18 @@ Authorization: Bearer <access_token>
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| `POST` | `/api/auth/login/` | Login, get JWT tokens |
+| `GET` | `/api/users/users/` | User profile |
 | `GET` | `/health/` | Health check |
-| `GET` | `/health/detailed/` | Detailed health check |
-| `GET` | `/metrics/` | Prometheus metrics |
 | `GET` | `/api/docs/` | Swagger UI |
-| `GET` | `/api/redoc/` | ReDoc documentation |
-| `GET` | `/api/schema/` | OpenAPI schema |
 
 ### Market Data
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/market/prices/` | Current prices |
-| `GET` | `/api/market/candles/` | OHLCV candle data |
-| `GET` | `/api/market/orderbook/` | Order book snapshot |
-| `GET` | `/api/market/tickers/` | All tickers |
+| `GET` | `/api/market/data/status/` | Data source status |
+| `GET` | `/api/market/data/ticker/?symbol=BTCUSDT` | Quick ticker |
+| `GET` | `/api/market/data/candles/live/` | Live candles |
 
 ### Signals
 
@@ -471,159 +386,99 @@ Authorization: Bearer <access_token>
 |--------|----------|-------------|
 | `GET` | `/api/signals/signals/latest/` | Recent signals |
 | `POST` | `/api/signals/signals/generate/` | Generate new signal |
+| `POST` | `/api/signals/signals/evaluate/` | Evaluate past signals |
 | `GET` | `/api/signals/factor-weights/` | Factor weights |
-| `POST` | `/api/signals/backtest/` | Run backtest |
+| `POST` | `/api/signals/factor-weights/adjust/` | Auto-adjust weights |
+| `POST` | `/api/signals/factor-weights/reset/` | Reset to defaults |
 
-### AI Engine
+### Analysis
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/signals/analysis/full/?symbol=BTCUSDT` | Full market analysis |
+| `GET` | `/api/signals/analysis/regime/?symbol=BTCUSDT` | Regime analysis |
+
+### Journal
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/journal/entries/` | Journal entries |
+| `POST` | `/api/journal/entries/generate/` | Generate journal entry |
+| `GET` | `/api/journal/sources/` | News sources |
+| `GET` | `/api/journal/user-watchlist/` | User watchlist |
+
+### Feedback
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/feedback/signal-memories/` | Signal memories |
+| `POST` | `/api/feedback/cycles/run_cycle/` | Run feedback cycle |
+| `GET` | `/api/feedback/cycles/` | Feedback cycle history |
+| `GET` | `/api/feedback/insights/` | AI insights |
+
+### Watchlist
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/journal/user-watchlist/` | Get watchlist |
+| `POST` | `/api/journal/user-watchlist/` | Add symbol |
+| `DELETE` | `/api/journal/user-watchlist/{id}/` | Remove symbol |
+| `GET` | `/api/journal/user-watchlist/search/?q=BTC` | Search symbols |
+
+### Settings
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/ai/providers/` | AI providers |
-| `POST` | `/api/ai/analyze/` | AI market analysis |
-| `GET` | `/api/ai/workflows/` | Agent workflows |
+| `GET` | `/api/journal/news-sources/` | News sources |
 
-### Arbitrage
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/arbitrage/opportunities/` | Arbitrage opportunities |
-| `POST` | `/api/arbitrage/opportunities/scan/` | Scan for opportunities |
-| `GET` | `/api/arbitrage/configs/` | Arbitrage configuration |
-
-### Social Trading
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/social/traders/` | Trader profiles |
-| `GET` | `/api/social/traders/leaderboard/` | Top traders |
-| `POST` | `/api/social/follows/` | Follow/unfollow traders |
-| `GET` | `/api/social/copy-trades/` | Copy trade history |
-
-### Portfolio
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/portfolio/portfolios/` | Portfolios |
-| `POST` | `/api/portfolio/portfolios/` | Create portfolio |
-| `POST` | `/api/portfolio/portfolios/{id}/rebalance/` | Rebalance portfolio |
-| `GET` | `/api/portfolio/tax-lots/` | Tax lots |
-| `POST` | `/api/portfolio/tax-reports/generate/` | Generate tax report |
-
-### Learning & Feedback
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/learning/results/performance/` | Performance metrics |
-| `GET` | `/api/feedback/analysis/insights/` | Learning insights |
-| `POST` | `/api/feedback/cycles/run_cycle/` | Run feedback cycle |
-
-### Mobile
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/mobile/devices/register/` | Register device |
-| `GET` | `/api/mobile/alerts/` | Mobile alerts |
-| `GET` | `/api/mobile/widgets/` | Mobile widgets |
-
-> 📖 **Full API documentation**: [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/)
+> 📖 **Full API docs**: [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/)
 
 ---
 
-## 📱 Mobile App
+## ⚙️ Configuration
 
-### Features
-- **Home Screen** — Real-time price tracking, portfolio summary, watchlist
-- **Signals Screen** — AI-generated signals with confidence scores
-- **Portfolio Screen** — Position tracking with P&L
-- **Alerts Screen** — Price and signal alert configuration
-- **Settings Screen** — App configuration and account management
+### Database
 
-### Setup
-
-```bash
-cd mobile
-npm install
-npm start
-
-# Scan QR code with Expo Go app (iOS/Android)
+```python
+# crypto_platform/settings/local.py
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'crypto_platform',
+        'USER': 'postgres',
+        'PASSWORD': 'postgres',
+        'HOST': 'localhost',
+        'PORT': '5433',  # Custom port
+    }
+}
 ```
 
-### Screenshots
-The mobile app features a TradingView-inspired dark theme with real-time updates.
+### Timezone
 
----
-
-## 🐳 Infrastructure
-
-### Docker Services
-
-| Service | Port | Description |
-|---------|------|-------------|
-| `backend` | 8000 | Django application |
-| `frontend` | 3000 | React application |
-| `postgres` | 5432 | PostgreSQL + TimescaleDB + pgvector |
-| `redis` | 6379 | Cache and message broker |
-| `celery-worker` | — | Background task processing |
-| `celery-beat` | — | Periodic task scheduling |
-| `ollama` | 11434 | Local AI inference |
-| `nginx` | 80 | Reverse proxy |
-| `prometheus` | 9090 | Metrics collection |
-| `grafana` | 3001 | Dashboard visualization |
-
-### Grafana Dashboards
-
-- **System Overview** — API requests, response times, error rates
-- **Trading Signals** — Signal generation, win rate, latency
-- **Arbitrage** — Opportunities, execution, profit tracking
-- **Portfolio** — Value, P&L, allocation
-
-### Monitoring
-
-- **Prometheus** — Collects metrics from Django and Celery
-- **Grafana** — Pre-configured dashboards for system monitoring
-- **Health Checks** — `/health/`, `/health/detailed/`, `/health/ready/`, `/health/live/`
-- **Structured Logging** — JSON-formatted logs with correlation IDs
-
----
-
-## 👨‍💻 Development
-
-### Code Quality
-
-```bash
-# Backend
-black .
-isort .
-ruff check .
-mypy .
-
-# Frontend
-cd frontend
-npm run lint
-npm run type-check
+```python
+# Asia/Tehran (IRST, UTC+3:30)
+TIME_ZONE = 'Asia/Tehran'
+USE_TZ = True
 ```
 
-### Pre-commit Hooks
+### AI Provider (Ollama)
 
-```bash
-# Install pre-commit hooks
-pre-commit install
-
-# Run manually
-pre-commit run --all-files
+```python
+# Default: Ollama (local, free)
+OLLAMA_BASE_URL = 'http://localhost:11434'
+DEFAULT_MODEL = 'gemma4:latest'
 ```
 
-### Database Migrations
+### Exchange API
 
 ```bash
-# Create migration
-python manage.py makemigrations <app_name>
+# Binance (requires VPN in Iran)
+BINANCE_API_KEY=your-key
+BINANCE_API_SECRET=your-secret
 
-# Apply migrations
-python manage.py migrate
-
-# Show migrations
-python manage.py showmigrations
+# CoinGecko (no key needed, works in Iran)
+COINGECKO_API_KEY=your-key (optional)
 ```
 
 ---
@@ -636,17 +491,12 @@ python manage.py showmigrations
 # Run all tests
 python manage.py test
 
-# Run specific app tests
+# Run specific app
 python manage.py test apps.signals
-python manage.py test apps.arbitrage
-python manage.py test apps.social
-python manage.py test apps.portfolio
+python manage.py test apps.feedback
 
 # With coverage
 pytest --cov=apps --cov-report=html
-
-# Run integration tests
-pytest -m integration
 ```
 
 ### Frontend Tests
@@ -654,24 +504,27 @@ pytest -m integration
 ```bash
 cd frontend
 npm test
-npm run test:coverage
+npm run lint
 ```
 
-### Mobile Tests
+### Manual Testing
 
 ```bash
-cd mobile
-npm test
-```
+# Test login
+curl -X POST http://localhost:8000/api/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"username":"myazdanpanah","password":"123456"}'
 
-### Docker Tests
+# Test signal generation
+TOKEN=<access_token>
+curl -X POST http://localhost:8000/api/signals/signals/generate/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"BTCUSDT","timeframe":"1h"}'
 
-```bash
-# Run tests in Docker
-docker-compose exec backend python manage.py test
-
-# Run specific test
-docker-compose exec backend python manage.py test apps.signals.tests.SignalGeneratorTest
+# Test analysis
+curl "http://localhost:8000/api/signals/analysis/full/?symbol=BTCUSDT" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
@@ -680,96 +533,53 @@ docker-compose exec backend python manage.py test apps.signals.tests.SignalGener
 
 ### Production Checklist
 
-- [ ] Set `DJANGO_SECRET_KEY` to a secure random value
+- [ ] Set `DJANGO_SECRET_KEY` to secure random value
 - [ ] Set `DJANGO_SETTINGS_MODULE=crypto_platform.settings.production`
 - [ ] Configure `ALLOWED_HOSTS`
 - [ ] Set `DEBUG=False`
 - [ ] Configure SSL/TLS certificates
 - [ ] Set up database backups
 - [ ] Configure monitoring alerts
-- [ ] Set up log aggregation
+- [ ] Start Celery worker + beat
 
-### Docker Production
+### Environment Variables
 
-```bash
-# Build for production
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml build
-
-# Deploy
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-```
-
-### Environment-Specific Settings
-
-| Setting | Development | Production |
-|---------|-------------|------------|
-| `DEBUG` | `True` | `False` |
-| `ALLOWED_HOSTS` | `['*']` | `['yourdomain.com']` |
-| `DATABASE` | SQLite/PostgreSQL | PostgreSQL |
-| `CACHE` | Local memory | Redis |
-| `STATIC_FILES` | Auto-served | Collected & served by Nginx |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DJANGO_SECRET_KEY` | Django secret key | (must set) |
+| `DJANGO_SETTINGS_MODULE` | Settings module | `crypto_platform.settings.local` |
+| `DB_HOST` | PostgreSQL host | `localhost` |
+| `DB_PORT` | PostgreSQL port | `5433` |
+| `DB_NAME` | Database name | `crypto_platform` |
+| `OLLAMA_BASE_URL` | Ollama API URL | `http://localhost:11434` |
 
 ---
 
 ## 🗺️ Roadmap
 
-### ✅ Completed (Phases 1-33)
+### ✅ Completed
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1-7 | Foundation & Core | ✅ COMPLETE |
-| 8 | Signals | ✅ COMPLETE |
-| 9 | Learning | ✅ COMPLETE |
-| 10 | Feedback Loop | ✅ COMPLETE |
-| 12 | Docker Deployment | ✅ COMPLETE |
-| 13 | Testing & QA | ✅ COMPLETE |
-| 14 | Security Hardening | ✅ COMPLETE |
-| 15 | Performance Optimization | ✅ COMPLETE |
-| 15.5 | OpenAPI Documentation | ✅ COMPLETE |
-| 16 | Monitoring & Observability | ✅ COMPLETE |
-| 17 | CI/CD & Developer Experience | ✅ COMPLETE |
-| 18 | Advanced Analytics & Reporting | ✅ COMPLETE |
-| 18.5 | Frontend Enhancement | ✅ COMPLETE |
-| 19 | TradingView UI | ✅ COMPLETE |
-| 20 | Backtester | ✅ COMPLETE |
-| 21 | Portfolio Tracker | ✅ COMPLETE |
-| 22 | Ollama Integration | ✅ COMPLETE |
-| 23 | WebSocket Streaming | ✅ COMPLETE |
-| 24 | Mobile App API | ✅ COMPLETE |
-| 25 | Advanced AI Strategies | ✅ COMPLETE |
-| 26 | Multi-exchange Arbitrage | ✅ COMPLETE |
-| 27 | Social Trading | ✅ COMPLETE |
-| 28 | Advanced Portfolio Management | ✅ COMPLETE |
-| 29 | Production Hardening | ✅ COMPLETE |
-| 30 | Arbitrage Execution | ✅ COMPLETE |
-| 31 | AI Strategy Engine | ✅ COMPLETE |
-| 32 | Social Trading Frontend | ✅ COMPLETE |
-| 33 | Enhanced Monitoring | ✅ COMPLETE |
+| 1-7 | Foundation & Core | ✅ |
+| 8 | Signals | ✅ |
+| 9-10 | Learning & Feedback | ✅ |
+| 12-33 | Production & Features | ✅ |
+| 34 | PostgreSQL Database | ✅ |
+| 35 | Real Signal Engine | ✅ |
+| 36 | AI Feedback Loop | ✅ |
+| 37 | Auto Weight Adjustment | ✅ |
+| 38 | Celery Automation | ✅ |
+| 39 | Interactive Analysis Panel | ✅ |
+| 40 | Iran Timezone Support | ✅ |
 
-### 🔜 Future Enhancements
+### 🔜 Next
 
-- **Advanced AI Strategies** — More debate/consensus patterns
-- **Multi-exchange Arbitrage** — Auto-execute arbitrage
-- **Social Trading Frontend** — Web UI for social features
-- **Production Monitoring** — Enhanced Grafana dashboards
-
----
-
-## 🤝 Contributing
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-### Development Guidelines
-
-- Follow PEP 8 for Python code
-- Use TypeScript for all React components
-- Write tests for new features
-- Update documentation for API changes
-- Use conventional commit messages
+- [ ] Weight History Chart — Visualize weight changes over time
+- [ ] Signal History Table — Show all past signals with outcomes
+- [ ] Multi-Symbol Comparison — Compare signals side by side
+- [ ] Score Alerts — Alert when scores cross thresholds
+- [ ] Celery Auto-Start — Automatic signal generation on startup
 
 ---
 
@@ -783,11 +593,11 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 - [Django](https://www.djangoproject.com/) — The web framework
 - [React](https://reactjs.org/) — The UI library
-- [React Native](https://reactnative.dev/) — Mobile framework
-- [CCXT](https://github.com/ccxt/ccxt) — Cryptocurrency exchange library
+- [TradingView](https://www.tradingview.com/) — Charting widgets
+- [Binance](https://www.binance.com/) — Market data API
+- [CoinGecko](https://www.coingecko.com/) — Fallback data API
 - [Ollama](https://ollama.ai/) — Local AI inference
-- [TimescaleDB](https://www.timescale.com/) — Time-series database
-- [TradingView](https://www.tradingview.com/) — UI inspiration
+- [PostgreSQL](https://www.postgresql.org/) — Database
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Crypto AI Signal Platform
 
-**Last Updated:** 2026-08-11
+**Last Updated:** 2026-08-12
 
 ---
 
@@ -42,74 +42,154 @@
 | 31 | AI Strategy Engine | ✅ COMPLETE | 100% |
 | 32 | Social Trading Frontend | ✅ COMPLETE | 100% |
 | 33 | Enhanced Monitoring | ✅ COMPLETE | 100% |
+| 34 | PostgreSQL Database | ✅ COMPLETE | 100% |
+| 35 | Real Signal Engine | ✅ COMPLETE | 100% |
+| 36 | AI Feedback Loop | ✅ COMPLETE | 100% |
+| 37 | Auto Weight Adjustment | ✅ COMPLETE | 100% |
+| 38 | Celery Automation | ✅ COMPLETE | 100% |
+| 39 | Interactive Analysis Panel | ✅ COMPLETE | 100% |
+| 40 | Iran Timezone Support | ✅ COMPLETE | 100% |
 
 ---
 
-## Phase 30: Arbitrage Execution ✅ COMPLETE
+## Phase 34: PostgreSQL Database ✅ COMPLETE
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| ArbitrageExecutor | ✅ | Auto-execute arbitrage opportunities |
-| ArbitrageMonitor | ✅ | Continuous monitoring with configurable intervals |
-| Position Sizing | ✅ | Conservative sizing based on spread and volume |
-| Error Handling | ✅ | Graceful failure handling and partial execution |
+| PostgreSQL 18 | ✅ | Running on port 5433 |
+| Database `crypto_platform` | ✅ | Created and migrated |
+| 30+ migrations applied | ✅ | All tables created |
+| User `myazdanpanah` | ✅ | Password: 123456 |
+| Watchlist seeded | ✅ | 10 symbols (BTC, ETH, SOL, etc.) |
+| News sources seeded | ✅ | 7 trusted sources |
 
 ---
 
-## Phase 31: AI Strategy Engine ✅ COMPLETE
+## Phase 35: Real Signal Engine ✅ COMPLETE
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Pipeline Strategy | ✅ | Sequential analysis |
-| Parallel Strategy | ✅ | Concurrent analysis |
-| Debate Strategy | ✅ | Bull vs Bear arguments |
-| Consensus Strategy | ✅ | Multi-round agreement |
-| Hierarchical Strategy | ✅ | Coordinator + specialists |
+| Live Binance data | ✅ | Real prices and candles |
+| Technical indicators | ✅ | RSI, MACD, EMA, VWAP, Ichimoku |
+| Sentiment analysis | ✅ | Fear & Greed Index |
+| Entry/SL/TP levels | ✅ | Always calculated |
+| Signal reasons | ✅ | 3-5 detailed reasons per signal |
+| Percentage display | ✅ | Fixed to show 0-100% correctly |
 
 ---
 
-## Phase 32: Social Trading Frontend ✅ COMPLETE
+## Phase 36: AI Feedback Loop ✅ COMPLETE
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Leaderboard | ✅ | Top traders ranking with sorting |
-| CopyTrading | ✅ | Copy trade history with P&L |
-| Follow System | ✅ | Follow/unfollow traders |
-| Performance Metrics | ✅ | Win rate, profit factor, Sharpe |
+| SignalEvaluator | ✅ | Checks price outcomes |
+| SignalMemory | ✅ | Records wins/losses with lessons |
+| Evaluate endpoint | ✅ | POST /signals/signals/evaluate/ |
+| Performance metrics | ✅ | Win rate, avg return, profit factor |
+| Factor analysis | ✅ | Per-factor win rate tracking |
+| FeedbackPanel UI | ✅ | Performance, Insights, Cycles, Record tabs |
 
 ---
 
-## Phase 33: Enhanced Monitoring ✅ COMPLETE
+## Phase 37: Auto Weight Adjustment ✅ COMPLETE
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Trading Signals Dashboard | ✅ | Signal generation and win rate |
-| Arbitrage Dashboard | ✅ | Opportunities and profit tracking |
-| Portfolio Dashboard | ✅ | Value and P&L monitoring |
-| Latency Metrics | ✅ | Signal generation latency |
+| WeightAdjuster | ✅ | Adjusts based on factor performance |
+| API endpoints | ✅ | GET/POST/RESET factor weights |
+| Factor weight display | ✅ | Shows in Analysis panel |
+| Weight normalization | ✅ | Weights always sum to 1.0 |
+
+---
+
+## Phase 38: Celery Automation ✅ COMPLETE
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Hourly signal generation | ✅ | BTC, ETH, SOL, BNB, XRP |
+| Hourly signal evaluation | ✅ | Checks 1+ hour old signals |
+| Daily feedback cycle | ✅ | 1:00 AM IRST |
+| Weekly feedback cycle | ✅ | Sunday 2:00 AM IRST |
+| Monthly memory cleanup | ✅ | Removes 90+ day old memories |
+| Daily weight adjustment | ✅ | 2:00 AM IRST |
+
+---
+
+## Phase 39: Interactive Analysis Panel ✅ COMPLETE
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| SVG gauge charts | ✅ | Combined, Regime, Technical scores |
+| Factor score bars | ✅ | Visual bar charts for all 5 factors |
+| Weight distribution | ✅ | Pie-style weight visualization |
+| Journal summary | ✅ | Latest AI analysis with findings |
+| AI weight analysis | ✅ | Factor weights + win rates |
+| Regime details | ✅ | Market regime with posture/exposure |
+| Sub-tabs | ✅ | Overview, Technical, Regime, Journal |
+
+---
+
+## Phase 40: Iran Timezone Support ✅ COMPLETE
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Backend timezone | ✅ | Asia/Tehran (IRST, UTC+3:30) |
+| Signal timestamps | ✅ | Display in IRST |
+| Journal timestamps | ✅ | Display in IRST |
+| Feedback timestamps | ✅ | Display in IRST |
+
+---
+
+## Phase 30-33: Previous Phases ✅ COMPLETE
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 30 | Arbitrage Execution | ✅ COMPLETE |
+| 31 | AI Strategy Engine | ✅ COMPLETE |
+| 32 | Social Trading Frontend | ✅ COMPLETE |
+| 33 | Enhanced Monitoring | ✅ COMPLETE |
 
 ---
 
 ## Quick Start Commands
 
 ```bash
-# Run locally with Docker
-docker-compose up -d
+# Start PostgreSQL (Docker Desktop)
+docker run -d --name trading-postgres \
+  -e POSTGRES_DB=crypto_platform \
+  -e POSTGRES_PASSWORD=postgres \
+  -p 5433:5432 \
+  postgres:16-alpine
 
-# Access services
-# Frontend: http://localhost:3000
-# Backend: http://localhost:8000
-# API Docs: http://localhost:8000/api/docs/
-# Admin: http://localhost:8000/admin/
-# Grafana: http://localhost:3001
+# Run locally
+cd /c/Trading
+DJANGO_SETTINGS_MODULE=crypto_platform.settings.local python manage.py runserver
+
+# Frontend
+cd frontend && npm run dev
+
+# Start Celery (optional, for auto signal generation)
+celery -A crypto_platform worker -l info &
+celery -A crypto_platform beat -l info &
 ```
+
+---
+
+## Access
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Frontend | http://localhost:3000 | myazdanpanah / 123456 |
+| Backend | http://localhost:8000 | — |
+| PostgreSQL | localhost:5433 | postgres / postgres |
+| API Docs | http://localhost:8000/api/docs/ | — |
 
 ---
 
 ## Next Steps
 
-1. **React Native Mobile App** - Frontend mobile application ✅
-2. **Multi-exchange Arbitrage Execution** - Auto-execute arbitrage ✅
-3. **Social Trading Frontend** - Web UI for social features ✅
-4. **Advanced AI Strategies** - Debate/consensus patterns ✅
-5. **Production Monitoring** - Enhanced Grafana dashboards ✅
+1. **Weight History Chart** — Visualize how weights change over time
+2. **Auto Signal Generation** — Start Celery for automatic hourly signals
+3. **Signal History Table** — Show all past signals with outcomes
+4. **Score Alerts** — Alert when scores cross thresholds
+5. **Multi-Symbol Comparison** — Compare signals across symbols side by side
