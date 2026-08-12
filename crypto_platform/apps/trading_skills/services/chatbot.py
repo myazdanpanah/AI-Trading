@@ -99,39 +99,78 @@ class TradingChatBot:
         return {'model_name': model_name or 'unknown', 'total_models': 0}
     
     @classmethod
-    def _generate_with_llm(cls, prompt: str, model: str, temperature: float = 0.7) -> Optional[str]:
+    def _generate_with_llm(cls, prompt: str, model: str, temperature: float = 0.7, 
+                           history: list = None, system_prompt: str = None) -> Optional[str]:
         """Generate a response using the specified LLM model via Ollama."""
         try:
             import httpx
             import os
             base_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
             
-            response = httpx.post(
-                f"{base_url}/api/generate",
-                json={
-                    'model': model,
-                    'prompt': prompt,
-                    'stream': False,
-                    'options': {
-                        'temperature': temperature,
-                        'num_predict': 1000,  # Allow longer responses
-                        'top_p': 0.9,
-                        'repeat_penalty': 1.1,
-                    }
-                },
-                timeout=120.0  # Allow more time for generation
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('response', '')
+            # Use chat API if we have conversation history
+            if history and len(history) > 0:
+                messages = []
+                if system_prompt:
+                    messages.append({'role': 'system', 'content': system_prompt})
+                
+                # Add conversation history
+                for msg in history[-10:]:  # Last 10 messages for context
+                    messages.append({
+                        'role': msg.get('role', 'user'),
+                        'content': msg.get('content', ''),
+                    })
+                
+                # Add current prompt as user message
+                messages.append({'role': 'user', 'content': prompt})
+                
+                response = httpx.post(
+                    f"{base_url}/api/chat",
+                    json={
+                        'model': model,
+                        'messages': messages,
+                        'stream': False,
+                        'options': {
+                            'temperature': temperature,
+                            'num_predict': 2000,  # Allow longer responses
+                            'top_p': 0.9,
+                            'repeat_penalty': 1.1,
+                        }
+                    },
+                    timeout=120.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get('message', {}).get('content', '')
+            else:
+                # Fallback to generate API for single prompts
+                response = httpx.post(
+                    f"{base_url}/api/generate",
+                    json={
+                        'model': model,
+                        'prompt': prompt,
+                        'stream': False,
+                        'options': {
+                            'temperature': temperature,
+                            'num_predict': 2000,
+                            'top_p': 0.9,
+                            'repeat_penalty': 1.1,
+                        }
+                    },
+                    timeout=120.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get('response', '')
         except Exception as e:
             logger.warning(f"LLM generation failed: {e}")
         return None
     
     @classmethod
     def answer(cls, question: str, symbol: str = 'BTC', market_data: Dict = None, 
-               model: str = 'gemma4:latest', temperature: float = 0.7) -> Dict:
+               model: str = 'gemma4:latest', temperature: float = 0.7, 
+               history: list = None) -> Dict:
         """
         Answer a user's trading question.
         
@@ -187,7 +226,7 @@ User's question: {question}
 Respond naturally and conversationally in the same language as the user. Be helpful, explain your reasoning clearly, and provide actionable insights. Do not use markdown formatting - just write naturally like a knowledgeable friend would explain it."""
 
         # Try to enhance response with LLM if available
-        llm_response = cls._generate_with_llm(llm_prompt, actual_model, temperature)
+        llm_response = cls._generate_with_llm(llm_prompt, actual_model, temperature, history=history, system_prompt=system_prompt)
         
         # Use LLM response if available, otherwise use rule-based response
         final_answer = llm_response if llm_response else response['text']

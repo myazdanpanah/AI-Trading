@@ -333,8 +333,9 @@ def chat_with_ai(request):
     """Chat with AI about trading decisions."""
     question = request.data.get('question', '')
     symbol = request.data.get('symbol', 'BTC')
-    model = request.data.get('model', 'gemma4:latest')  # Get selected model from frontend
+    model = request.data.get('model', 'gemma4:latest')
     temperature = request.data.get('temperature', 0.7)
+    history = request.data.get('history', [])  # Conversation history
     
     if not question:
         return Response(
@@ -343,7 +344,7 @@ def chat_with_ai(request):
         )
     
     from .services.chatbot import TradingChatBot
-    result = TradingChatBot.answer(question, symbol, model=model, temperature=temperature)
+    result = TradingChatBot.answer(question, symbol, model=model, temperature=temperature, history=history)
     
     return Response(result)
 
