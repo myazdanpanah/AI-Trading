@@ -221,8 +221,13 @@ def generate_journal_entry(analysis_data: Dict, entry_type: str = 'market_analys
 
     # Track which sources were used
     sources_used = list(set([n['source'] for n in news]))
-    sources_used.append('CoinGecko (price data)')
     sources_used.append('Alternative.me (Fear & Greed)')
+    # Add price data source if available from analysis
+    price_source = analysis_data.get('data_source', 'unknown')
+    if price_source == 'binance':
+        sources_used.append('Binance (price data)')
+    else:
+        sources_used.append('CoinGecko (price data)')
 
     # Generate AI content
     prompt = generate_market_summary(analysis_data, news, fear_greed, sources_used)

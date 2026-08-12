@@ -240,6 +240,7 @@ def full_analysis(request):
         result = {
             'symbol': symbol,
             'current_price': current_price,
+            'data_source': market.get('source', 'unknown'),
             'data_points': len(closes),
             'high_365d': max(closes),
             'low_365d': min(closes),

@@ -4,6 +4,7 @@ import { apiFetch } from '../../utils/api';
 interface AnalysisData {
   symbol: string;
   current_price: number;
+  data_source: string;
   data_points: number;
   high_365d: number;
   low_365d: number;
@@ -344,7 +345,16 @@ export const SignalDashboard: React.FC = () => {
         <div className="bg-white/5 backdrop-blur-lg rounded-xl p-5 border border-white/10">
           <div className="flex items-center justify-between mb-3">
             <span className="text-gray-400 text-sm">{data.symbol}/USD</span>
-            <span className="text-xs text-gray-500">{data.data_points} candles</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                data.data_source === 'binance'
+                  ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                  : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+              }`}>
+                {data.data_source === 'binance' ? '⚡ Binance' : '🦎 CoinGecko'}
+              </span>
+              <span className="text-xs text-gray-500">{data.data_points} candles</span>
+            </div>
           </div>
           <div className="text-3xl font-bold text-white">${data.current_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
           <div className="flex gap-4 mt-3 text-xs text-gray-400">
@@ -538,7 +548,7 @@ export const SignalDashboard: React.FC = () => {
 
       {/* Footer */}
       <div className="text-center text-xs text-gray-600 py-2">
-        Analysis completed in {data.execution_time_ms}ms | {data.data_points} data points | Powered by Trading Skills Engine
+        Analysis completed in {data.execution_time_ms}ms | {data.data_points} data points | Source: {data.data_source === 'binance' ? 'Binance (real-time)' : 'CoinGecko (fallback)'} | Powered by Trading Skills Engine
       </div>
     </div>
   );
