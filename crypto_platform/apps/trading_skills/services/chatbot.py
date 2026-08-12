@@ -33,6 +33,28 @@ class TradingChatBot:
     ANALYSIS_KEYWORDS = ['analyze', 'analysis', 'what do you think', 'opinion', 'signal', 'predict', 'forecast']
     
     @classmethod
+    def _get_ollama_model_info(cls) -> Dict:
+        """Get information about the Ollama model being used."""
+        try:
+            import httpx
+            import os
+            base_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
+            response = httpx.get(f"{base_url}/api/tags", timeout=5.0)
+            if response.status_code == 200:
+                data = response.json()
+                models = data.get('models', [])
+                if models:
+                    return {
+                        'model_name': models[0].get('name', 'unknown'),
+                        'model_size': models[0].get('size', 0),
+                        'total_models': len(models),
+                        'all_models': [m.get('name', '') for m in models],
+                    }
+        except Exception:
+            pass
+        return {'model_name': 'unknown', 'total_models': 0}
+    
+    @classmethod
     def answer(cls, question: str, symbol: str = 'BTC', market_data: Dict = None) -> Dict:
         """
         Answer a user's trading question.
@@ -59,6 +81,9 @@ class TradingChatBot:
         # Calculate confidence
         confidence = cls._calculate_confidence(analysis, intent)
         
+        # Get Ollama model info
+        model_info = cls._get_ollama_model_info()
+        
         # Format response
         result = {
             'answer': response['text'],
@@ -73,6 +98,7 @@ class TradingChatBot:
             },
             'risk_factors': response.get('risks', []),
             'key_levels': response.get('levels', {}),
+            'model_used': model_info.get('model_name', 'unknown'),
             'execution_time_ms': int((time.time() - start) * 1000),
             'timestamp': datetime.now().isoformat(),
         }

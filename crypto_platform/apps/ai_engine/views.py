@@ -43,6 +43,44 @@ class AIProviderViewSet(viewsets.ModelViewSet):
         health = asyncio.run(ai_gateway.health_check())
         return Response(health)
 
+    @action(detail=False, methods=['get'], url_path='ollama-models')
+    def ollama_models(self, request):
+        """Get Ollama installed models."""
+        import httpx
+        import os
+        base_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
+        
+        try:
+            response = httpx.get(f"{base_url}/api/tags", timeout=5.0)
+            if response.status_code == 200:
+                data = response.json()
+                models = []
+                for m in data.get('models', []):
+                    models.append({
+                        'name': m.get('name', ''),
+                        'size': m.get('size', 0),
+                        'modified_at': m.get('modified_at', ''),
+                    })
+                return Response({
+                    'models': models,
+                    'count': len(models),
+                    'base_url': base_url,
+                    'active_model': models[0]['name'] if models else None,
+                })
+            else:
+                return Response({
+                    'error': f'Ollama returned status {response.status_code}',
+                    'models': [],
+                    'count': 0,
+                })
+        except Exception as e:
+            return Response({
+                'error': str(e),
+                'models': [],
+                'count': 0,
+                'base_url': base_url,
+            })
+
 
 class AIModelViewSet(viewsets.ModelViewSet):
     """Manage AI models."""
