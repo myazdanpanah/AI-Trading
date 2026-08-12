@@ -3,16 +3,65 @@ import time
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
-from .models import JournalEntry, JournalInsight, MarketContext
+from .models import JournalEntry, JournalInsight, MarketContext, NewsSource
 from .serializers import (
     JournalEntrySerializer, JournalEntryCreateSerializer,
     JournalInsightSerializer, MarketContextSerializer,
+    NewsSourceSerializer,
 )
 from .services.journal_writer import (
     generate_journal_entry,
     fetch_fear_greed_index,
     fetch_news_headlines,
+    get_user_news_sources,
 )
+
+
+class NewsSourceViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing news sources."""
+    serializer_class = NewsSourceSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return NewsSource.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['post'])
+    def seed_defaults(self, request):
+        """Seed default news sources for the user."""
+        from .services.journal_writer import DEFAULT_NEWS_FEEDS
+
+        created = 0
+        for key, source_data in DEFAULT_NEWS_FEEDS.items():
+            obj, was_created = NewsSource.objects.get_or_create(
+                user=request.user,
+                name=source_data['name'],
+                defaults={
+                    'url': source_data['url'],
+                    'source_type': 'rss',
+                    'category': source_data.get('category', 'crypto_news'),
+                    'icon': source_data.get('icon', '📰'),
+                    'reliability_score': 70,
+                    'is_active': True,
+                    'tags': [source_data.get('category', 'crypto_news')],
+                }
+            )
+            if was_created:
+                created += 1
+
+        return Response({
+            'message': f'Created {created} default news sources',
+            'total': NewsSource.objects.filter(user=request.user).count(),
+        })
+
+    @action(detail=False, methods=['get'])
+    def categories(self, request):
+        """Get available source categories."""
+        from .models import NewsSource
+        categories = dict(NewsSource.CATEGORIES)
+        return Response(categories)
 
 
 class JournalEntryViewSet(viewsets.ModelViewSet):
@@ -73,7 +122,6 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
                 lows = market['lows']
                 volumes = market['volumes']
 
-                # Build analysis
                 btc_trend = calculate_btc_trend(closes)
                 components = {
                     'btc_trend': btc_trend,
@@ -120,8 +168,8 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
                 return Response({'error': f'Failed to generate analysis: {str(e)}'},
                               status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Generate journal entry
-        result = generate_journal_entry(analysis_data, entry_type)
+        # Generate journal entry (with user's configured sources)
+        result = generate_journal_entry(analysis_data, entry_type, user=request.user)
 
         # Save to database
         entry_data = result['entry']
@@ -135,6 +183,7 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
 
         return Response({
             'entry': JournalEntrySerializer(entry).data,
+            'sources_used': result['sources_used'],
             'execution_time_ms': result['execution_time_ms'],
         }, status=status.HTTP_201_CREATED)
 
@@ -165,6 +214,7 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
                 'sentiment': sentiment_map.get(entry.market_sentiment, 50),
                 'score': entry.composite_score,
                 'title': entry.title,
+                'sources': entry.sources_used,
             })
 
         return Response(trend)
@@ -182,10 +232,11 @@ class JournalInsightViewSet(viewsets.ReadOnlyModelViewSet):
 def market_context_current(request):
     """Get current market context for journal."""
     fear_greed = fetch_fear_greed_index()
-    news = fetch_news_headlines(limit=5)
+    news = fetch_news_headlines(user=request.user, limit=8)
 
     return Response({
         'fear_greed': fear_greed,
         'recent_news': news,
+        'sources_used': list(set([n['source'] for n in news])),
         'timestamp': time.time(),
     })

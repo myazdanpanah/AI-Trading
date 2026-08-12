@@ -9,6 +9,7 @@ import { Backtester } from '../trading/Backtester';
 import { PortfolioTracker } from '../trading/PortfolioTracker';
 import { APISettings } from '../settings/APISettings';
 import { UserSettings } from '../settings/UserSettings';
+import { NewsSettings } from '../settings/NewsSettings';
 import { SignalDashboard } from './SignalDashboard';
 import { JournalPanel } from '../journal/JournalPanel';
 
@@ -58,7 +59,7 @@ const TickerTape: React.FC = () => {
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'trading' | 'signals' | 'journal' | 'feedback' | 'analysis' | 'backtest' | 'settings' | 'user-settings'>('trading');
+  const [activeTab, setActiveTab] = useState<'trading' | 'signals' | 'journal' | 'feedback' | 'analysis' | 'backtest' | 'settings' | 'news-settings' | 'user-settings'>('trading');
   const [loading, setLoading] = useState(true);
   const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT');
 
@@ -82,6 +83,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     { id: 'feedback' as const, label: 'Feedback', icon: '🧠' },
     { id: 'analysis' as const, label: 'Analysis', icon: '📊' },
     { id: 'backtest' as const, label: 'Backtest', icon: '🔬' },
+    { id: 'news-settings' as const, label: 'News', icon: '📰' },
     { id: 'settings' as const, label: 'Settings', icon: '⚙️' },
     { id: 'user-settings' as const, label: 'Profile', icon: '👤' },
   ];
@@ -175,6 +177,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             )}
             {activeTab === 'analysis' && (
               <div className="h-full p-4"><AnalysisPanel /></div>
+            )}
+            {activeTab === 'news-settings' && (
+              <div className="h-full p-4"><NewsSettings /></div>
             )}
             {activeTab === 'settings' && (
               <div className="h-full p-4"><APISettings /></div>

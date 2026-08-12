@@ -4,6 +4,54 @@ from django.db import models
 from django.conf import settings
 
 
+class NewsSource(models.Model):
+    """Configurable news source for the AI to read."""
+    SOURCE_TYPES = [
+        ('rss', 'RSS Feed'),
+        ('api', 'API'),
+        ('web', 'Website'),
+        ('twitter', 'Twitter/X'),
+        ('reddit', 'Reddit'),
+        ('telegram', 'Telegram'),
+    ]
+
+    CATEGORIES = [
+        ('crypto_news', 'Crypto News'),
+        ('market_data', 'Market Data'),
+        ('defi', 'DeFi'),
+        ('nft', 'NFT'),
+        ('regulation', 'Regulation'),
+        ('macro', 'Macro Economics'),
+        ('on_chain', 'On-Chain Data'),
+        ('social', 'Social Media'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='news_sources', null=True, blank=True)
+    name = models.CharField(max_length=100)
+    url = models.URLField(max_length=500)
+    source_type = models.CharField(max_length=20, choices=SOURCE_TYPES, default='rss')
+    category = models.CharField(max_length=20, choices=CATEGORIES, default='crypto_news')
+    icon = models.CharField(max_length=10, default='📰')
+    reliability_score = models.IntegerField(default=50, help_text='Source reliability 0-100')
+    is_active = models.BooleanField(default=True)
+    is_primary = models.BooleanField(default=False, help_text='Primary sources always included')
+    tags = models.JSONField(default=list, help_text='Topics covered by this source')
+    last_fetched = models.DateTimeField(null=True, blank=True)
+    fetch_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'news source'
+        verbose_name_plural = 'news sources'
+        db_table = 'journal_news_sources'
+        ordering = ['-reliability_score', 'name']
+
+    def __str__(self):
+        return f"{self.icon} {self.name} ({self.source_type})"
+
+
 class JournalEntry(models.Model):
     """AI-generated journal entry analyzing market conditions."""
     ENTRY_TYPES = [
@@ -40,6 +88,7 @@ class JournalEntry(models.Model):
 
     # Data sources used
     data_sources = models.JSONField(default=list, help_text='Sources: news, technical, sentiment, etc.')
+    sources_used = models.JSONField(default=list, help_text='Specific news sources used in this entry')
     news_count = models.IntegerField(default=0, help_text='Number of news articles analyzed')
     indicators_used = models.JSONField(default=list, help_text='Technical indicators referenced')
 

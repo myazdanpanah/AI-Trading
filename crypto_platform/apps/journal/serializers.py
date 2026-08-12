@@ -1,6 +1,13 @@
 """Journal serializers."""
 from rest_framework import serializers
-from .models import JournalEntry, JournalInsight, MarketContext
+from .models import JournalEntry, JournalInsight, MarketContext, NewsSource
+
+
+class NewsSourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NewsSource
+        fields = '__all__'
+        read_only_fields = ['user', 'last_fetched', 'fetch_count', 'created_at', 'updated_at']
 
 
 class JournalInsightSerializer(serializers.ModelSerializer):
@@ -29,6 +36,6 @@ class JournalEntryCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = JournalEntry
         fields = ['entry_type', 'title', 'content', 'summary', 'symbols_analyzed',
-                  'market_sentiment', 'composite_score', 'data_sources', 'news_count',
-                  'indicators_used', 'ai_model', 'ai_confidence', 'ai_reasoning',
+                  'market_sentiment', 'composite_score', 'data_sources', 'sources_used',
+                  'news_count', 'indicators_used', 'ai_model', 'ai_confidence', 'ai_reasoning',
                   'key_findings', 'risks_identified', 'opportunities', 'tags']
