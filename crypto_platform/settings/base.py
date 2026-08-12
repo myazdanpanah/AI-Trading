@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'apps.portfolio',
     'apps.trading_skills',
     'apps.journal',
+    'apps.forecast',
 ]
 
 MIDDLEWARE = [
