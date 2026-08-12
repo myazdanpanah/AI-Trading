@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../utils/api';
 
+interface HistoricalPerformance {
+  win_rate: number;
+  total_signals: number;
+  feedback_adjustment: number;
+  factor_performance: Record<string, { win_rate: number; discrimination_power: number; sample_size: number }>;
+  has_history: boolean;
+}
+
 interface AnalysisData {
   symbol: string;
   current_price: number;
@@ -8,6 +16,7 @@ interface AnalysisData {
   data_points: number;
   high_365d: number;
   low_365d: number;
+  historical_performance: HistoricalPerformance;
   regime: {
     components: Record<string, {
       label: string;
@@ -55,25 +64,19 @@ interface AnalysisData {
     combined_score: number;
     posture: string;
     max_exposure: number;
+    confidence_adjustment: number;
+    historical_accuracy: number;
   };
   execution_time_ms: number;
 }
 
 const COINS = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'LINK'];
 
-const SCORE_COLORS: Record<string, string> = {
-  high: '#10b981',
-  medium: '#f59e0b',
-  low: '#ef4444',
-};
-
 function getScoreColor(score: number): string {
-  if (score >= 70) return SCORE_COLORS.high;
-  if (score >= 40) return SCORE_COLORS.medium;
-  return SCORE_COLORS.low;
+  if (score >= 70) return '#10b981';
+  if (score >= 40) return '#f59e0b';
+  return '#ef4444';
 }
-
-
 
 // Radar Chart SVG component
 const RadarChart: React.FC<{ data: Array<{ label: string; value: number }>; size?: number }> = ({ data, size = 280 }) => {
@@ -85,10 +88,7 @@ const RadarChart: React.FC<{ data: Array<{ label: string; value: number }>; size
   const getPoint = (index: number, value: number) => {
     const angle = index * angleStep - Math.PI / 2;
     const r = (value / 100) * radius;
-    return {
-      x: center + r * Math.cos(angle),
-      y: center + r * Math.sin(angle),
-    };
+    return { x: center + r * Math.cos(angle), y: center + r * Math.sin(angle) };
   };
 
   const polygonPoints = data.map((d, i) => {
@@ -98,97 +98,45 @@ const RadarChart: React.FC<{ data: Array<{ label: string; value: number }>; size
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {/* Grid circles */}
       {[20, 40, 60, 80, 100].map((level) => (
-        <circle
-          key={level}
-          cx={center}
-          cy={center}
-          r={(level / 100) * radius}
-          fill="none"
-          stroke="rgba(255,255,255,0.1)"
-          strokeWidth={1}
-        />
+        <circle key={level} cx={center} cy={center} r={(level / 100) * radius} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
       ))}
-
-      {/* Axis lines */}
       {data.map((_, i) => {
         const angle = i * angleStep - Math.PI / 2;
-        return (
-          <line
-            key={i}
-            x1={center}
-            y1={center}
-            x2={center + radius * Math.cos(angle)}
-            y2={center + radius * Math.sin(angle)}
-            stroke="rgba(255,255,255,0.1)"
-            strokeWidth={1}
-          />
-        );
+        return <line key={i} x1={center} y1={center} x2={center + radius * Math.cos(angle)} y2={center + radius * Math.sin(angle)} stroke="rgba(255,255,255,0.1)" strokeWidth={1} />;
       })}
-
-      {/* Data polygon */}
-      <polygon
-        points={polygonPoints}
-        fill="rgba(139, 92, 246, 0.3)"
-        stroke="#8b5cf6"
-        strokeWidth={2}
-      />
-
-      {/* Data points */}
+      <polygon points={polygonPoints} fill="rgba(139, 92, 246, 0.3)" stroke="#8b5cf6" strokeWidth={2} />
       {data.map((d, i) => {
         const p = getPoint(i, d.value);
-        return (
-          <circle
-            key={i}
-            cx={p.x}
-            cy={p.y}
-            r={5}
-            fill={getScoreColor(d.value)}
-            stroke="white"
-            strokeWidth={2}
-          />
-        );
+        return <circle key={i} cx={p.x} cy={p.y} r={5} fill={getScoreColor(d.value)} stroke="white" strokeWidth={2} />;
       })}
-
-      {/* Labels */}
       {data.map((d, i) => {
         const angle = i * angleStep - Math.PI / 2;
         const labelR = radius + 25;
         const x = center + labelR * Math.cos(angle);
         const y = center + labelR * Math.sin(angle);
-        return (
-          <text
-            key={i}
-            x={x}
-            y={y}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill="rgba(255,255,255,0.7)"
-            fontSize={11}
-          >
-            {d.label}
-          </text>
-        );
+        return <text key={i} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.7)" fontSize={11}>{d.label}</text>;
       })}
     </svg>
   );
 };
 
 // Score bar component
-const ScoreBar: React.FC<{ label: string; score: number; weight: string; signal: string; compact?: boolean }> = ({
-  label, score, weight, signal, compact,
+const ScoreBar: React.FC<{ label: string; score: number; weight: string; signal: string; compact?: boolean; winRate?: number }> = ({
+  label, score, weight, signal, compact, winRate,
 }) => (
   <div className={`mb-3 ${compact ? 'mb-2' : ''}`}>
     <div className="flex items-center justify-between mb-1">
       <span className="text-sm text-gray-300">{label} <span className="text-gray-500">({weight})</span></span>
-      <span className="text-sm font-bold" style={{ color: getScoreColor(score) }}>{score.toFixed(1)}</span>
+      <div className="flex items-center gap-2">
+        {winRate !== undefined && winRate > 0 && (
+          <span className="text-xs text-gray-500">WR: {winRate.toFixed(0)}%</span>
+        )}
+        <span className="text-sm font-bold" style={{ color: getScoreColor(score) }}>{score.toFixed(1)}</span>
+      </div>
     </div>
     <div className="w-full bg-white/10 rounded-full h-2">
-      <div
-        className="h-2 rounded-full transition-all duration-500"
-        style={{ width: `${score}%`, backgroundColor: getScoreColor(score) }}
-      />
+      <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${score}%`, backgroundColor: getScoreColor(score) }} />
     </div>
     {!compact && <p className="text-xs text-gray-500 mt-1">{signal}</p>}
   </div>
@@ -205,14 +153,7 @@ const Gauge: React.FC<{ value: number; max?: number; label: string; color?: stri
       <div className="relative w-24 h-12 mx-auto mb-2">
         <svg viewBox="0 0 100 50" className="w-full h-full">
           <path d="M 10 45 A 40 40 0 0 1 90 45" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={8} strokeLinecap="round" />
-          <path
-            d="M 10 45 A 40 40 0 0 1 90 45"
-            fill="none"
-            stroke={gaugeColor}
-            strokeWidth={8}
-            strokeLinecap="round"
-            strokeDasharray={`${pct * 1.26} 126`}
-          />
+          <path d="M 10 45 A 40 40 0 0 1 90 45" fill="none" stroke={gaugeColor} strokeWidth={8} strokeLinecap="round" strokeDasharray={`${pct * 1.26} 126`} />
         </svg>
       </div>
       <div className="text-xl font-bold" style={{ color: gaugeColor }}>{value.toFixed(1)}</div>
@@ -267,7 +208,7 @@ export const SignalDashboard: React.FC = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-2 border-purple-500 border-t-transparent mx-auto" />
           <p className="text-gray-400 mt-3">Running analysis on {selectedCoin}...</p>
-          <p className="text-gray-500 text-sm mt-1">Fetching live data + running all skills</p>
+          <p className="text-gray-500 text-sm mt-1">Fetching live data + running all skills + checking history</p>
         </div>
       </div>
     );
@@ -278,18 +219,16 @@ export const SignalDashboard: React.FC = () => {
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 text-lg mb-4">{error}</p>
-          <button
-            onClick={() => fetchAnalysis(selectedCoin)}
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all"
-          >
-            Retry
-          </button>
+          <button onClick={() => fetchAnalysis(selectedCoin)} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all">Retry</button>
         </div>
       </div>
     );
   }
 
   if (!data) return null;
+
+  const hp = data.historical_performance;
+  const factorPerf = hp.factor_performance;
 
   const radarData = [
     { label: 'Technical', value: data.technical.overall_score },
@@ -302,22 +241,18 @@ export const SignalDashboard: React.FC = () => {
   const verdictColor = data.verdict.signal.includes('BUY') ? '#10b981'
     : data.verdict.signal.includes('SELL') ? '#ef4444' : '#f59e0b';
 
+  const adjDirection = data.verdict.confidence_adjustment > 0 ? 'up' : data.verdict.confidence_adjustment < 0 ? 'down' : 'none';
+
   return (
     <div className="h-full overflow-y-auto p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Signal Analysis Dashboard</h1>
-          <p className="text-gray-400 text-sm">Live multi-factor analysis with all trading skills</p>
+          <p className="text-gray-400 text-sm">Live multi-factor analysis + historical performance feedback</p>
         </div>
         <div className="flex items-center gap-3">
-          <input
-            type="number"
-            value={accountSize}
-            onChange={(e) => setAccountSize(Number(e.target.value))}
-            className="w-28 px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm"
-            placeholder="Account $"
-          />
+          <input type="number" value={accountSize} onChange={(e) => setAccountSize(Number(e.target.value))} className="w-28 px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm" placeholder="Account $" />
           <span className="text-gray-400 text-sm">ms: {data.execution_time_ms}</span>
         </div>
       </div>
@@ -325,15 +260,7 @@ export const SignalDashboard: React.FC = () => {
       {/* Coin Selector */}
       <div className="flex gap-2 flex-wrap">
         {COINS.map((coin) => (
-          <button
-            key={coin}
-            onClick={() => setSelectedCoin(coin)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              selectedCoin === coin
-                ? 'bg-purple-600 text-white shadow-lg'
-                : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
-            }`}
-          >
+          <button key={coin} onClick={() => setSelectedCoin(coin)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCoin === coin ? 'bg-purple-600 text-white shadow-lg' : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'}`}>
             {coin}
           </button>
         ))}
@@ -346,11 +273,7 @@ export const SignalDashboard: React.FC = () => {
           <div className="flex items-center justify-between mb-3">
             <span className="text-gray-400 text-sm">{data.symbol}/USD</span>
             <div className="flex items-center gap-2">
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                data.data_source === 'binance'
-                  ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                  : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-              }`}>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${data.data_source === 'binance' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
                 {data.data_source === 'binance' ? '⚡ Binance' : '🦎 CoinGecko'}
               </span>
               <span className="text-xs text-gray-500">{data.data_points} candles</span>
@@ -363,12 +286,10 @@ export const SignalDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Verdict Card */}
+        {/* Verdict Card - Enhanced with feedback */}
         <div className="bg-white/5 backdrop-blur-lg rounded-xl p-5 border border-white/10 flex flex-col items-center justify-center">
           <div className="text-xs text-gray-400 mb-1">FINAL SIGNAL</div>
-          <div className="text-4xl font-black tracking-wider" style={{ color: verdictColor }}>
-            {data.verdict.signal}
-          </div>
+          <div className="text-4xl font-black tracking-wider" style={{ color: verdictColor }}>{data.verdict.signal}</div>
           <div className="text-sm text-gray-400 mt-2">
             Combined: <span className="text-white font-bold">{data.verdict.combined_score}</span>/100
           </div>
@@ -376,6 +297,12 @@ export const SignalDashboard: React.FC = () => {
             <span className="text-gray-500">Regime: <span className="text-white">{data.verdict.regime_score}</span></span>
             <span className="text-gray-500">Tech: <span className="text-white">{data.verdict.technical_score}</span></span>
           </div>
+          {/* Feedback adjustment indicator */}
+          {hp.has_history && (
+            <div className={`mt-2 text-xs px-2 py-0.5 rounded-full ${adjDirection === 'up' ? 'bg-green-500/20 text-green-400' : adjDirection === 'down' ? 'bg-red-500/20 text-red-400' : 'bg-gray-500/20 text-gray-400'}`}>
+              {adjDirection === 'up' ? '↑' : adjDirection === 'down' ? '↓' : '—'} Adjusted by historical accuracy ({data.verdict.historical_accuracy.toFixed(0)}% WR)
+            </div>
+          )}
         </div>
 
         {/* Exposure Card */}
@@ -386,14 +313,56 @@ export const SignalDashboard: React.FC = () => {
             Max Exposure: <span className="text-purple-400 font-bold">{(data.regime.exposure.max_exposure * 100).toFixed(0)}%</span>
           </div>
           <div className="mt-3 bg-white/10 rounded-full h-3">
-            <div
-              className="h-3 rounded-full bg-purple-500 transition-all duration-500"
-              style={{ width: `${data.regime.exposure.max_exposure * 100}%` }}
-            />
+            <div className="h-3 rounded-full bg-purple-500 transition-all duration-500" style={{ width: `${data.regime.exposure.max_exposure * 100}%` }} />
           </div>
           <p className="text-xs text-gray-500 mt-2">{data.regime.exposure.recommendation}</p>
         </div>
       </div>
+
+      {/* Historical Performance Banner */}
+      {hp.has_history && (
+        <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 backdrop-blur-lg rounded-xl p-4 border border-blue-500/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-2xl">📊</span>
+              <div>
+                <h3 className="text-sm font-semibold text-white">Historical Performance Feedback</h3>
+                <p className="text-xs text-gray-400">Based on {hp.total_signals} past signals over the last 30 days</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <div className="text-lg font-bold" style={{ color: getScoreColor(hp.win_rate) }}>{hp.win_rate.toFixed(1)}%</div>
+                <div className="text-xs text-gray-400">Win Rate</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-white">{hp.total_signals}</div>
+                <div className="text-xs text-gray-400">Signals</div>
+              </div>
+              <div className="text-center">
+                <div className={`text-lg font-bold ${hp.feedback_adjustment > 0 ? 'text-green-400' : hp.feedback_adjustment < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                  {hp.feedback_adjustment > 0 ? '+' : ''}{hp.feedback_adjustment.toFixed(1)}
+                </div>
+                <div className="text-xs text-gray-400">Score Adj</div>
+              </div>
+            </div>
+          </div>
+          {/* Factor win rates */}
+          {Object.keys(factorPerf).length > 0 && (
+            <div className="flex gap-4 mt-3 pt-3 border-t border-white/5">
+              {Object.entries(factorPerf).map(([factor, perf]) => (
+                <div key={factor} className="flex items-center gap-2 text-xs">
+                  <span className="text-gray-500 capitalize">{factor}:</span>
+                  <span className="font-mono" style={{ color: getScoreColor(perf.win_rate || 0) }}>
+                    {perf.win_rate ? `${perf.win_rate.toFixed(0)}%` : 'N/A'}
+                  </span>
+                  <span className="text-gray-600">(n={perf.sample_size || 0})</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Analysis Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -406,13 +375,13 @@ export const SignalDashboard: React.FC = () => {
             </div>
             <div className="flex-1 ml-4">
               {[
-                { label: 'Technical', score: data.technical.overall_score, weight: '30%' },
-                { label: 'Trend', score: data.technical.trend.score, weight: '' },
-                { label: 'Momentum', score: data.technical.momentum.score, weight: '' },
-                { label: 'Volatility', score: data.technical.volatility.score, weight: '' },
-                { label: 'Regime', score: data.regime.composite.score || 50, weight: '' },
+                { label: 'Technical', score: data.technical.overall_score, weight: '30%', factorKey: 'technical' },
+                { label: 'Trend', score: data.technical.trend.score, weight: '', factorKey: 'trend' },
+                { label: 'Momentum', score: data.technical.momentum.score, weight: '', factorKey: 'momentum' },
+                { label: 'Volatility', score: data.technical.volatility.score, weight: '', factorKey: 'volatility' },
+                { label: 'Regime', score: data.regime.composite.score || 50, weight: '', factorKey: 'regime' },
               ].map((item) => (
-                <ScoreBar key={item.label} label={item.label} score={item.score} weight={item.weight} signal="" compact />
+                <ScoreBar key={item.label} label={item.label} score={item.score} weight={item.weight} signal="" compact winRate={factorPerf[item.factorKey]?.win_rate} />
               ))}
             </div>
           </div>
@@ -431,14 +400,7 @@ export const SignalDashboard: React.FC = () => {
             </div>
           </div>
           {Object.entries(data.regime.components).map(([key, comp]) => (
-            <ScoreBar
-              key={key}
-              label={comp.label}
-              score={comp.score}
-              weight={comp.weight}
-              signal={comp.signal}
-              compact
-            />
+            <ScoreBar key={key} label={comp.label} score={comp.score} weight={comp.weight} signal={comp.signal} compact />
           ))}
         </div>
 
@@ -452,22 +414,10 @@ export const SignalDashboard: React.FC = () => {
             <Gauge value={data.technical.overall_score} label="Overall" color="#8b5cf6" />
           </div>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between text-gray-300">
-              <span>Trend:</span>
-              <span>{data.technical.trend.signal}</span>
-            </div>
-            <div className="flex justify-between text-gray-300">
-              <span>Momentum:</span>
-              <span>{data.technical.momentum.signal} (RSI: {data.technical.momentum.rsi})</span>
-            </div>
-            <div className="flex justify-between text-gray-300">
-              <span>Volatility:</span>
-              <span>{data.technical.volatility.signal}</span>
-            </div>
-            <div className="flex justify-between text-gray-300">
-              <span>S/R:</span>
-              <span>{data.technical.support_resistance.signal}</span>
-            </div>
+            <div className="flex justify-between text-gray-300"><span>Trend:</span><span>{data.technical.trend.signal}</span></div>
+            <div className="flex justify-between text-gray-300"><span>Momentum:</span><span>{data.technical.momentum.signal} (RSI: {data.technical.momentum.rsi})</span></div>
+            <div className="flex justify-between text-gray-300"><span>Volatility:</span><span>{data.technical.volatility.signal}</span></div>
+            <div className="flex justify-between text-gray-300"><span>S/R:</span><span>{data.technical.support_resistance.signal}</span></div>
             {data.technical.vwap && (
               <div className="flex justify-between text-gray-300">
                 <span>VWAP:</span>
@@ -481,7 +431,6 @@ export const SignalDashboard: React.FC = () => {
               </div>
             )}
           </div>
-
           {/* VWAP & Ichimoku Details */}
           {data.technical.vwap && data.technical.ichimoku && (
             <div className="mt-4 grid grid-cols-2 gap-3">
@@ -528,7 +477,7 @@ export const SignalDashboard: React.FC = () => {
           <div className="mt-4 grid grid-cols-3 gap-3 text-center">
             <div>
               <div className="text-lg font-bold text-purple-400">{data.position.position_size.toFixed(6)}</div>
-              <div className="text-xs text-gray-400">BTC Size</div>
+              <div className="text-xs text-gray-400">{data.symbol} Size</div>
             </div>
             <div>
               <div className="text-lg font-bold text-white">${data.position.position_value_usd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
@@ -548,7 +497,7 @@ export const SignalDashboard: React.FC = () => {
 
       {/* Footer */}
       <div className="text-center text-xs text-gray-600 py-2">
-        Analysis completed in {data.execution_time_ms}ms | {data.data_points} data points | Source: {data.data_source === 'binance' ? 'Binance (real-time)' : 'CoinGecko (fallback)'} | Powered by Trading Skills Engine
+        Analysis completed in {data.execution_time_ms}ms | {data.data_points} data points | Source: {data.data_source === 'binance' ? 'Binance (real-time)' : 'CoinGecko (fallback)'} | {hp.has_history ? `Historical WR: ${hp.win_rate.toFixed(1)}% (${hp.total_signals} signals)` : 'No historical data yet'} | Powered by Trading Skills Engine
       </div>
     </div>
   );

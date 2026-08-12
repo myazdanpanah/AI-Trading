@@ -208,10 +208,38 @@ def full_analysis(request):
             stop_loss_price=sl,
         )
 
-        # === Final Verdict ===
+        # === Incorporate Feedback Performance Data ===
+        feedback_adjustment = 0
+        factor_performance = {}
+        historical_win_rate = 0
+        historical_signals = 0
+        try:
+            from apps.feedback.services.learning_agent import LearningAgent
+            analysis_result = LearningAgent.analyze_performance(
+                lookback_days=30, symbol=symbol, min_signals=1
+            )
+            if analysis_result.get('status') == 'complete':
+                overall = analysis_result.get('overall', {})
+                historical_win_rate = overall.get('win_rate', 0)
+                historical_signals = overall.get('total_signals', 0)
+                factor_performance = analysis_result.get('factor_analysis', {})
+                # If we have historical win rates, use them to weight factors
+                if factor_performance:
+                    tech_wr = factor_performance.get('technical', {}).get('win_rate', 50)
+                    sentiment_wr = factor_performance.get('sentiment', {}).get('win_rate', 50)
+                    # Boost or reduce confidence based on historical accuracy
+                    if historical_win_rate > 60:
+                        feedback_adjustment = 5  # System has been accurate, boost confidence
+                    elif historical_win_rate < 40:
+                        feedback_adjustment = -5  # System has been inaccurate, reduce confidence
+        except Exception:
+            pass  # No feedback data yet, continue with default weights
+
+        # === Final Verdict with feedback-adjusted scoring ===
         regime_score = composite.get('score', 50) or 50
         tech_score = technical.get('overall_score', 50)
-        final_score = regime_score * 0.5 + tech_score * 0.5
+        base_score = regime_score * 0.5 + tech_score * 0.5
+        final_score = max(0, min(100, base_score + feedback_adjustment))
 
         if final_score >= 75:
             verdict = 'STRONG BUY'
@@ -231,6 +259,8 @@ def full_analysis(request):
                 return {k: to_float(v) for k, v in obj.items()}
             elif isinstance(obj, list):
                 return [to_float(i) for i in obj]
+            elif isinstance(obj, bool):
+                return obj
             elif isinstance(obj, (np.floating, np.integer)):
                 return float(obj)
             elif hasattr(obj, '__float__'):
@@ -244,6 +274,13 @@ def full_analysis(request):
             'data_points': len(closes),
             'high_365d': max(closes),
             'low_365d': min(closes),
+            'historical_performance': to_float({
+                'win_rate': historical_win_rate,
+                'total_signals': historical_signals,
+                'feedback_adjustment': feedback_adjustment,
+                'factor_performance': factor_performance,
+                'has_history': historical_signals > 0,
+            }),
             'regime': to_float({
                 'components': {
                     'btc_trend': {'label': 'BTC Trend Structure', 'weight': '25%', **components['btc_trend']},
@@ -275,6 +312,8 @@ def full_analysis(request):
                 'combined_score': round(final_score, 1),
                 'posture': exposure['posture'],
                 'max_exposure': exposure['max_exposure'],
+                'confidence_adjustment': feedback_adjustment,
+                'historical_accuracy': historical_win_rate,
             },
             'execution_time_ms': int((time.time() - start) * 1000),
         }
