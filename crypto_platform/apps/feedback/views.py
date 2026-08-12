@@ -408,3 +408,56 @@ class PerformanceAnalysisViewSet(viewsets.ViewSet):
         )
         
         return Response(memories)
+
+    @action(detail=False, methods=['get'], url_path='results/performance')
+    def results_performance(self, request):
+        """Get performance metrics for a given lookback period."""
+        days = int(request.query_params.get('days', 30))
+        symbol = request.query_params.get('symbol')
+
+        try:
+            analysis = LearningAgent.analyze_performance(
+                lookback_days=days,
+                symbol=symbol,
+                min_signals=1,
+            )
+
+            if analysis.get('status') == 'complete':
+                overall = analysis.get('overall', {})
+                return Response({
+                    'win_rate': overall.get('win_rate', 0),
+                    'total_signals': overall.get('total_signals', 0),
+                    'avg_return': overall.get('avg_return', 0),
+                    'profit_factor': overall.get('profit_factor', 0),
+                    'sharpe_ratio': overall.get('sharpe_ratio', 0),
+                    'factor_analysis': analysis.get('factor_analysis', {}),
+                    'insights': analysis.get('insights', []),
+                    'days': days,
+                })
+            else:
+                # Return default metrics when no signal data exists
+                return Response({
+                    'win_rate': 0,
+                    'total_signals': 0,
+                    'avg_return': 0,
+                    'profit_factor': 0,
+                    'sharpe_ratio': 0,
+                    'factor_analysis': {},
+                    'insights': [],
+                    'days': days,
+                    'status': 'no_data',
+                })
+        except Exception as e:
+            logger.error(f"Performance metrics failed: {e}")
+            return Response({
+                'win_rate': 0,
+                'total_signals': 0,
+                'avg_return': 0,
+                'profit_factor': 0,
+                'sharpe_ratio': 0,
+                'factor_analysis': {},
+                'insights': [],
+                'days': days,
+                'status': 'error',
+                'error': str(e),
+            })
