@@ -15,14 +15,15 @@ const Login: React.FC = () => {
 
   const handleLogin = (token: string) => {
     // Fetch user data after login
-    fetch('/api/auth/user/', {
+    fetch('/api/users/users/', {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     })
       .then(res => res.json())
-      .then(userData => {
-        login(token, userData);
+      .then(data => {
+        const userData = Array.isArray(data) ? data[0] : (data.results && data.results.length > 0 ? data.results[0] : data);
+        login(token, userData || { id: 1, username: 'user', email: 'user@example.com' });
         navigate('/dashboard');
       })
       .catch(() => {

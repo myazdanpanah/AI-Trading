@@ -129,17 +129,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     try {
-      const response = await fetch('/api/auth/user/', {
+      const response = await fetch('/api/users/users/', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
       
       if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
-        updateActivityTimestamp();
+        const data = await response.json();
+        // Handle paginated list or single object
+        const userData = Array.isArray(data) ? data[0] : (data.results && data.results.length > 0 ? data.results[0] : data);
+        if (userData && userData.username) {
+          setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
+          updateActivityTimestamp();
+        }
       } else if (response.status === 401) {
         // Token expired, try to refresh
         const refreshed = await refreshToken();

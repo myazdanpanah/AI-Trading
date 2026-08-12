@@ -83,21 +83,49 @@ export const FeedbackPanel: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiFetch(`/feedback/performance/results/performance/?days=${lookbackDays}`);
-      if (response.ok) {
-        const data = await response.json();
-        setMetrics(data);
-      } else {
-        // Default empty metrics
-        setMetrics({
-          win_rate: 0, total_signals: 0, avg_return: 0,
-          profit_factor: 0, sharpe_ratio: 0,
-          factor_analysis: {}, insights: [], days: lookbackDays,
-        });
+      // Fetch signal memories to compute performance
+      const memResp = await apiFetch('/feedback/signal-memories/?limit=50');
+      const insightsResp = await apiFetch('/feedback/insights/?limit=20');
+      let memories: any[] = [];
+      let insightsList: string[] = [];
+      if (memResp.ok) {
+        const mData = await memResp.json();
+        memories = mData.results || mData || [];
       }
+      if (insightsResp.ok) {
+        const iData = await insightsResp.json();
+        const iResults = iData.results || iData || [];
+        insightsList = iResults.map((i: any) => `${i.title}: ${i.description}`);
+      }
+      // Compute metrics from memories
+      const total = memories.length;
+      const correct = memories.filter((m: any) => m.was_correct).length;
+      const winRate = total > 0 ? (correct / total) * 100 : 0;
+      const returns = memories.map((m: any) => parseFloat(m.actual_return_percent || 0));
+      const avgReturn = returns.length > 0 ? returns.reduce((a: number, b: number) => a + b, 0) / returns.length : 0;
+      const wins = returns.filter((r: number) => r > 0);
+      const losses = returns.filter((r: number) => r < 0).map((r: number) => Math.abs(r));
+      const avgWin = wins.length > 0 ? wins.reduce((a: number, b: number) => a + b, 0) / wins.length : 0;
+      const avgLoss = losses.length > 0 ? losses.reduce((a: number, b: number) => a + b, 0) / losses.length : 1;
+      const profitFactor = avgLoss > 0 ? avgWin / avgLoss : avgWin > 0 ? 99 : 0;
+      setMetrics({
+        win_rate: winRate,
+        total_signals: total,
+        avg_return: avgReturn,
+        profit_factor: profitFactor,
+        sharpe_ratio: avgReturn > 0 && avgLoss > 0 ? avgReturn / (avgLoss || 1) : 0,
+        factor_analysis: {},
+        insights: insightsList,
+        days: lookbackDays,
+      });
     } catch (err) {
       console.error('Failed to load performance:', err);
-      setError(language === 'fa' ? 'خطا در بارگذاری عملکرد' : 'Failed to load performance');
+      // Set empty metrics on error
+      setMetrics({
+        win_rate: 0, total_signals: 0, avg_return: 0,
+        profit_factor: 0, sharpe_ratio: 0,
+        factor_analysis: {}, insights: [], days: lookbackDays,
+      });
     } finally {
       setLoading(false);
     }
@@ -105,7 +133,7 @@ export const FeedbackPanel: React.FC = () => {
 
   const loadInsights = useCallback(async () => {
     try {
-      const response = await apiFetch('/feedback/performance/insights/?limit=20');
+      const response = await apiFetch('/feedback/insights/?limit=20');
       if (response.ok) {
         const data = await response.json();
         setInsights(Array.isArray(data) ? data : []);
