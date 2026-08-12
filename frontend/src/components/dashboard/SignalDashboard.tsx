@@ -3,60 +3,47 @@ import { useWatchlist } from '../../contexts/WatchlistContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { apiFetch } from '../../utils/api';
 
-interface Signal {
-  id?: string;
-  symbol: string;
-  direction: string;
-  confidence: any;
-  risk_score: any;
-  entry_price: any;
-  stop_loss: any;
-  take_profit: any;
-  timeframe: string;
-  technical_score: any;
-  sentiment_score: any;
-  news_score: any;
-  ai_score: any;
-  macro_score: any;
-  composite_score: any;
-  is_active: boolean;
-  created_at: string;
-  reasons?: Array<{
-    reason_type: string;
-    description: string;
-    confidence: any;
-  }>;
-}
-
-// Safe number conversion helpers
-const safeNumber = (value: any, defaultValue: number = 0): number => {
-  if (value === null || value === undefined || value === '') return defaultValue;
-  const num = typeof value === 'string' ? parseFloat(value) : value;
-  return isNaN(num) ? defaultValue : num;
-};
-
-const safeToFixed = (value: any, digits: number = 2): string => {
-  const num = safeNumber(value, 0);
-  return num.toFixed(digits);
-};
-
-const safePercent = (value: any, digits: number = 1): string => {
-  const num = safeNumber(value, 0);
-  return (num * 100).toFixed(digits);
-};
-
-const formatPrice = (price: any): string => {
-  const num = safeNumber(price, 0);
-  if (num === 0) return '---';
-  if (num >= 1000) return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (num >= 1) return num.toFixed(2);
-  return num.toFixed(6);
+// Safe helpers - never crash
+const safe = {
+  num: (v: any, d = 0): number => {
+    if (v === null || v === undefined || v === '') return d;
+    const n = typeof v === 'string' ? parseFloat(v) : v;
+    return isNaN(n) ? d : n;
+  },
+  str: (v: any, d = '---'): string => {
+    if (v === null || v === undefined || v === '') return d;
+    return String(v);
+  },
+  pct: (v: any, d = 0): string => {
+    return (safe.num(v, d) * 100).toFixed(1);
+  },
+  price: (v: any): string => {
+    const n = safe.num(v, 0);
+    if (n === 0) return '---';
+    if (n >= 1000) return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (n >= 1) return n.toFixed(2);
+    return n.toFixed(6);
+  },
+  date: (v: any): string => {
+    try {
+      if (!v) return '---';
+      return new Date(v).toLocaleString();
+    } catch {
+      return '---';
+    }
+  },
+  color: (v: any): string => {
+    const n = safe.num(v, 0);
+    if (n >= 0.65) return 'text-green-400';
+    if (n <= 0.35) return 'text-red-400';
+    return 'text-yellow-400';
+  },
 };
 
 export const SignalDashboard: React.FC = () => {
   const { baseSymbols } = useWatchlist();
-  const { t } = useLanguage();
-  const [signals, setSignals] = useState<Signal[]>([]);
+  const { t, language } = useLanguage();
+  const [signals, setSignals] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState('BTC');
@@ -67,15 +54,31 @@ export const SignalDashboard: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      
       const response = await apiFetch(`/signals/signals/?symbol=${selectedSymbol}&is_active=true`);
+      
       if (!response.ok) {
-        throw new Error('Failed to load signals');
+        // Don't throw, just show empty state
+        setSignals([]);
+        return;
       }
+      
       const data = await response.json();
-      setSignals(data.results || data || []);
-    } catch (error) {
-      console.error('Failed to load signals:', error);
-      setError('Failed to load signals. Please try again.');
+      
+      // Handle different response formats
+      let signalList = [];
+      if (Array.isArray(data)) {
+        signalList = data;
+      } else if (data.results && Array.isArray(data.results)) {
+        signalList = data.results;
+      } else if (data.signal) {
+        signalList = [data.signal];
+      }
+      
+      setSignals(signalList);
+    } catch (err) {
+      console.error('Load signals error:', err);
+      setSignals([]); // Show empty state instead of error
     } finally {
       setLoading(false);
     }
@@ -85,6 +88,7 @@ export const SignalDashboard: React.FC = () => {
     try {
       setGenerating(true);
       setError(null);
+      
       const response = await apiFetch('/signals/signals/generate/', {
         method: 'POST',
         body: JSON.stringify({ 
@@ -96,17 +100,23 @@ export const SignalDashboard: React.FC = () => {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate signal');
+        const errMsg = data.error || data.detail || 'Failed to generate signal';
+        setError(typeof errMsg === 'string' ? errMsg : 'Failed to generate signal');
+        return;
       }
       
+      // Add new signal to list
       if (data.signal) {
         setSignals(prev => [data.signal, ...prev]);
+      } else if (data.details) {
+        // Backend returned details without signal object
+        setSignals(prev => [data.details, ...prev]);
       } else {
         await loadSignals();
       }
-    } catch (error) {
-      console.error('Failed to generate signal:', error);
-      setError(error instanceof Error ? error.message : 'Failed to generate signal. Please try again.');
+    } catch (err) {
+      console.error('Generate signal error:', err);
+      setError(language === 'fa' ? 'خطا در تولید سیگنال' : 'Error generating signal');
     } finally {
       setGenerating(false);
     }
@@ -116,183 +126,191 @@ export const SignalDashboard: React.FC = () => {
     loadSignals();
   }, [selectedSymbol]);
 
-  const getActionColor = (direction: string) => {
-    switch (direction?.toUpperCase()) {
-      case 'BUY':
-      case 'LONG':
-        return 'text-green-400 bg-green-500/20';
-      case 'SELL':
-      case 'SHORT':
-        return 'text-red-400 bg-red-500/20';
-      default:
-        return 'text-yellow-400 bg-yellow-500/20';
-    }
-  };
-
-  const getActionLabel = (direction: string) => {
-    switch (direction?.toUpperCase()) {
-      case 'BUY':
-      case 'LONG':
-        return t('signals.buy');
-      case 'SELL':
-      case 'SHORT':
-        return t('signals.sell');
-      default:
-        return t('signals.hold');
-    }
-  };
-
   const symbolOptions = baseSymbols.length > 0 ? baseSymbols : ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
+
+  const getDirectionColor = (dir: string) => {
+    const d = safe.str(dir).toUpperCase();
+    if (d === 'BUY' || d === 'LONG') return 'bg-green-500/20 text-green-400 border-green-500/30';
+    if (d === 'SELL' || d === 'SHORT') return 'bg-red-500/20 text-red-400 border-red-500/30';
+    return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+  };
+
+  const getDirectionLabel = (dir: string) => {
+    const d = safe.str(dir).toUpperCase();
+    if (d === 'BUY' || d === 'LONG') return language === 'fa' ? 'خرید' : 'BUY';
+    if (d === 'SELL' || d === 'SHORT') return language === 'fa' ? 'فروش' : 'SELL';
+    return language === 'fa' ? 'نگه داشتن' : 'HOLD';
+  };
+
+  const factors = [
+    { key: 'technical', label: language === 'fa' ? 'تکنیکال' : 'Technical' },
+    { key: 'sentiment', label: language === 'fa' ? 'احساسات' : 'Sentiment' },
+    { key: 'news', label: language === 'fa' ? 'اخبار' : 'News' },
+    { key: 'ai', label: 'AI' },
+    { key: 'macro', label: language === 'fa' ? 'کلان' : 'Macro' },
+  ];
 
   return (
     <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">{t('signals.title')}</h2>
+        <h2 className="text-lg font-semibold text-white">
+          {language === 'fa' ? 'سیگنال‌های ترید' : 'Trading Signals'}
+        </h2>
         <div className="flex gap-2">
           <select
             value={selectedSymbol}
             onChange={(e) => setSelectedSymbol(e.target.value)}
-            className="bg-gray-700 text-white px-3 py-1.5 rounded text-sm"
+            className="bg-gray-700 text-white px-3 py-1.5 rounded text-sm border border-gray-600"
           >
-            {symbolOptions.map((symbol) => (
-              <option key={symbol} value={symbol}>
-                {symbol}
-              </option>
+            {symbolOptions.map((s) => (
+              <option key={s} value={s}>{s}</option>
             ))}
           </select>
           <select
             value={timeframe}
             onChange={(e) => setTimeframe(e.target.value)}
-            className="bg-gray-700 text-white px-3 py-1.5 rounded text-sm"
+            className="bg-gray-700 text-white px-3 py-1.5 rounded text-sm border border-gray-600"
           >
-            <option value="1m">1m</option>
-            <option value="5m">5m</option>
-            <option value="15m">15m</option>
-            <option value="1h">1h</option>
-            <option value="4h">4h</option>
-            <option value="1d">1D</option>
+            {['1m', '5m', '15m', '1h', '4h', '1d'].map(tf => (
+              <option key={tf} value={tf}>{tf}</option>
+            ))}
           </select>
           <button
             onClick={generateSignal}
             disabled={generating}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm font-medium disabled:opacity-50"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm font-medium disabled:opacity-50 flex items-center gap-2"
           >
             {generating ? (
-              <span className="flex items-center gap-2">
+              <>
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                Generating...
-              </span>
+                {language === 'fa' ? 'در حال تولید...' : 'Generating...'}
+              </>
             ) : (
-              `+ Generate`
+              <>+ {language === 'fa' ? 'تولید سیگنال' : 'Generate'}</>
             )}
           </button>
         </div>
       </div>
 
+      {/* Error */}
       {error && (
-        <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-sm">
-          {error}
-          <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-300">✕</button>
+        <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-sm flex items-center justify-between">
+          <span>⚠️ {error}</span>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">✕</button>
         </div>
       )}
 
+      {/* Content */}
       {loading ? (
-        <div className="text-center py-8 text-gray-400">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mx-auto mb-4"></div>
-          Loading signals...
+        <div className="text-center py-12 text-gray-400">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+          <p>{language === 'fa' ? 'در حال بارگذاری...' : 'Loading signals...'}</p>
         </div>
       ) : signals.length === 0 ? (
-        <div className="text-center py-8 text-gray-400">
-          <div className="text-4xl mb-4">🔔</div>
-          <p className="text-lg mb-2">No signals yet</p>
-          <p className="text-sm mb-4">Generate your first signal for {selectedSymbol}</p>
+        <div className="text-center py-12 text-gray-400">
+          <div className="text-5xl mb-4">🔔</div>
+          <p className="text-lg mb-2">{language === 'fa' ? 'هنوز سیگنالی وجود ندارد' : 'No signals yet'}</p>
+          <p className="text-sm mb-4">
+            {language === 'fa' 
+              ? `اولین سیگنال ${selectedSymbol} را تولید کنید`
+              : `Generate your first signal for ${selectedSymbol}`}
+          </p>
           <button
             onClick={generateSignal}
             disabled={generating}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {generating ? 'Generating...' : 'Generate Signal'}
+            {language === 'fa' ? 'تولید سیگنال' : 'Generate Signal'}
           </button>
         </div>
       ) : (
         <div className="space-y-4">
-          {signals.map((signal, index) => (
-            <div key={signal.id || index} className="bg-gray-800 rounded-lg border border-gray-600 p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="font-bold text-lg">{signal.symbol}</span>
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getActionColor(signal.direction)}`}>
-                      {getActionLabel(signal.direction)}
+          {signals.map((signal, index) => {
+            const direction = safe.str(signal.direction || signal.action);
+            const confidence = safe.num(signal.confidence);
+            const entryPrice = signal.entry_price || signal.entry;
+            const stopLoss = signal.stop_loss || signal.sl;
+            const takeProfit = signal.take_profit || signal.tp;
+            
+            return (
+              <div key={signal.id || index} className="bg-gray-900 rounded-lg border border-gray-600 p-4 hover:border-gray-500 transition-colors">
+                {/* Header Row */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-xl text-white">{safe.str(signal.symbol)}</span>
+                    <span className={`px-3 py-1 rounded-full text-sm font-semibold border ${getDirectionColor(direction)}`}>
+                      {getDirectionLabel(direction)}
                     </span>
                     <span className="text-sm text-gray-400">
-                      Confidence: {safePercent(signal.confidence)}%
-                    </span>
-                    <span className="text-xs px-2 py-0.5 bg-gray-700 rounded text-gray-300">
-                      {signal.timeframe}
+                      {language === 'fa' ? 'اطمینان' : 'Confidence'}: {safe.pct(confidence)}%
                     </span>
                   </div>
-                  <div className="text-sm text-gray-400">
-                    {new Date(signal.created_at).toLocaleString()}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">
+                      {safe.str(signal.timeframe)}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {safe.date(signal.created_at)}
+                    </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Price Levels */}
-              <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-500">Entry:</span>
-                  <span className="ml-2 text-white font-mono">${formatPrice(signal.entry_price)}</span>
+                {/* Price Levels */}
+                <div className="grid grid-cols-3 gap-4 mb-4 p-3 bg-gray-800 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-500 mb-1">{language === 'fa' ? 'ورود' : 'Entry'}</div>
+                    <div className="text-lg font-mono text-white">${safe.price(entryPrice)}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-gray-500 mb-1">{language === 'fa' ? 'حد ضرر' : 'Stop Loss'}</div>
+                    <div className="text-lg font-mono text-red-400">${safe.price(stopLoss)}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-gray-500 mb-1">{language === 'fa' ? 'حد سود' : 'Take Profit'}</div>
+                    <div className="text-lg font-mono text-green-400">${safe.price(takeProfit)}</div>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-gray-500">Stop Loss:</span>
-                  <span className="ml-2 text-red-400 font-mono">${formatPrice(signal.stop_loss)}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">Take Profit:</span>
-                  <span className="ml-2 text-green-400 font-mono">${formatPrice(signal.take_profit)}</span>
-                </div>
-              </div>
 
-              {/* Factor Breakdown */}
-              <div className="mt-4 grid grid-cols-5 gap-2">
-                {[
-                  { key: 'technical', label: 'Technical', score: signal.technical_score },
-                  { key: 'sentiment', label: 'Sentiment', score: signal.sentiment_score },
-                  { key: 'news', label: 'News', score: signal.news_score },
-                  { key: 'ai', label: 'AI', score: signal.ai_score },
-                  { key: 'macro', label: 'Macro', score: signal.macro_score },
-                ].map(({ key, label, score }) => (
-                  <div key={key} className="text-center">
-                    <div className="text-xs text-gray-400 mb-1">{label}</div>
-                    <div className="text-sm font-mono">
-                      {safePercent(score, 0)}%
+                {/* Factor Scores */}
+                <div className="grid grid-cols-5 gap-2">
+                  {factors.map(({ key, label }) => {
+                    const score = safe.num(signal[key + '_score'] || signal.factors?.[key]);
+                    return (
+                      <div key={key} className="text-center p-2 bg-gray-800 rounded">
+                        <div className="text-[10px] text-gray-500 mb-1">{label}</div>
+                        <div className={`text-sm font-mono font-bold ${safe.color(score)}`}>
+                          {safe.pct(score, 0)}%
+                        </div>
+                        <div className="h-1 bg-gray-700 rounded mt-1 overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-500 rounded transition-all"
+                            style={{ width: `${Math.min(100, Math.max(0, safe.num(score) * 100))}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Reasons */}
+                {signal.reasons && Array.isArray(signal.reasons) && signal.reasons.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-700">
+                    <div className="text-xs text-gray-500 mb-2">
+                      {language === 'fa' ? 'دلایل:' : 'Reasons:'}
                     </div>
-                    <div className="h-1 bg-gray-600 rounded mt-1">
-                      <div
-                        className="h-1 bg-blue-500 rounded"
-                        style={{ width: `${Math.min(100, Math.max(0, safeNumber(score) * 100))}%` }}
-                      />
+                    <div className="flex flex-wrap gap-2">
+                      {signal.reasons.slice(0, 4).map((reason: any, i: number) => (
+                        <span key={i} className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">
+                          {safe.str(reason.description || reason)}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
               </div>
-
-              {/* Signal Reasons */}
-              {signal.reasons && signal.reasons.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-700">
-                  <div className="text-xs text-gray-500 mb-2">Reasons:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {signal.reasons.slice(0, 3).map((reason, i) => (
-                      <span key={i} className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">
-                        {reason.description}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
