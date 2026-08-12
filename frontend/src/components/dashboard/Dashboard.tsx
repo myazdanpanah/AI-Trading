@@ -63,6 +63,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'trading' | 'signals' | 'journal' | 'feedback' | 'analysis' | 'forecast' | 'backtest' | 'settings' | 'news-settings' | 'user-settings'>('trading');
   const [loading, setLoading] = useState(true);
   const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT');
+  const [showPortfolio, setShowPortfolio] = useState(true);
 
   useEffect(() => {
     // Load TradingView script
@@ -148,20 +149,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         ) : (
           <>
             {activeTab === 'trading' && (
-              <div className="h-full flex">
-                <div className="w-80 flex-shrink-0 border-r border-[#2a2a3e]">
-                  <Watchlist onSelectSymbol={setSelectedSymbol} selectedSymbol={selectedSymbol} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <TradingViewChart symbol={selectedSymbol} />
-                </div>
-                <div className="w-72 flex-shrink-0 border-l border-[#2a2a3e] flex flex-col">
-                  <div className="flex-1 min-h-0 border-b border-[#2a2a3e]">
+              <div className="h-full flex flex-col">
+                {/* Top: Watchlist + Chart + OrderBook */}
+                <div className="flex-1 min-h-0 flex">
+                  {/* Left: Watchlist */}
+                  <div className="w-72 flex-shrink-0 border-r border-[#2a2a3e]">
+                    <Watchlist onSelectSymbol={setSelectedSymbol} selectedSymbol={selectedSymbol} />
+                  </div>
+                  
+                  {/* Center: Chart */}
+                  <div className="flex-1 min-w-0">
+                    <TradingViewChart symbol={selectedSymbol} />
+                  </div>
+                  
+                  {/* Right: OrderBook */}
+                  <div className="w-80 flex-shrink-0 border-l border-[#2a2a3e]">
                     <OrderBook symbol={selectedSymbol} />
                   </div>
-                  <div className="h-80 flex-shrink-0">
-                    <PortfolioTracker />
-                  </div>
+                </div>
+                
+                {/* Bottom: Portfolio (collapsible) */}
+                <div className="flex-shrink-0 border-t border-[#2a2a3e]">
+                  <button
+                    onClick={() => setShowPortfolio(!showPortfolio)}
+                    className="w-full px-4 py-2 bg-[#1e1e2e] flex items-center justify-between hover:bg-[#2a2a3e] transition-colors"
+                  >
+                    <span className="text-sm font-medium text-white">💼 Portfolio</span>
+                    <span className="text-gray-400 text-xs">
+                      {showPortfolio ? '▼ Hide' : '▶ Show'}
+                    </span>
+                  </button>
+                  {showPortfolio && (
+                    <div className="h-64">
+                      <PortfolioTracker />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
