@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../utils/api';
+import { useWatchlist } from '../../contexts/WatchlistContext';
 
 interface Forecast {
   id: number;
@@ -49,9 +50,11 @@ export const ForecastPanel: React.FC = () => {
   const [learning, setLearning] = useState<LearningStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
-  const [selectedSymbol, setSelectedSymbol] = useState('BTC');
   const [activeTab, setActiveTab] = useState<'forecasts' | 'accuracy' | 'learning'>('forecasts');
   const [message, setMessage] = useState<string | null>(null);
+  const { baseSymbols, selectedSymbol: watchlistSymbol, setSelectedSymbol: setWatchlistSymbol } = useWatchlist();
+  const COINS = baseSymbols.length > 0 ? baseSymbols : ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
+  const selectedSymbol = watchlistSymbol.replace('USDT', '');
 
   useEffect(() => {
     fetchData();
@@ -182,10 +185,10 @@ export const ForecastPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Symbol Selector */}
-      <div className="flex gap-2">
-        {['BTC', 'ETH', 'SOL', 'BNB', 'XRP'].map((sym) => (
-          <button key={sym} onClick={() => setSelectedSymbol(sym)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${selectedSymbol === sym ? 'bg-purple-600 text-white' : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'}`}>
+      {/* Symbol Selector - from watchlist */}
+      <div className="flex gap-2 flex-wrap">
+        {COINS.map((sym) => (
+          <button key={sym} onClick={() => setWatchlistSymbol(`${sym}USDT`)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${selectedSymbol === sym ? 'bg-purple-600 text-white' : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'}`}>
             {sym}
           </button>
         ))}

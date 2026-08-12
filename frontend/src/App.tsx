@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { LoginForm } from './components/auth/LoginForm';
 import { isAuthenticated } from './utils/api';
+import { WatchlistProvider } from './contexts/WatchlistContext';
 
 const App: React.FC = () => {
   const [isAuth, setIsAuth] = useState(false);
@@ -39,7 +40,11 @@ const App: React.FC = () => {
     return <LoginForm onLogin={handleLogin} />;
   }
 
-  return <Dashboard onLogout={handleLogout} />;
+  return (
+    <WatchlistProvider>
+      <Dashboard onLogout={handleLogout} />
+    </WatchlistProvider>
+  );
 };
 
 export default App;

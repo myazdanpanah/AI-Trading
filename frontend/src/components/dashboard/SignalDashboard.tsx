@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../utils/api';
+import { useWatchlist } from '../../contexts/WatchlistContext';
 
 interface HistoricalPerformance {
   win_rate: number;
@@ -70,7 +71,7 @@ interface AnalysisData {
   execution_time_ms: number;
 }
 
-const COINS = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'LINK'];
+// COINS now comes from watchlist context
 
 function getScoreColor(score: number): string {
   if (score >= 70) return '#10b981';
@@ -166,8 +167,10 @@ export const SignalDashboard: React.FC = () => {
   const [data, setData] = useState<AnalysisData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCoin, setSelectedCoin] = useState('BTC');
   const [accountSize, setAccountSize] = useState(10000);
+  const { baseSymbols, selectedSymbol, setSelectedSymbol } = useWatchlist();
+  const COINS = baseSymbols.length > 0 ? baseSymbols : ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
+  const selectedCoin = selectedSymbol.replace('USDT', '');
 
   const fetchAnalysis = useCallback(async (symbol: string) => {
     setLoading(true);
@@ -199,8 +202,9 @@ export const SignalDashboard: React.FC = () => {
   }, [accountSize]);
 
   useEffect(() => {
-    fetchAnalysis(selectedCoin);
-  }, [selectedCoin, fetchAnalysis]);
+    const base = selectedSymbol.replace('USDT', '');
+    fetchAnalysis(base);
+  }, [selectedSymbol, fetchAnalysis]);
 
   if (loading && !data) {
     return (
@@ -257,10 +261,10 @@ export const SignalDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Coin Selector */}
+      {/* Coin Selector - from watchlist */}
       <div className="flex gap-2 flex-wrap">
         {COINS.map((coin) => (
-          <button key={coin} onClick={() => setSelectedCoin(coin)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCoin === coin ? 'bg-purple-600 text-white shadow-lg' : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'}`}>
+          <button key={coin} onClick={() => setSelectedSymbol(`${coin}USDT`)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCoin === coin ? 'bg-purple-600 text-white shadow-lg' : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'}`}>
             {coin}
           </button>
         ))}

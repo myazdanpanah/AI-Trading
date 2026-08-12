@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { apiFetch } from '../../utils/api';
+import { useWatchlist } from '../../contexts/WatchlistContext';
 import { PerformanceChart } from '../charts/PerformanceChart';
 import { FactorBarChart } from '../charts/FactorBarChart';
 import { CandlestickChart } from '../charts/CandlestickChart';
@@ -46,7 +47,9 @@ export const AnalysisPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [lookbackDays, setLookbackDays] = useState(30);
   const [activeChart, setActiveChart] = useState<'candlestick' | 'performance' | 'factors'>('candlestick');
-  const [selectedSymbol, setSelectedSymbol] = useState('BTC');
+  const { baseSymbols, selectedSymbol: watchlistSymbol, setSelectedSymbol: setWatchlistSymbol } = useWatchlist();
+  const COINS = baseSymbols.length > 0 ? baseSymbols : ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
+  const selectedSymbol = watchlistSymbol.replace('USDT', '');
 
   useEffect(() => {
     fetchData();
@@ -183,11 +186,11 @@ export const AnalysisPanel: React.FC = () => {
     <div className="space-y-6">
       {/* Symbol Selector */}
       <div className="flex items-center gap-4">
-        <div className="flex gap-2">
-          {['BTC', 'ETH', 'SOL', 'BNB', 'XRP'].map((sym) => (
+        <div className="flex gap-2 flex-wrap">
+          {COINS.map((sym) => (
             <button
               key={sym}
-              onClick={() => setSelectedSymbol(sym)}
+              onClick={() => setWatchlistSymbol(`${sym}USDT`)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 selectedSymbol === sym
                   ? 'bg-purple-600 text-white'

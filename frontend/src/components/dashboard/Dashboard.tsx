@@ -13,6 +13,7 @@ import { NewsSettings } from '../settings/NewsSettings';
 import { SignalDashboard } from './SignalDashboard';
 import { JournalPanel } from '../journal/JournalPanel';
 import { ForecastPanel } from '../forecast/ForecastPanel';
+import { useWatchlist } from '../../contexts/WatchlistContext';
 
 interface DashboardProps {
   onLogout?: () => void;
@@ -62,11 +63,10 @@ const TickerTape: React.FC = () => {
 export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'trading' | 'signals' | 'journal' | 'feedback' | 'analysis' | 'forecast' | 'backtest' | 'settings' | 'news-settings' | 'user-settings'>('trading');
   const [loading, setLoading] = useState(true);
-  const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT');
   const [showPortfolio, setShowPortfolio] = useState(true);
+  const { selectedSymbol, setSelectedSymbol } = useWatchlist();
 
   useEffect(() => {
-    // Load TradingView script
     if (!document.getElementById('tv-script')) {
       const script = document.createElement('script');
       script.id = 'tv-script';
