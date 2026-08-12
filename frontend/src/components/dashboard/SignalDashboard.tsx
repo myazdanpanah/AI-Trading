@@ -17,7 +17,10 @@ const safe = {
     return String(v);
   },
   pct: (v: any, d = 0): string => {
-    return (safe.num(v, d) * 100).toFixed(1);
+    const n = safe.num(v, d);
+    // If value is 0-1 (decimal), multiply by 100. If already 0-100, keep as-is.
+    if (n >= 0 && n <= 1) return (n * 100).toFixed(1);
+    return n.toFixed(1);
   },
   price: (v: any): string => {
     const n = safe.num(v, 0);
