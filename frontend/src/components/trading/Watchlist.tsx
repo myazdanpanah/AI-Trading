@@ -89,38 +89,73 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onSelectSymbol, selectedSy
 
   const fetchPrices = async () => {
     try {
-      const ids = watchlist
-        .map(w => w.coin_id || COINGECKO_IDS[w.symbol])
-        .filter(Boolean)
-        .join(',');
-
-      if (!ids) return;
-
-      const response = await fetch(
-        `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&price_change_percentage=24h`
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        const newPrices: PriceData = {};
-        const idToSymbol: Record<string, string> = {};
-        watchlist.forEach(w => {
-          const cid = w.coin_id || COINGECKO_IDS[w.symbol];
-          if (cid) idToSymbol[cid] = w.symbol;
-        });
-
-        data.forEach((coin: any) => {
-          const symbol = idToSymbol[coin.id];
-          if (symbol) {
-            newPrices[symbol] = {
-              price: coin.current_price || 0,
-              change: coin.price_change_percentage_24h || 0,
-              volume: coin.total_volume || 0,
-            };
+      // Try Binance first (needs VPN in Iran)
+      let binanceSuccess = false;
+      try {
+        const binanceSymbols = watchlist.map(w => w.symbol).filter(s => s.endsWith('USDT'));
+        if (binanceSymbols.length > 0) {
+          // Fetch all 24hr tickers from Binance in one call
+          const response = await fetch('https://api.binance.com/api/v3/ticker/24hr');
+          if (response.ok) {
+            const data = await response.json();
+            const newPrices: PriceData = {};
+            
+            data.forEach((t: any) => {
+              const symbol = t.symbol;
+              if (binanceSymbols.includes(symbol)) {
+                newPrices[symbol] = {
+                  price: parseFloat(t.lastPrice) || 0,
+                  change: parseFloat(t.priceChangePercent) || 0,
+                  volume: parseFloat(t.quoteVolume) || 0,
+                };
+              }
+            });
+            
+            if (Object.keys(newPrices).length > 0) {
+              setPrices(newPrices);
+              binanceSuccess = true;
+            }
           }
-        });
+        }
+      } catch (e) {
+        // Binance blocked, fallback to CoinGecko
+      }
 
-        setPrices(newPrices);
+      // Fallback to CoinGecko if Binance failed
+      if (!binanceSuccess) {
+        const ids = watchlist
+          .map(w => w.coin_id || COINGECKO_IDS[w.symbol])
+          .filter(Boolean)
+          .join(',');
+
+        if (!ids) return;
+
+        const response = await fetch(
+          `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&price_change_percentage=24h`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const newPrices: PriceData = {};
+          const idToSymbol: Record<string, string> = {};
+          watchlist.forEach(w => {
+            const cid = w.coin_id || COINGECKO_IDS[w.symbol];
+            if (cid) idToSymbol[cid] = w.symbol;
+          });
+
+          data.forEach((coin: any) => {
+            const symbol = idToSymbol[coin.id];
+            if (symbol) {
+              newPrices[symbol] = {
+                price: coin.current_price || 0,
+                change: coin.price_change_percentage_24h || 0,
+                volume: coin.total_volume || 0,
+              };
+            }
+          });
+
+          setPrices(newPrices);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch prices:', error);

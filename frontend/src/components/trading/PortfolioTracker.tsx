@@ -24,9 +24,18 @@ interface PortfolioStats {
   totalPnlPercent: number;
   unrealizedPnl: number;
   buyingPower: number;
+  source: string;
 }
 
 const COLORS = ['#2196F3', '#26a69a', '#FF9800', '#E91E63', '#9C27B0', '#00BCD4'];
+
+// Default portfolio positions
+const DEFAULT_POSITIONS = [
+  { symbol: 'BTCUSDT', side: 'long' as const, quantity: 0.5, entryPrice: 65000 },
+  { symbol: 'ETHUSDT', side: 'long' as const, quantity: 5, entryPrice: 3200 },
+  { symbol: 'SOLUSDT', side: 'long' as const, quantity: 50, entryPrice: 150 },
+  { symbol: 'BNBUSDT', side: 'short' as const, quantity: 10, entryPrice: 650 },
+];
 
 export const PortfolioTracker: React.FC = () => {
   const [positions, setPositions] = useState<Position[]>([]);
@@ -34,25 +43,67 @@ export const PortfolioTracker: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'positions' | 'allocation'>('positions');
 
   useEffect(() => {
-    generateMockData();
-    const interval = setInterval(generateMockData, 5000);
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  const generateMockData = () => {
-    const mockPositions: Position[] = [
-      { symbol: 'BTC-USDT', side: 'long', quantity: 0.5, entryPrice: 65000, currentPrice: 67500 + (Math.random()-0.5)*1000, pnl: 0, pnlPercent: 0, value: 0 },
-      { symbol: 'ETH-USDT', side: 'long', quantity: 5, entryPrice: 3200, currentPrice: 3450 + (Math.random()-0.5)*50, pnl: 0, pnlPercent: 0, value: 0 },
-      { symbol: 'SOL-USDT', side: 'long', quantity: 50, entryPrice: 150, currentPrice: 180 + (Math.random()-0.5)*5, pnl: 0, pnlPercent: 0, value: 0 },
-      { symbol: 'BNB-USDT', side: 'short', quantity: 10, entryPrice: 650, currentPrice: 620 + (Math.random()-0.5)*10, pnl: 0, pnlPercent: 0, value: 0 },
-    ];
+  const fetchPrices = async () => {
+    let source = 'binance';
 
-    const updatedPositions = mockPositions.map(p => {
-      const value = p.quantity * p.currentPrice;
+    // Try Binance first
+    try {
+      const symbols = DEFAULT_POSITIONS.map(p => p.symbol);
+      const response = await fetch('https://api.binance.com/api/v3/ticker/24hr');
+      if (response.ok) {
+        const data = await response.json();
+        const priceMap: Record<string, number> = {};
+
+        data.forEach((t: any) => {
+          if (symbols.includes(t.symbol)) {
+            priceMap[t.symbol] = parseFloat(t.lastPrice);
+          }
+        });
+
+        if (Object.keys(priceMap).length > 0) {
+          updatePositions(priceMap, source);
+          return;
+        }
+      }
+    } catch (e) {
+      // Binance blocked
+    }
+
+    // Fallback to CoinGecko
+    try {
+      const ids = 'bitcoin,ethereum,solana,binancecoin';
+      const response = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        const priceMap: Record<string, number> = {
+          'BTCUSDT': data.bitcoin?.usd || 0,
+          'ETHUSDT': data.ethereum?.usd || 0,
+          'SOLUSDT': data.solana?.usd || 0,
+          'BNBUSDT': data.binancecoin?.usd || 0,
+        };
+        source = 'coingecko';
+        updatePositions(priceMap, source);
+      }
+    } catch (e) {
+      // Both failed
+    }
+  };
+
+  const updatePositions = (priceMap: Record<string, number>, source: string) => {
+    const updatedPositions = DEFAULT_POSITIONS.map(p => {
+      const currentPrice = priceMap[p.symbol] || p.entryPrice;
+      const value = p.quantity * currentPrice;
       const cost = p.quantity * p.entryPrice;
       const pnl = p.side === 'long' ? value - cost : cost - value;
       const pnlPercent = (pnl / cost) * 100;
-      return { ...p, pnl, pnlPercent, value };
+      return { ...p, currentPrice, pnl, pnlPercent, value };
     });
 
     const totalValue = updatedPositions.reduce((sum, p) => sum + p.value, 0);
@@ -66,11 +117,12 @@ export const PortfolioTracker: React.FC = () => {
       totalPnlPercent: (totalPnl / totalCost) * 100,
       unrealizedPnl: totalPnl,
       buyingPower: 50000 - totalValue,
+      source,
     });
   };
 
   const allocationData = positions.map((p, i) => ({
-    name: p.symbol.replace('-USDT', ''),
+    name: p.symbol.replace('USDT', ''),
     value: Math.abs(p.value),
     color: COLORS[i % COLORS.length],
   }));
@@ -81,7 +133,16 @@ export const PortfolioTracker: React.FC = () => {
       <div className="bg-[#1e1e2e] border-b border-[#2a2a3e] px-4 py-3">
         <div className="flex items-center justify-between">
           <h2 className="text-white font-semibold">Portfolio</h2>
-          <span className="text-xs text-gray-400">Live</span>
+          <div className="flex items-center gap-2">
+            {stats && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                stats.source === 'binance' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'
+              }`}>
+                {stats.source === 'binance' ? '⚡' : '🦎'} {stats.source}
+              </span>
+            )}
+            <span className="text-xs text-gray-400">Live</span>
+          </div>
         </div>
       </div>
 
@@ -140,7 +201,7 @@ export const PortfolioTracker: React.FC = () => {
                       {pos.symbol.charAt(0)}
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-white">{pos.symbol.replace('-USDT', '')}</div>
+                      <div className="text-sm font-medium text-white">{pos.symbol.replace('USDT', '')}</div>
                       <div className="text-[10px] text-gray-400">
                         {pos.side.toUpperCase()} {pos.quantity}
                       </div>
