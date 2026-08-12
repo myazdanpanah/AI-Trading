@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useWatchlist } from '../../contexts/WatchlistContext';
 import { apiFetch } from '../../utils/api';
 
 interface JournalEntry {
@@ -47,7 +48,15 @@ const SENTIMENT_COLORS: Record<string, string> = {
   very_bearish: '#ef4444',
 };
 
+// Common crypto symbols for search
+const COMMON_SYMBOLS = [
+  'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'LINK',
+  'MATIC', 'UNI', 'ATOM', 'LTC', 'FIL', 'NEAR', 'APT', 'ARB', 'OP', 'SUI',
+  'PEPE', 'SHIB', 'FET', 'RENDER', 'INJ', 'TIA', 'SEI', 'SAND', 'MANA', 'AAVE',
+];
+
 export const JournalPanel: React.FC = () => {
+  const { watchlist, baseSymbols } = useWatchlist();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,6 +64,26 @@ export const JournalPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState('market_analysis');
   const [selectedSymbol, setSelectedSymbol] = useState('BTC');
+  const [symbolSearch, setSymbolSearch] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+
+  // Get favorite symbols from watchlist
+  const favoriteSymbols = watchlist
+    .filter(item => item.is_favorite)
+    .map(item => item.symbol.replace('USDT', ''));
+  
+  // Combine favorites with base symbols, remove duplicates
+  const availableSymbols = [...new Set([...favoriteSymbols, ...baseSymbols])];
+  
+  // Filter symbols based on search
+  const filteredSymbols = symbolSearch
+    ? COMMON_SYMBOLS.filter(s => 
+        s.toLowerCase().includes(symbolSearch.toLowerCase()) ||
+        availableSymbols.includes(s)
+      ).slice(0, 20)
+    : availableSymbols.length > 0 
+      ? availableSymbols 
+      : ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
@@ -120,42 +149,82 @@ export const JournalPanel: React.FC = () => {
 
   if (loading && entries.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="h-full flex items-center justify-center bg-gray-900">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-purple-500 border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="h-full flex">
+    <div className="h-full flex bg-gray-900">
       {/* Sidebar - Entry List */}
-      <div className="w-80 border-r border-[#2a2a3e] flex flex-col">
-        <div className="p-4 border-b border-[#2a2a3e]">
-          <h2 className="text-lg font-bold text-white mb-3">AI Journal</h2>
+      <div className="w-80 border-r border-gray-700 flex flex-col">
+        <div className="p-4 border-b border-gray-700">
+          <h2 className="text-lg font-bold text-white mb-3">📝 AI Journal</h2>
 
           {/* Generate Controls */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm"
             >
               {ENTRY_TYPES.map((t) => (
-                <option key={t.value} value={t.value} className="bg-slate-800">
+                <option key={t.value} value={t.value} className="bg-gray-800">
                   {t.icon} {t.label}
                 </option>
               ))}
             </select>
 
-            <select
-              value={selectedSymbol}
-              onChange={(e) => setSelectedSymbol(e.target.value)}
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm"
-            >
-              {['BTC', 'ETH', 'SOL', 'BNB', 'XRP'].map((s) => (
-                <option key={s} value={s} className="bg-slate-800">{s}</option>
-              ))}
-            </select>
+            {/* Symbol Selector with Search */}
+            <div className="relative">
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={showSearch ? symbolSearch : selectedSymbol}
+                    onChange={(e) => {
+                      setSymbolSearch(e.target.value);
+                      setShowSearch(true);
+                    }}
+                    onFocus={() => setShowSearch(true)}
+                    placeholder="Search symbol..."
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm"
+                  />
+                  {showSearch && (
+                    <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {/* Favorite symbols first */}
+                      {favoriteSymbols.length > 0 && !symbolSearch && (
+                        <div className="px-2 py-1 text-xs text-gray-500 border-b border-gray-700">
+                          ⭐ Favorites
+                        </div>
+                      )}
+                      {filteredSymbols.map((symbol) => (
+                        <button
+                          key={symbol}
+                          onClick={() => {
+                            setSelectedSymbol(symbol);
+                            setSymbolSearch('');
+                            setShowSearch(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 hover:bg-gray-700 text-sm ${
+                            selectedSymbol === symbol ? 'bg-blue-600/20 text-blue-400' : 'text-white'
+                          } ${favoriteSymbols.includes(symbol) ? 'font-medium' : ''}`}
+                        >
+                          {favoriteSymbols.includes(symbol) && '⭐ '}{symbol}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowSearch(!showSearch)}
+                  className="px-3 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 text-sm"
+                >
+                  {showSearch ? '✕' : '🔍'}
+                </button>
+              </div>
+            </div>
 
             <button
               onClick={generateEntry}
@@ -176,6 +245,7 @@ export const JournalPanel: React.FC = () => {
           {error && (
             <div className="mt-2 p-2 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-xs">
               {error}
+              <button onClick={() => setError(null)} className="ml-2 text-red-400">✕</button>
             </div>
           )}
         </div>
@@ -184,14 +254,16 @@ export const JournalPanel: React.FC = () => {
         <div className="flex-1 overflow-y-auto">
           {entries.length === 0 ? (
             <div className="p-4 text-center text-gray-500 text-sm">
-              No journal entries yet.<br />Click "Generate Entry" to create one.
+              <div className="text-3xl mb-2">📝</div>
+              No journal entries yet.<br />
+              <span className="text-gray-600">Click "Generate Entry" to create one.</span>
             </div>
           ) : (
             entries.map((entry) => (
               <div
                 key={entry.id}
                 onClick={() => setSelectedEntry(entry)}
-                className={`p-3 border-b border-[#2a2a3e] cursor-pointer transition-all hover:bg-white/5 ${
+                className={`p-3 border-b border-gray-700 cursor-pointer transition-all hover:bg-gray-800 ${
                   selectedEntry?.id === entry.id ? 'bg-purple-500/10 border-l-2 border-l-purple-500' : ''
                 }`}
               >
@@ -242,24 +314,24 @@ export const JournalPanel: React.FC = () => {
             {/* Market Context Bar */}
             {selectedEntry.market_context && (
               <div className="grid grid-cols-4 gap-3 mb-6">
-                <div className="bg-white/5 rounded-lg p-3 text-center">
+                <div className="bg-gray-800 rounded-lg p-3 text-center border border-gray-700">
                   <div className="text-xs text-gray-400">BTC Price</div>
                   <div className="text-lg font-bold text-white">
                     ${selectedEntry.market_context.btc_price.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </div>
                 </div>
-                <div className="bg-white/5 rounded-lg p-3 text-center">
+                <div className="bg-gray-800 rounded-lg p-3 text-center border border-gray-700">
                   <div className="text-xs text-gray-400">Fear & Greed</div>
                   <div className="text-lg font-bold" style={{ color: selectedEntry.market_context.fear_greed_index > 60 ? '#10b981' : selectedEntry.market_context.fear_greed_index < 40 ? '#ef4444' : '#f59e0b' }}>
                     {selectedEntry.market_context.fear_greed_index}/100
                   </div>
                   <div className="text-xs text-gray-500">{selectedEntry.market_context.fear_greed_label}</div>
                 </div>
-                <div className="bg-white/5 rounded-lg p-3 text-center">
+                <div className="bg-gray-800 rounded-lg p-3 text-center border border-gray-700">
                   <div className="text-xs text-gray-400">RSI</div>
                   <div className="text-lg font-bold text-white">{selectedEntry.market_context.btc_rsi}</div>
                 </div>
-                <div className="bg-white/5 rounded-lg p-3 text-center">
+                <div className="bg-gray-800 rounded-lg p-3 text-center border border-gray-700">
                   <div className="text-xs text-gray-400">Trend</div>
                   <div className="text-lg font-bold text-white">{selectedEntry.market_context.btc_trend}</div>
                 </div>
@@ -267,7 +339,7 @@ export const JournalPanel: React.FC = () => {
             )}
 
             {/* Content */}
-            <div className="bg-white/5 rounded-xl p-6 border border-white/10 mb-6">
+            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 mb-6">
               <div className="prose prose-invert max-w-none">
                 {renderMarkdown(selectedEntry.content)}
               </div>
@@ -309,7 +381,7 @@ export const JournalPanel: React.FC = () => {
 
             {/* News Headlines */}
             {selectedEntry.market_context?.top_news_headlines && selectedEntry.market_context.top_news_headlines.length > 0 && (
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+              <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
                 <h3 className="text-sm font-semibold text-gray-400 mb-2">Recent News</h3>
                 <div className="space-y-1">
                   {selectedEntry.market_context.top_news_headlines.map((n, i) => (
