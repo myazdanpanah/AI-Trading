@@ -7,26 +7,51 @@ interface Signal {
   id?: string;
   symbol: string;
   direction: string;
-  confidence: number;
-  risk_score: number;
-  entry_price: number;
-  stop_loss: number;
-  take_profit: number;
+  confidence: any;
+  risk_score: any;
+  entry_price: any;
+  stop_loss: any;
+  take_profit: any;
   timeframe: string;
-  technical_score: number;
-  sentiment_score: number;
-  news_score: number;
-  ai_score: number;
-  macro_score: number;
-  composite_score: number;
+  technical_score: any;
+  sentiment_score: any;
+  news_score: any;
+  ai_score: any;
+  macro_score: any;
+  composite_score: any;
   is_active: boolean;
   created_at: string;
   reasons?: Array<{
     reason_type: string;
     description: string;
-    confidence: number;
+    confidence: any;
   }>;
 }
+
+// Safe number conversion helpers
+const safeNumber = (value: any, defaultValue: number = 0): number => {
+  if (value === null || value === undefined || value === '') return defaultValue;
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  return isNaN(num) ? defaultValue : num;
+};
+
+const safeToFixed = (value: any, digits: number = 2): string => {
+  const num = safeNumber(value, 0);
+  return num.toFixed(digits);
+};
+
+const safePercent = (value: any, digits: number = 1): string => {
+  const num = safeNumber(value, 0);
+  return (num * 100).toFixed(digits);
+};
+
+const formatPrice = (price: any): string => {
+  const num = safeNumber(price, 0);
+  if (num === 0) return '---';
+  if (num >= 1000) return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (num >= 1) return num.toFixed(2);
+  return num.toFixed(6);
+};
 
 export const SignalDashboard: React.FC = () => {
   const { baseSymbols } = useWatchlist();
@@ -42,7 +67,6 @@ export const SignalDashboard: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      // Use the correct API path: /api/signals/signals/
       const response = await apiFetch(`/signals/signals/?symbol=${selectedSymbol}&is_active=true`);
       if (!response.ok) {
         throw new Error('Failed to load signals');
@@ -61,7 +85,6 @@ export const SignalDashboard: React.FC = () => {
     try {
       setGenerating(true);
       setError(null);
-      // Use the correct API path: /api/signals/signals/generate/
       const response = await apiFetch('/signals/signals/generate/', {
         method: 'POST',
         body: JSON.stringify({ 
@@ -76,7 +99,6 @@ export const SignalDashboard: React.FC = () => {
         throw new Error(data.error || 'Failed to generate signal');
       }
       
-      // Add the new signal to the list
       if (data.signal) {
         setSignals(prev => [data.signal, ...prev]);
       } else {
@@ -120,22 +142,6 @@ export const SignalDashboard: React.FC = () => {
     }
   };
 
-  const formatPrice = (price: any): string => {
-    // Handle null, undefined, empty string
-    if (price === null || price === undefined || price === '') return '---';
-    
-    // Convert to number if it's a string
-    const num = typeof price === 'string' ? parseFloat(price) : price;
-    
-    // Check if it's a valid number
-    if (isNaN(num)) return '---';
-    
-    if (num >= 1000) return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (num >= 1) return num.toFixed(2);
-    return num.toFixed(6);
-  };
-
-  // Ensure baseSymbols has at least some options
   const symbolOptions = baseSymbols.length > 0 ? baseSymbols : ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
 
   return (
@@ -220,7 +226,7 @@ export const SignalDashboard: React.FC = () => {
                       {getActionLabel(signal.direction)}
                     </span>
                     <span className="text-sm text-gray-400">
-                      Confidence: {((signal.confidence || 0) * 100).toFixed(1)}%
+                      Confidence: {safePercent(signal.confidence)}%
                     </span>
                     <span className="text-xs px-2 py-0.5 bg-gray-700 rounded text-gray-300">
                       {signal.timeframe}
@@ -260,12 +266,12 @@ export const SignalDashboard: React.FC = () => {
                   <div key={key} className="text-center">
                     <div className="text-xs text-gray-400 mb-1">{label}</div>
                     <div className="text-sm font-mono">
-                      {((score || 0) * 100).toFixed(0)}%
+                      {safePercent(score, 0)}%
                     </div>
                     <div className="h-1 bg-gray-600 rounded mt-1">
                       <div
                         className="h-1 bg-blue-500 rounded"
-                        style={{ width: `${Math.min(100, Math.max(0, (score || 0) * 100))}%` }}
+                        style={{ width: `${Math.min(100, Math.max(0, safeNumber(score) * 100))}%` }}
                       />
                     </div>
                   </div>
