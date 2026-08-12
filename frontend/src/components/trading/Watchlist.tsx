@@ -45,12 +45,39 @@ interface PriceData {
   [symbol: string]: { price: number; change: number; volume: number };
 }
 
+const FAVORITES_KEY = 'watchlist_favorites';
+
+const loadLocalFavorites = (): Set<string> => {
+  try {
+    const saved = localStorage.getItem(FAVORITES_KEY);
+    if (saved) return new Set(JSON.parse(saved));
+  } catch {}
+  return new Set(['BTC', 'ETH', 'SOL']);
+};
+
 export const Watchlist: React.FC<WatchlistProps> = ({ onSelectSymbol, selectedSymbol }) => {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [prices, setPrices] = useState<PriceData>({});
   const [loading, setLoading] = useState(true);
   const [showManager, setShowManager] = useState(false);
   const [sortBy, setSortBy] = useState<'change' | 'volume' | 'default'>('default');
+  const [localFavorites, setLocalFavorites] = useState<Set<string>>(loadLocalFavorites);
+
+  const toggleFavorite = (symbol: string) => {
+    setLocalFavorites(prev => {
+      const next = new Set(prev);
+      const base = symbol.replace('USDT', '');
+      if (next.has(base)) next.delete(base);
+      else next.add(base);
+      localStorage.setItem(FAVORITES_KEY, JSON.stringify([...next]));
+      // Update watchlist in-place
+      setWatchlist(wl => wl.map(item => ({
+        ...item,
+        is_favorite: next.has(item.symbol.replace('USDT', ''))
+      })));
+      return next;
+    });
+  };
 
   // Load watchlist from backend
   useEffect(() => {
@@ -72,16 +99,27 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onSelectSymbol, selectedSy
         const data = await response.json();
         const items = data.results || data;
         if (items.length > 0) {
-          setWatchlist(items);
+          setWatchlist(items.map((item: WatchlistItem) => ({
+            ...item,
+            is_favorite: localFavorites.has(item.symbol.replace('USDT', ''))
+          })));
         } else {
-          // Use defaults for new users
-          setWatchlist(DEFAULT_WATCHLIST);
+          setWatchlist(DEFAULT_WATCHLIST.map(item => ({
+            ...item,
+            is_favorite: localFavorites.has(item.symbol.replace('USDT', ''))
+          })));
         }
       } else {
-        setWatchlist(DEFAULT_WATCHLIST);
+        setWatchlist(DEFAULT_WATCHLIST.map(item => ({
+          ...item,
+          is_favorite: localFavorites.has(item.symbol.replace('USDT', ''))
+        })));
       }
     } catch (error) {
-      setWatchlist(DEFAULT_WATCHLIST);
+      setWatchlist(DEFAULT_WATCHLIST.map(item => ({
+        ...item,
+        is_favorite: localFavorites.has(item.symbol.replace('USDT', ''))
+      })));
     } finally {
       setLoading(false);
     }
@@ -248,7 +286,15 @@ export const Watchlist: React.FC<WatchlistProps> = ({ onSelectSymbol, selectedSy
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  {item.is_favorite && <span className="text-yellow-400 text-xs">★</span>}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(item.symbol);
+                    }}
+                    className="text-xs hover:scale-125 transition-transform"
+                  >
+                    {item.is_favorite ? '⭐' : '☆'}
+                  </button>
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-white truncate">
                       {item.display_name || item.symbol.replace('USDT', '')}

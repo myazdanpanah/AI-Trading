@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useWatchlist } from '../../contexts/WatchlistContext';
+import { useWatchlist, ALL_CRYPTO_SYMBOLS } from '../../contexts/WatchlistContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { apiFetch } from '../../utils/api';
 
@@ -68,11 +68,7 @@ const SENTIMENT_LABELS: Record<string, { en: string; fa: string }> = {
   very_bearish: { en: 'Very Bearish', fa: 'بسیار نزولی' },
 };
 
-const COMMON_SYMBOLS = [
-  'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'LINK',
-  'MATIC', 'UNI', 'ATOM', 'LTC', 'FIL', 'NEAR', 'APT', 'ARB', 'OP', 'SUI',
-  'PEPE', 'SHIB', 'FET', 'RENDER', 'INJ', 'TIA', 'SEI', 'SAND', 'MANA', 'AAVE',
-];
+const COMMON_SYMBOLS = ALL_CRYPTO_SYMBOLS.map(s => s.symbol);
 
 export const JournalPanel: React.FC = () => {
   const { watchlist, baseSymbols } = useWatchlist();
@@ -95,14 +91,21 @@ export const JournalPanel: React.FC = () => {
   
   const availableSymbols = [...new Set([...favoriteSymbols, ...baseSymbols])];
   
-  const filteredSymbols = symbolSearch
-    ? COMMON_SYMBOLS.filter(s => 
-        s.toLowerCase().includes(symbolSearch.toLowerCase()) ||
-        availableSymbols.includes(s)
-      ).slice(0, 20)
-    : availableSymbols.length > 0 
-      ? availableSymbols 
-      : ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
+  const filteredSymbols = (() => {
+    if (!symbolSearch && !showSearch) return availableSymbols.length > 0 ? availableSymbols : ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
+    if (!symbolSearch) return availableSymbols.length > 0 ? availableSymbols : COMMON_SYMBOLS.slice(0, 30);
+    const q = symbolSearch.toLowerCase();
+    const results: string[] = [];
+    // Search favorites first
+    favoriteSymbols.forEach(s => { if (s.toLowerCase().includes(q)) results.push(s); });
+    // Then search ALL crypto symbols by name or symbol
+    ALL_CRYPTO_SYMBOLS.forEach(s => {
+      if (!results.includes(s.symbol) && (s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))) {
+        results.push(s.symbol);
+      }
+    });
+    return results.slice(0, 30);
+  })();
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
