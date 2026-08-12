@@ -364,7 +364,7 @@ export const FeedbackPanel: React.FC = () => {
                   <h4 className="text-sm font-semibold text-white">{insight.title}</h4>
                   <span className="text-xs text-gray-500 capitalize">{insight.insight_type.replace(/_/g, ' ')}</span>
                 </div>
-                <span className="text-xs text-gray-500">{new Date(insight.created_at).toLocaleDateString()}</span>
+                <span className="text-xs text-gray-500">{new Date(insight.created_at).toLocaleDateString('en-US', { timeZone: 'Asia/Tehran' })}</span>
               </div>
               <p className="text-sm text-gray-300 mb-2">{insight.description}</p>
               <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -398,7 +398,7 @@ export const FeedbackPanel: React.FC = () => {
                   <span className={`w-2 h-2 rounded-full ${cycle.status === 'completed' ? 'bg-green-400' : cycle.status === 'running' ? 'bg-blue-400 animate-pulse' : 'bg-red-400'}`}></span>
                   <span className="text-sm font-medium text-white capitalize">{(cycle.cycle_type || '').replace(/_/g, ' ')}</span>
                 </div>
-                <span className="text-xs text-gray-500">{cycle.started_at ? new Date(cycle.started_at).toLocaleString() : ''}</span>
+                <span className="text-xs text-gray-500">{cycle.started_at ? new Date(cycle.started_at).toLocaleString('en-US', { timeZone: 'Asia/Tehran' }) : ''}</span>
               </div>
               {cycle.steps && (
                 <div className="text-xs text-gray-400 mt-2">

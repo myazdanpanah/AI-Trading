@@ -32,7 +32,7 @@ const safe = {
   date: (v: any): string => {
     try {
       if (!v) return '---';
-      return new Date(v).toLocaleString();
+      return new Date(v).toLocaleString('en-US', { timeZone: 'Asia/Tehran' });
     } catch {
       return '---';
     }

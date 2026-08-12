@@ -157,6 +157,7 @@ export const JournalPanel: React.FC = () => {
     try {
       return new Date(dateStr).toLocaleDateString(language === 'fa' ? 'fa-IR' : 'en-US', {
         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+        timeZone: 'Asia/Tehran',
       });
     } catch {
       return dateStr;

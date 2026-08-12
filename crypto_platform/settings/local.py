@@ -3,6 +3,9 @@ from .base import *
 
 DEBUG = True
 
+# Iran Standard Time (IRST / UTC+3:30)
+TIME_ZONE = 'Asia/Tehran'
+
 # Use SQLite for local dev (no PostgreSQL needed)
 DATABASES = {
     'default': {
