@@ -19,29 +19,7 @@
 | 9 | Learning | ✅ COMPLETE | 100% |
 | 10 | Feedback Loop | ✅ COMPLETE | 100% |
 | 12 | Docker Deployment | ✅ COMPLETE | 100% |
-| 13 | Testing & QA | ✅ COMPLETE | 100% |
-| 14 | Security Hardening | ✅ COMPLETE | 100% |
-| 15 | Performance Optimization | ✅ COMPLETE | 100% |
-| 15.5 | OpenAPI Documentation | ✅ COMPLETE | 100% |
-| 16 | Monitoring & Observability | ✅ COMPLETE | 100% |
-| 17 | CI/CD & Developer Experience | ✅ COMPLETE | 100% |
-| 18 | Advanced Analytics & Reporting | ✅ COMPLETE | 100% |
-| 18.5 | Frontend Enhancement | ✅ COMPLETE | 100% |
-| 19 | TradingView UI | ✅ COMPLETE | 100% |
-| 20 | Backtester | ✅ COMPLETE | 100% |
-| 21 | Portfolio Tracker | ✅ COMPLETE | 100% |
-| 22 | Ollama Integration | ✅ COMPLETE | 100% |
-| 23 | WebSocket Streaming | ✅ COMPLETE | 100% |
-| 24 | Mobile App API | ✅ COMPLETE | 100% |
-| 25 | Advanced AI Strategies | ✅ COMPLETE | 100% |
-| 26 | Multi-exchange Arbitrage | ✅ COMPLETE | 100% |
-| 27 | Social Trading | ✅ COMPLETE | 100% |
-| 28 | Advanced Portfolio Management | ✅ COMPLETE | 100% |
-| 29 | Production Hardening | ✅ COMPLETE | 100% |
-| 30 | Arbitrage Execution | ✅ COMPLETE | 100% |
-| 31 | AI Strategy Engine | ✅ COMPLETE | 100% |
-| 32 | Social Trading Frontend | ✅ COMPLETE | 100% |
-| 33 | Enhanced Monitoring | ✅ COMPLETE | 100% |
+| 13-33 | Production & Features | ✅ COMPLETE | 100% |
 | 34 | PostgreSQL Database | ✅ COMPLETE | 100% |
 | 35 | Real Signal Engine | ✅ COMPLETE | 100% |
 | 36 | AI Feedback Loop | ✅ COMPLETE | 100% |
@@ -49,129 +27,127 @@
 | 38 | Celery Automation | ✅ COMPLETE | 100% |
 | 39 | Interactive Analysis Panel | ✅ COMPLETE | 100% |
 | 40 | Iran Timezone Support | ✅ COMPLETE | 100% |
+| 41 | News & Social Media Settings | ✅ COMPLETE | 100% |
+| 42 | Candle Data & AI Training | ✅ COMPLETE | 100% |
+| 43 | Multi-Symbol Comparison | ✅ COMPLETE | 100% |
+| 44 | Score Alert System | ✅ COMPLETE | 100% |
+| 45 | Real-Time Price Chart | ✅ COMPLETE | 100% |
+| 46 | Auto Journal Generation | ✅ COMPLETE | 100% |
+| 47 | ChatBot Fixes & Context | ✅ COMPLETE | 100% |
+| 48 | Comprehensive News Sources | ✅ COMPLETE | 100% |
 
 ---
 
-## Phase 34: PostgreSQL Database ✅ COMPLETE
+## Phase 41: News & Social Media Settings ✅ COMPLETE
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| PostgreSQL 18 | ✅ | Running on port 5433 |
-| Database `crypto_platform` | ✅ | Created and migrated |
-| 30+ migrations applied | ✅ | All tables created |
-| User `myazdanpanah` | ✅ | Password: 123456 |
-| Watchlist seeded | ✅ | 10 symbols (BTC, ETH, SOL, etc.) |
-| News sources seeded | ✅ | 7 trusted sources |
+| News Sources tab | ✅ | Add, edit, delete, toggle, filter by category |
+| Social Media tab | ✅ | Twitter/X, Reddit, Telegram, YouTube, Discord |
+| Edit modal | ✅ | Modify existing sources |
+| Category filtering | ✅ | Search by name or URL |
+| Trusted defaults | ✅ | News + social defaults |
+| Reliability scores | ✅ | 0-100 trust rating |
+| Primary source flags | ✅ | Mark sources as primary |
+| Impact weights | ✅ | News categories affect signals |
 
 ---
 
-## Phase 35: Real Signal Engine ✅ COMPLETE
+## Phase 42: Candle Data & AI Training ✅ COMPLETE
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Live Binance data | ✅ | Real prices and candles |
-| Technical indicators | ✅ | RSI, MACD, EMA, VWAP, Ichimoku |
-| Sentiment analysis | ✅ | Fear & Greed Index |
-| Entry/SL/TP levels | ✅ | Always calculated |
-| Signal reasons | ✅ | 3-5 detailed reasons per signal |
-| Percentage display | ✅ | Fixed to show 0-100% correctly |
+| CandleData model | ✅ | OHLCV with patterns |
+| TrainingSample model | ✅ | Signal → Outcome → Candle context |
+| CandleCollector service | ✅ | CoinGecko API |
+| Pattern detection | ✅ | Doji, Hammer, Shooting Star |
+| Management command | ✅ | collect_candles |
+| Celery task | ✅ | Every 4 hours |
 
 ---
 
-## Phase 36: AI Feedback Loop ✅ COMPLETE
+## Phase 43: Multi-Symbol Comparison ✅ COMPLETE
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| SignalEvaluator | ✅ | Checks price outcomes |
-| SignalMemory | ✅ | Records wins/losses with lessons |
-| Evaluate endpoint | ✅ | POST /signals/signals/evaluate/ |
-| Performance metrics | ✅ | Win rate, avg return, profit factor |
-| Factor analysis | ✅ | Per-factor win rate tracking |
-| FeedbackPanel UI | ✅ | Performance, Insights, Cycles, Record tabs |
+| Comparison tab | ✅ | Side-by-side analysis |
+| Symbol selector | ✅ | 10 coins + watchlist |
+| Sortable columns | ✅ | Composite, confidence, technical, sentiment |
+| Auto-refresh | ✅ | 30s interval |
+| Summary cards | ✅ | Buy/hold/sell counts |
+| Best opportunities | ✅ | Composite, oversold, performer, confidence |
 
 ---
 
-## Phase 37: Auto Weight Adjustment ✅ COMPLETE
+## Phase 44: Score Alert System ✅ COMPLETE
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| WeightAdjuster | ✅ | Adjusts based on factor performance |
-| API endpoints | ✅ | GET/POST/RESET factor weights |
-| Factor weight display | ✅ | Shows in Analysis panel |
-| Weight normalization | ✅ | Weights always sum to 1.0 |
+| AlertRule model | ✅ | 18 alert types |
+| AlertHistory model | ✅ | Triggered alerts |
+| Check endpoint | ✅ | POST /signals/alerts/check/ |
+| Default alerts | ✅ | RSI, confidence, composite |
+| Cooldown system | ✅ | Configurable 5-360 min |
+| Frontend AlertManager | ✅ | Rules + History tabs |
+| Settings panel tab | ✅ | 🔔 Alerts tab |
 
 ---
 
-## Phase 38: Celery Automation ✅ COMPLETE
+## Phase 45: Real-Time Price Chart ✅ COMPLETE
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Hourly signal generation | ✅ | BTC, ETH, SOL, BNB, XRP |
-| Hourly signal evaluation | ✅ | Checks 1+ hour old signals |
-| Daily feedback cycle | ✅ | 1:00 AM IRST |
-| Weekly feedback cycle | ✅ | Sunday 2:00 AM IRST |
-| Monthly memory cleanup | ✅ | Removes 90+ day old memories |
-| Daily weight adjustment | ✅ | 2:00 AM IRST |
+| SVG candlestick chart | ✅ | Green/red candles |
+| Price line overlay | ✅ | Trend visualization |
+| Gradient fill | ✅ | Area under line |
+| Grid lines | ✅ | 25%, 50%, 75% |
+| Current price marker | ✅ | Circle with label |
+| Responsive | ✅ | Scales with container |
 
 ---
 
-## Phase 39: Interactive Analysis Panel ✅ COMPLETE
+## Phase 46: Auto Journal Generation ✅ COMPLETE
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| SVG gauge charts | ✅ | Combined, Regime, Technical scores |
-| Factor score bars | ✅ | Visual bar charts for all 5 factors |
-| Weight distribution | ✅ | Pie-style weight visualization |
-| Journal summary | ✅ | Latest AI analysis with findings |
-| AI weight analysis | ✅ | Factor weights + win rates |
-| Regime details | ✅ | Market regime with posture/exposure |
-| Sub-tabs | ✅ | Overview, Technical, Regime, Journal |
+| Auto-generate from analysis | ✅ | Key findings, risks, opportunities |
+| RSI/MACD/Trend insights | ✅ | Derived from indicators |
+| Fear & Greed integration | ✅ | Sentiment analysis |
+| Position levels | ✅ | Entry/SL/TP in summary |
+| AUTO tag | ✅ | Shows auto-generated entries |
+| Journal tab content | ✅ | Full brief with all data |
 
 ---
 
-## Phase 40: Iran Timezone Support ✅ COMPLETE
+## Phase 47: ChatBot Fixes & Context ✅ COMPLETE
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Backend timezone | ✅ | Asia/Tehran (IRST, UTC+3:30) |
-| Signal timestamps | ✅ | Display in IRST |
-| Journal timestamps | ✅ | Display in IRST |
-| Feedback timestamps | ✅ | Display in IRST |
+| Conversation history | ✅ | Last 10 messages to LLM |
+| Backend /api/chat | ✅ | Multi-turn conversations |
+| localStorage persistence | ✅ | Last 50 messages saved |
+| Clear history button | ✅ | Reset conversation |
+| Tab context awareness | ✅ | Knows active tab |
+| Tab-specific suggestions | ✅ | Relevant questions per tab |
+| Error display | ✅ | Shows error messages |
+| Typing indicator | ✅ | "Thinking..." animation |
+| Analysis details | ✅ | Recommendation, risks, levels |
 
 ---
 
-## Phase 30-33: Previous Phases ✅ COMPLETE
+## Phase 48: Comprehensive News Sources ✅ COMPLETE
 
-| Phase | Name | Status |
-|-------|------|--------|
-| 30 | Arbitrage Execution | ✅ COMPLETE |
-| 31 | AI Strategy Engine | ✅ COMPLETE |
-| 32 | Social Trading Frontend | ✅ COMPLETE |
-| 33 | Enhanced Monitoring | ✅ COMPLETE |
-
----
-
-## Quick Start Commands
-
-```bash
-# Start PostgreSQL (Docker Desktop)
-docker run -d --name trading-postgres \
-  -e POSTGRES_DB=crypto_platform \
-  -e POSTGRES_PASSWORD=postgres \
-  -p 5433:5432 \
-  postgres:16-alpine
-
-# Run locally
-cd /c/Trading
-DJANGO_SETTINGS_MODULE=crypto_platform.settings.local python manage.py runserver
-
-# Frontend
-cd frontend && npm run dev
-
-# Start Celery (optional, for auto signal generation)
-celery -A crypto_platform worker -l info &
-celery -A crypto_platform beat -l info &
-```
+| Component | Status | Notes |
+|-----------|--------|-------|
+| News sources (60+) | ✅ | Crypto, economics, politics, geopolitics |
+| Conflict & Tensions | ✅ | War, sanctions, military |
+| Energy & Oil | ✅ | OPEC, supply shocks, oil prices |
+| Central Banks & Fed | ✅ | Interest rates, QE/QT |
+| Commodities & Gold | ✅ | Kitco, metals |
+| X/Twitter accounts (30+) | ✅ | Analysts, news, geopolitics |
+| Iran-focused accounts | ✅ | IranIntl, IranIntl_En |
+| Impact weights | ✅ | Geopolitics 25%, Banks 20%, Oil 15% |
+| New categories | ✅ | Conflict, Central Banks, Commodities |
 
 ---
 
@@ -186,10 +162,10 @@ celery -A crypto_platform beat -l info &
 
 ---
 
-## Next Steps
+## Running Services
 
-1. **Weight History Chart** — Visualize how weights change over time
-2. **Auto Signal Generation** — Start Celery for automatic hourly signals
-3. **Signal History Table** — Show all past signals with outcomes
-4. **Score Alerts** — Alert when scores cross thresholds
-5. **Multi-Symbol Comparison** — Compare signals across symbols side by side
+| Service | Port | Status |
+|---------|------|--------|
+| PostgreSQL | 5433 | Running |
+| Django Backend | 8000 | Running |
+| Vite Frontend | 3000 | Running |
