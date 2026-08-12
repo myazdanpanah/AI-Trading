@@ -279,6 +279,21 @@ class SignalViewSet(viewsets.ModelViewSet):
         signals = queryset[:20]
         return Response(SignalSerializer(signals, many=True).data)
 
+    @action(detail=False, methods=['post'])
+    def evaluate(self, request):
+        """Evaluate pending signals and record outcomes for the feedback loop."""
+        try:
+            from .services.signal_evaluator import SignalEvaluator
+            min_age = int(request.data.get('min_age_hours', 4))
+            results = SignalEvaluator.evaluate_pending_signals(min_age_hours=min_age)
+            return Response(results, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Signal evaluation failed: {e}")
+            return Response(
+                {'error': f'Evaluation failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 @extend_schema_view(
     list=extend_schema(tags=['Signals'], summary='List signal reasons'),
