@@ -599,6 +599,12 @@ class TradingSkillsEngine:
         """Run technical analysis on price data."""
         return analyze_technical(closes, highs, lows)
 
+    def run_candlestick_analysis(self, closes: List[float], highs: List[float], lows: List[float],
+                                   opens: List[float] = None, volumes: List[float] = None) -> Dict:
+        """Run candlestick pattern analysis using T.A.E. framework."""
+        from .candlestick_skill import CandlestickSkill
+        return CandlestickSkill.analyze(closes, highs, lows, opens, volumes)
+
     def get_skill_definitions(self) -> List[Dict]:
         """Return definitions of all available skills for the LLM."""
         return [
@@ -629,5 +635,12 @@ class TradingSkillsEngine:
                 "inputs": ["regime_analysis"],
                 "outputs": ["posture", "max_exposure", "recommendation"],
                 "source": "https://github.com/tradermonty/claude-trading-skills",
+            },
+            {
+                "name": "candlestick_analyst",
+                "description": "Analyzes candlestick patterns using T.A.E. framework (Trend, Area of Value, Entry Trigger). Detects 5 powerful patterns: Engulfing, Hammer/Shooting Star, Doji, Morning/Evening Star, Tweezer.",
+                "inputs": ["closes", "highs", "lows", "opens"],
+                "outputs": ["patterns", "signals", "trend_bias", "overall_score"],
+                "source": "Rayner Teo - Ultimate Candlestick Patterns Trading Course",
             },
         ]

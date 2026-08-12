@@ -13,4 +13,5 @@ urlpatterns = [
     path('position-sizer/', views.run_position_sizer, name='run-position-sizer'),
     path('technical-analysis/', views.run_technical_analysis, name='run-technical-analysis'),
     path('full-analysis/', views.full_analysis, name='full-analysis'),
+    path('candlestick-analysis/', views.run_candlestick_analysis, name='candlestick-analysis'),
 ]

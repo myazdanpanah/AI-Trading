@@ -327,6 +327,47 @@ def full_analysis(request):
         )
 
 
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def run_candlestick_analysis(request):
+    """Run candlestick pattern analysis on price data."""
+    start = time.time()
+
+    closes = request.data.get('closes', [])
+    highs = request.data.get('highs', [])
+    lows = request.data.get('lows', [])
+    opens = request.data.get('opens')
+    volumes = request.data.get('volumes')
+
+    if len(closes) < 20:
+        return Response(
+            {'error': 'Need at least 20 data points for candlestick analysis'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    result = engine.run_technical_analysis(closes, highs, lows)
+    
+    # Also run candlestick analysis
+    from .services.candlestick_skill import CandlestickSkill
+    candlestick_result = CandlestickSkill.analyze(closes, highs, lows, opens, volumes)
+    
+    # Combine results
+    result['candlestick'] = candlestick_result
+    result['execution_time_ms'] = int((time.time() - start) * 1000)
+
+    SkillUsageLog.objects.create(
+        skill_name='candlestick_analyst',
+        input_params={'data_points': len(closes)},
+        output_summary={
+            'patterns_found': len(candlestick_result.get('patterns', [])),
+            'signals': len(candlestick_result.get('signals', [])),
+        },
+        execution_time_ms=result['execution_time_ms'],
+    )
+
+    return Response(result)
+
+
 class RegimeAnalysisViewSet(viewsets.ReadOnlyModelViewSet):
     """View past regime analyses."""
     queryset = RegimeAnalysis.objects.all()
