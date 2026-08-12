@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSettings } from '../../contexts/SettingsContext';
 import { apiFetch } from '../../utils/api';
 
 interface OllamaModel {
@@ -15,10 +16,10 @@ interface OllamaInfo {
 }
 
 export const APISettings: React.FC = () => {
+  const { selectedModel, setSelectedModel, temperature, setTemperature } = useSettings();
   const [activeTab, setActiveTab] = useState<'ai' | 'exchanges' | 'general'>('ai');
   const [ollamaInfo, setOllamaInfo] = useState<OllamaInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedModel, setSelectedModel] = useState('');
   const [ollamaStatus, setOllamaStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -34,7 +35,8 @@ export const APISettings: React.FC = () => {
         const data: OllamaInfo = await response.json();
         setOllamaInfo(data);
         setOllamaStatus(data.models.length > 0 ? 'connected' : 'disconnected');
-        if (data.active_model) {
+        // If we don't have a selected model yet, use the active one from backend
+        if (!selectedModel && data.active_model) {
           setSelectedModel(data.active_model);
         }
       } else {
@@ -49,10 +51,7 @@ export const APISettings: React.FC = () => {
 
   const pullModel = async (modelName: string) => {
     setMessage({ type: 'success', text: `Pulling ${modelName}... This may take a few minutes.` });
-    
     try {
-      // Note: Ollama pull is a long-running operation
-      // In production, this would be done via a background task
       setMessage({ type: 'success', text: `Pull request sent for ${modelName}. Check Ollama for progress.` });
     } catch (err) {
       setMessage({ type: 'error', text: `Failed to pull ${modelName}` });
@@ -96,6 +95,7 @@ export const APISettings: React.FC = () => {
       {/* Header */}
       <div className="bg-[#1e1e2e] border-b border-[#2a2a3e] px-4 py-3">
         <h2 className="text-white font-semibold">Settings</h2>
+        <p className="text-xs text-gray-400">Selected Model: {selectedModel}</p>
       </div>
 
       {/* Tabs */}
@@ -162,7 +162,7 @@ export const APISettings: React.FC = () => {
                 <>
                   {/* Active Model */}
                   <div className="mb-4">
-                    <label className="block text-xs text-gray-400 mb-2">Active Model</label>
+                    <label className="block text-xs text-gray-400 mb-2">Active Model (used by ChatBot & AI)</label>
                     <select
                       value={selectedModel}
                       onChange={(e) => setSelectedModel(e.target.value)}
@@ -172,6 +172,29 @@ export const APISettings: React.FC = () => {
                         <option key={m.name} value={m.name}>{m.name} ({formatSize(m.size)})</option>
                       ))}
                     </select>
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      Changes are saved automatically and applied to all AI features
+                    </p>
+                  </div>
+
+                  {/* Temperature */}
+                  <div className="mb-4">
+                    <label className="block text-xs text-gray-400 mb-2">
+                      Temperature: {temperature.toFixed(1)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={temperature}
+                      onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-[10px] text-gray-500">
+                      <span>Precise (0)</span>
+                      <span>Creative (1)</span>
+                    </div>
                   </div>
 
                   {/* Installed Models */}
@@ -181,7 +204,15 @@ export const APISettings: React.FC = () => {
                     </label>
                     <div className="space-y-2 max-h-64 overflow-y-auto">
                       {ollamaInfo.models.map(model => (
-                        <div key={model.name} className="flex items-center justify-between p-3 bg-[#131722] rounded hover:bg-[#2a2a3e]">
+                        <div 
+                          key={model.name} 
+                          className={`flex items-center justify-between p-3 rounded cursor-pointer transition-colors ${
+                            model.name === selectedModel 
+                              ? 'bg-blue-600/20 border border-blue-500/50' 
+                              : 'bg-[#131722] hover:bg-[#2a2a3e]'
+                          }`}
+                          onClick={() => setSelectedModel(model.name)}
+                        >
                           <div className="flex items-center gap-3">
                             <div className={`w-2 h-2 rounded-full ${model.name === selectedModel ? 'bg-[#26a69a]' : 'bg-gray-500'}`} />
                             <div>

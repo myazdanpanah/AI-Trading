@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WatchlistProvider } from './contexts/WatchlistContext';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { SettingsProvider } from './contexts/SettingsContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import { Dashboard } from './components/dashboard/Dashboard';
@@ -26,22 +27,24 @@ function App() {
     <Router>
       <LanguageProvider>
         <AuthProvider>
-          <WatchlistProvider>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/" element={<Navigate to="/dashboard" />} />
-              <Route path="*" element={<Navigate to="/dashboard" />} />
-            </Routes>
-          </WatchlistProvider>
+          <SettingsProvider>
+            <WatchlistProvider>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/" element={<Navigate to="/dashboard" />} />
+                <Route path="*" element={<Navigate to="/dashboard" />} />
+              </Routes>
+            </WatchlistProvider>
+          </SettingsProvider>
         </AuthProvider>
       </LanguageProvider>
     </Router>

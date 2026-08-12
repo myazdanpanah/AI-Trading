@@ -6,6 +6,8 @@ Uses all trading skills to provide informed responses:
 - Candlestick Patterns (T.A.E. framework)
 - Regime Analysis (market conditions)
 - Position Sizing (risk management)
+
+Supports configurable LLM model via settings.
 """
 import time
 import logging
@@ -33,7 +35,7 @@ class TradingChatBot:
     ANALYSIS_KEYWORDS = ['analyze', 'analysis', 'what do you think', 'opinion', 'signal', 'predict', 'forecast']
     
     @classmethod
-    def _get_ollama_model_info(cls) -> Dict:
+    def _get_ollama_model_info(cls, model_name: str = None) -> Dict:
         """Get information about the Ollama model being used."""
         try:
             import httpx
@@ -44,18 +46,68 @@ class TradingChatBot:
                 data = response.json()
                 models = data.get('models', [])
                 if models:
-                    return {
-                        'model_name': models[0].get('name', 'unknown'),
-                        'model_size': models[0].get('size', 0),
-                        'total_models': len(models),
-                        'all_models': [m.get('name', '') for m in models],
-                    }
+                    # If a specific model is requested, use it; otherwise use first available
+                    if model_name:
+                        # Find the requested model in available models
+                        for m in models:
+                            if m.get('name', '') == model_name or m.get('name', '').startswith(model_name.split(':')[0]):
+                                return {
+                                    'model_name': m.get('name', model_name),
+                                    'model_size': m.get('size', 0),
+                                    'total_models': len(models),
+                                    'all_models': [m.get('name', '') for m in models],
+                                }
+                        # If requested model not found, use first available
+                        return {
+                            'model_name': models[0].get('name', model_name),
+                            'model_size': models[0].get('size', 0),
+                            'total_models': len(models),
+                            'all_models': [m.get('name', '') for m in models],
+                            'requested_model_not_found': True,
+                        }
+                    else:
+                        return {
+                            'model_name': models[0].get('name', 'unknown'),
+                            'model_size': models[0].get('size', 0),
+                            'total_models': len(models),
+                            'all_models': [m.get('name', '') for m in models],
+                        }
         except Exception:
             pass
-        return {'model_name': 'unknown', 'total_models': 0}
+        return {'model_name': model_name or 'unknown', 'total_models': 0}
     
     @classmethod
-    def answer(cls, question: str, symbol: str = 'BTC', market_data: Dict = None) -> Dict:
+    def _generate_with_llm(cls, prompt: str, model: str, temperature: float = 0.7) -> Optional[str]:
+        """Generate a response using the specified LLM model via Ollama."""
+        try:
+            import httpx
+            import os
+            base_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
+            
+            response = httpx.post(
+                f"{base_url}/api/generate",
+                json={
+                    'model': model,
+                    'prompt': prompt,
+                    'stream': False,
+                    'options': {
+                        'temperature': temperature,
+                        'num_predict': 500,
+                    }
+                },
+                timeout=60.0
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('response', '')
+        except Exception as e:
+            logger.warning(f"LLM generation failed: {e}")
+        return None
+    
+    @classmethod
+    def answer(cls, question: str, symbol: str = 'BTC', market_data: Dict = None, 
+               model: str = 'gemma4:latest', temperature: float = 0.7) -> Dict:
         """
         Answer a user's trading question.
         
@@ -63,6 +115,8 @@ class TradingChatBot:
             question: User's question (e.g., "Should I buy BTC now?")
             symbol: Trading pair (e.g., 'BTC', 'ETH')
             market_data: Optional pre-fetched market data
+            model: Ollama model to use for generation (e.g., 'gemma4:latest')
+            temperature: LLM temperature (0.0 = precise, 1.0 = creative)
             
         Returns:
             Response with recommendation, confidence, and analysis
@@ -81,12 +135,26 @@ class TradingChatBot:
         # Calculate confidence
         confidence = cls._calculate_confidence(analysis, intent)
         
-        # Get Ollama model info
-        model_info = cls._get_ollama_model_info()
+        # Get Ollama model info (using the selected model)
+        model_info = cls._get_ollama_model_info(model)
+        actual_model = model_info.get('model_name', model)
+        
+        # Try to enhance response with LLM if available
+        llm_response = cls._generate_with_llm(
+            f"You are a crypto trading expert. Based on the analysis below, provide a concise recommendation for {symbol}.\n\n"
+            f"Analysis: {response['text']}\n\n"
+            f"User Question: {question}\n\n"
+            f"Provide your recommendation as {response['recommendation']} with {confidence}% confidence.",
+            actual_model,
+            temperature
+        )
+        
+        # Use LLM response if available, otherwise use rule-based response
+        final_answer = llm_response if llm_response else response['text']
         
         # Format response
         result = {
-            'answer': response['text'],
+            'answer': final_answer,
             'recommendation': response['recommendation'],
             'confidence': confidence,
             'symbol': symbol,
@@ -98,7 +166,9 @@ class TradingChatBot:
             },
             'risk_factors': response.get('risks', []),
             'key_levels': response.get('levels', {}),
-            'model_used': model_info.get('model_name', 'unknown'),
+            'model_used': actual_model,
+            'model_size': model_info.get('model_size', 0),
+            'llm_enhanced': llm_response is not None,
             'execution_time_ms': int((time.time() - start) * 1000),
             'timestamp': datetime.now().isoformat(),
         }

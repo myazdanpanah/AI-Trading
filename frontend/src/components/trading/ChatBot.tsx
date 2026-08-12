@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useWatchlist } from '../../contexts/WatchlistContext';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useSettings } from '../../contexts/SettingsContext';
 import { apiFetch } from '../../utils/api';
 
 interface Message {
@@ -19,6 +20,7 @@ interface Message {
 export const ChatBot: React.FC = () => {
   const { selectedSymbol } = useWatchlist();
   const { t } = useLanguage();
+  const { selectedModel } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -60,6 +62,7 @@ export const ChatBot: React.FC = () => {
         body: JSON.stringify({
           symbol: selectedSymbol.replace('USDT', ''),
           question: text,
+          model: selectedModel,  // Send the selected model
         }),
       });
 
@@ -122,7 +125,7 @@ export const ChatBot: React.FC = () => {
               <div>
                 <h3 className="font-semibold">{t('chatbot.title')}</h3>
                 <div className="text-xs text-blue-200">
-                  ● {t('chatbot.online')} • {selectedSymbol.replace('USDT', '')}
+                  ● {t('chatbot.online')} • {selectedSymbol.replace('USDT', '')} • {selectedModel}
                 </div>
               </div>
               <button
@@ -141,6 +144,7 @@ export const ChatBot: React.FC = () => {
                 <div className="text-4xl mb-4">🤖</div>
                 <p>{t('chatbot.title')}</p>
                 <p className="text-sm mt-2">{t('chatbot.placeholder').replace('{symbol}', selectedSymbol.replace('USDT', ''))}</p>
+                <p className="text-xs mt-1 text-gray-500">Model: {selectedModel}</p>
                 
                 <div className="mt-4 space-y-2">
                   {suggestedQuestions.map((q, i) => (
