@@ -104,6 +104,7 @@ class JournalEntry(models.Model):
 
     # Metadata
     tags = models.JSONField(default=list)
+    language = models.CharField(max_length=5, default='en', help_text='Language code: en for English, fa for Persian')
     is_published = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

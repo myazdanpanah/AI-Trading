@@ -162,8 +162,11 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
                 return Response({'error': f'Failed to generate analysis: {str(e)}'},
                               status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+        # Get language from request (default to English)
+        language = request.data.get('language', 'en')
+
         # Generate journal entry (with user's configured sources)
-        result = generate_journal_entry(analysis_data, entry_type, user=request.user)
+        result = generate_journal_entry(analysis_data, entry_type, user=request.user, language=language)
 
         # Save to database
         entry_data = result['entry']

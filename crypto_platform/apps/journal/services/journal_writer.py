@@ -109,7 +109,7 @@ def fetch_news_headlines(user=None, limit: int = 15) -> List[Dict]:
     return headlines[:limit]
 
 
-def generate_market_summary(analysis_data: Dict, news: List[Dict], fear_greed: Dict, sources_used: List[str]) -> str:
+def generate_market_summary(analysis_data: Dict, news: List[Dict], fear_greed: Dict, sources_used: List[str], language: str = 'en') -> str:
     """Generate a comprehensive market summary prompt for the LLM."""
     price = analysis_data.get('current_price', 0)
     regime = analysis_data.get('regime', {}).get('composite', {})
@@ -132,11 +132,54 @@ def generate_market_summary(analysis_data: Dict, news: List[Dict], fear_greed: D
 
     sources_list = ", ".join(sources_used) if sources_used else "default sources"
 
-    prompt = f"""You are an expert crypto market analyst writing a journal entry.
+    # Language-specific instructions
+    if language == 'fa':
+        lang_instruction = """
+IMPORTANT: Write the ENTIRE journal entry in Persian (Farsi) language!
+Use formal Persian financial terminology:
+- بازار (market), تحلیل (analysis), سیگنال (signal)
+- حمایت (support), مقاومت (resistance)
+- روند صعودی (uptrend), روند نزولی (downtrend)
+- سود (profit), ضرر (loss)
+- ترس و طمع (fear and greed)
 
+Do NOT use English words except for:
+- Cryptocurrency names (BTC, ETH, etc.)
+- Technical indicator names (RSI, MACD, VWAP, etc.)
+- News source names (CoinDesk, Reuters, etc.)
+- Price values ($64,144)
+
+Write naturally in Persian, like a professional financial analyst.
+"""
+        section_names = {
+            'overview': 'نمای کلی بازار',
+            'technical': 'تحلیل تکنیکال',
+            'news': 'تحلیل اخبار و منابع',
+            'sentiment': 'تحلیل احساسات بازار',
+            'risks': 'ریسک‌های اصلی',
+            'opportunities': 'فرصت‌های موجود',
+            'outlook': 'دورنمای ۲۴-۴۸ ساعت آینده',
+            'sources': 'منابع مورد استفاده',
+        }
+    else:
+        lang_instruction = """
 IMPORTANT: When referencing news or information, ALWAYS cite the source name.
 For example: "According to CoinDesk..." or "As reported by The Block..."
+"""
+        section_names = {
+            'overview': 'MARKET OVERVIEW',
+            'technical': 'TECHNICAL ANALYSIS',
+            'news': 'NEWS & SOURCES ANALYSIS',
+            'sentiment': 'SENTIMENT ANALYSIS',
+            'risks': 'KEY RISKS',
+            'opportunities': 'OPPORTUNITIES',
+            'outlook': 'OUTLOOK',
+            'sources': 'SOURCES REFERENCED',
+        }
 
+    prompt = f"""You are an expert crypto market analyst writing a journal entry.
+
+{lang_instruction}
 Data Sources Used: {sources_list}
 
 Current Market Data:
@@ -157,18 +200,18 @@ Recent News (with sources):
 
 Write a professional journal entry with these sections:
 
-1. MARKET OVERVIEW: Current state of BTC and crypto market
-2. TECHNICAL ANALYSIS: Key indicator readings and what they mean
-3. NEWS & SOURCES ANALYSIS:
+1. {section_names['overview']}: Current state of BTC and crypto market
+2. {section_names['technical']}: Key indicator readings and what they mean
+3. {section_names['news']}:
    - Summarize key news from each source
    - ALWAYS cite the source: "According to [Source Name]..."
    - Note which sources agree or disagree
-4. SENTIMENT ANALYSIS: What the Fear & Greed index indicates
+4. {section_names['sentiment']}: What the Fear & Greed index indicates
    - Reference: "Based on {fear_greed.get('source', 'Alternative.me')} data..."
-5. KEY RISKS: What could go wrong
-6. OPPORTUNITIES: What looks promising
-7. OUTLOOK: Your 24-48 hour market outlook
-8. SOURCES REFERENCED: List all sources used in this analysis
+5. {section_names['risks']}: What could go wrong
+6. {section_names['opportunities']}: What looks promising
+7. {section_names['outlook']}: Your 24-48 hour market outlook
+8. {section_names['sources']}: List all sources used in this analysis
 
 Write in a professional, analytical tone. Be specific with numbers and levels.
 Keep it concise but thorough (600-900 words).
@@ -201,7 +244,7 @@ def call_ollama(prompt: str, model: str = 'gemma4:latest') -> Optional[str]:
         return None
 
 
-def generate_journal_entry(analysis_data: Dict, entry_type: str = 'market_analysis', user=None) -> Dict:
+def generate_journal_entry(analysis_data: Dict, entry_type: str = 'market_analysis', user=None, language: str = 'en') -> Dict:
     """
     Generate a complete journal entry using AI.
 
@@ -209,6 +252,7 @@ def generate_journal_entry(analysis_data: Dict, entry_type: str = 'market_analys
         analysis_data: Full analysis from /api/skills/full-analysis/
         entry_type: Type of journal entry
         user: User object for personalized sources
+        language: Language code ('en' for English, 'fa' for Persian/Farsi)
 
     Returns:
         Dict with journal entry data ready for database storage
@@ -230,7 +274,7 @@ def generate_journal_entry(analysis_data: Dict, entry_type: str = 'market_analys
         sources_used.append('CoinGecko (price data)')
 
     # Generate AI content
-    prompt = generate_market_summary(analysis_data, news, fear_greed, sources_used)
+    prompt = generate_market_summary(analysis_data, news, fear_greed, sources_used, language=language)
     ai_content = call_ollama(prompt)
 
     if not ai_content:
@@ -253,9 +297,17 @@ def generate_journal_entry(analysis_data: Dict, entry_type: str = 'market_analys
 
     # Build entry
     symbol = analysis_data.get('symbol', 'BTC')
+    timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')
+    
+    # Language-specific title
+    if language == 'fa':
+        title = f"تحلیل بازار {symbol} - {timestamp}"
+    else:
+        title = f"{symbol} Market Analysis - {timestamp}"
+    
     entry = {
         'entry_type': entry_type,
-        'title': f"{symbol} Market Analysis - {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
+        'title': title,
         'content': ai_content,
         'summary': ai_content[:200] + '...' if len(ai_content) > 200 else ai_content,
         'symbols_analyzed': [symbol],
@@ -271,7 +323,8 @@ def generate_journal_entry(analysis_data: Dict, entry_type: str = 'market_analys
         'key_findings': key_findings,
         'risks_identified': risks,
         'opportunities': opportunities,
-        'tags': [symbol.lower(), entry_type, sentiment_map.get(verdict, 'neutral')],
+        'tags': [symbol.lower(), entry_type, sentiment_map.get(verdict, 'neutral'), language],
+        'language': language,  # Store language for display
     }
 
     # Market context snapshot
