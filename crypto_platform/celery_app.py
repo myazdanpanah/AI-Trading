@@ -11,6 +11,16 @@ app.autodiscover_tasks()
 
 # Celery Beat Schedule for Feedback Loop
 app.conf.beat_schedule = {
+    # Generate new signals every hour
+    'signals-generate-hourly': {
+        'task': 'signals.generate_hourly',
+        'schedule': 3600.0,  # Every hour
+    },
+    # Evaluate signals every hour - check price outcomes
+    'feedback-evaluate-hourly': {
+        'task': 'feedback.evaluate_signals_hourly',
+        'schedule': 3600.0,  # Every hour
+    },
     # Daily feedback cycle - analyze yesterday's signals
     'feedback-daily-cycle': {
         'task': 'feedback.run_daily_cycle',

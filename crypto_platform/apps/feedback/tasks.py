@@ -47,7 +47,7 @@ def run_weekly_feedback_cycle(self):
 def record_signal_outcome_task(self, signal_id, exit_price, profit_loss_percent, holding_period_hours=0):
     """Record a signal outcome for learning."""
     from .models import SignalMemory, MarketMemory
-    from signals.models import Signal
+    from apps.signals.models import Signal
     
     try:
         signal = Signal.objects.get(id=signal_id)
@@ -144,6 +144,153 @@ def cleanup_old_memories(self, days_to_keep=90):
         raise
 
 
+@shared_task(bind=True, name='signals.generate_hourly')
+def generate_signals_hourly(self):
+    """Generate new signals for all watchlist symbols every hour."""
+    try:
+        logger.info("Starting hourly signal generation")
+        from apps.signals.services import SignalGenerator
+        from apps.signals.services.signal_evaluator import SignalEvaluator
+        from apps.market.services.unified_data import fetch_market_data
+        from apps.technical_analysis.services.indicator_engine import IndicatorEngine
+        from apps.journal.services.journal_writer import fetch_fear_greed_index
+        
+        symbols = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP']
+        generated = 0
+        
+        for symbol in symbols:
+            try:
+                # Fetch live data
+                market = fetch_market_data(symbol)
+                closes = market['closes'][-50:]
+                highs = market['highs'][-50:]
+                lows = market['lows'][-50:]
+                volumes = market['volumes'][-50:]
+                current_price = market['current_price']
+                
+                # Run indicators
+                indicators = IndicatorEngine.calculate_all_indicators(
+                    [{'close': c, 'high': h, 'low': l, 'volume': v}
+                     for c, h, l, v in zip(closes, highs, lows, volumes)]
+                )
+                
+                # Build technical data
+                rsi_data = indicators.get('rsi_14', {})
+                macd_data = indicators.get('macd', {})
+                ema9 = indicators.get('ema_9', {})
+                ema21 = indicators.get('ema_21', {})
+                ema50 = indicators.get('ema_50', {})
+                vwap_data = indicators.get('vwap', {})
+                ichimoku_data = indicators.get('ichimoku', {})
+                atr_data = indicators.get('atr_14', {})
+                
+                if ema9.get('signal') == 'bullish' and ema21.get('signal') == 'bullish':
+                    trend = 'strong_uptrend'
+                elif ema9.get('signal') == 'bullish' or ema50.get('signal') == 'bullish':
+                    trend = 'uptrend'
+                elif ema9.get('signal') == 'bearish' and ema21.get('signal') == 'bearish':
+                    trend = 'strong_downtrend'
+                elif ema9.get('signal') == 'bearish' or ema50.get('signal') == 'bearish':
+                    trend = 'downtrend'
+                else:
+                    trend = 'neutral'
+                
+                technical_data = {
+                    'rsi': rsi_data.get('value', 50),
+                    'macd_signal': macd_data.get('trend', 'neutral'),
+                    'trend': trend,
+                    'vwap_signal': vwap_data.get('signal', 'neutral'),
+                    'vwap_deviation': vwap_data.get('deviation', 0),
+                    'ichimoku_signal': ichimoku_data.get('signal', 'neutral'),
+                    'volume_signal': 'normal',
+                    'sr_signal': 'neutral',
+                    'volatility': atr_data.get('percent', 2),
+                    'atr': atr_data.get('value', current_price * 0.02),
+                }
+                
+                # Sentiment
+                try:
+                    fg = fetch_fear_greed_index()
+                    sentiment_data = {'fear_greed_index': fg.get('value', 50), 'social_sentiment': 50}
+                except Exception:
+                    sentiment_data = {'fear_greed_index': 50, 'social_sentiment': 50}
+                
+                # Generate signal
+                gen = SignalGenerator()
+                result = gen.generate_signal(
+                    symbol=symbol, timeframe='1h',
+                    technical_data=technical_data,
+                    sentiment_data=sentiment_data,
+                    current_price=current_price,
+                )
+                
+                # Save to database
+                from apps.signals.models import Signal, SignalReason, SignalGenerationRequest
+                from django.db import transaction
+                
+                with transaction.atomic():
+                    entry_price_val = result.get('entry_price', 0) or 0
+                    stop_loss_val = result.get('stop_loss', 0) or entry_price_val * 0.97
+                    
+                    signal = Signal.objects.create(
+                        symbol=result['symbol'],
+                        direction=result['direction'],
+                        confidence=result['confidence'],
+                        risk_score=result['risk_score'],
+                        entry_price=float(entry_price_val),
+                        stop_loss=float(stop_loss_val),
+                        take_profit=result.get('take_profit', []),
+                        timeframe=result['timeframe'],
+                        technical_score=result['factor_scores'].get('technical', 0),
+                        sentiment_score=result['factor_scores'].get('sentiment', 0),
+                        news_score=result['factor_scores'].get('news', 0),
+                        ai_score=result['factor_scores'].get('ai', 0),
+                        macro_score=result['factor_scores'].get('macro', 0),
+                        composite_score=result['composite_score'],
+                        is_active=True,
+                    )
+                    
+                    for reason in result.get('reasons', []):
+                        SignalReason.objects.create(
+                            signal=signal,
+                            reason_type=reason.get('type', 'technical'),
+                            description=reason.get('description', ''),
+                            confidence=reason.get('confidence', 50),
+                        )
+                
+                generated += 1
+                logger.info(f"Generated {symbol} signal: {result['direction']} ({result['confidence']}%)")
+                
+            except Exception as e:
+                logger.error(f"Failed to generate signal for {symbol}: {e}")
+                continue
+        
+        logger.info(f"Hourly generation complete: {generated}/{len(symbols)} signals generated")
+        return {'generated': generated, 'total': len(symbols)}
+    except Exception as e:
+        logger.error(f"Hourly signal generation failed: {e}")
+        raise self.retry(exc=e, countdown=300, max_retries=3)
+
+
+@shared_task(bind=True, name='feedback.evaluate_signals_hourly')
+def evaluate_signals_hourly(self):
+    """Evaluate pending signals every hour and record outcomes for learning."""
+    try:
+        logger.info("Starting hourly signal evaluation")
+        from apps.signals.services.signal_evaluator import SignalEvaluator
+        
+        results = SignalEvaluator.evaluate_pending_signals(min_age_hours=1)
+        
+        logger.info(f"Hourly evaluation complete: {results['evaluated']} signals evaluated, "
+                    f"{results['wins']} wins, {results['losses']} losses, "
+                    f"win rate: {results['win_rate']:.1f}%")
+        
+        return results
+    except Exception as e:
+        logger.error(f"Hourly signal evaluation failed: {e}")
+        raise self.retry(exc=e, countdown=300, max_retries=3)
+
+
 @shared_task(bind=True, name='feedback.auto_record_expired_signals')
 def auto_record_expired_signals(self):
     """Automatically record outcomes for expired signals.
@@ -152,7 +299,7 @@ def auto_record_expired_signals(self):
     and records their outcomes for the learning system.
     """
     from .models import SignalMemory
-    from signals.models import Signal
+    from apps.signals.models import Signal
     from datetime import timedelta
     
     try:
@@ -169,7 +316,7 @@ def auto_record_expired_signals(self):
         for signal in expired_signals:
             try:
                 # Get current price from market data
-                from market.models import Candle
+                from apps.market.models import Candle
                 
                 latest_candle = Candle.objects.filter(
                     symbol=signal.symbol,
