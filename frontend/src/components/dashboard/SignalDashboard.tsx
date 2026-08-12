@@ -32,6 +32,8 @@ interface AnalysisData {
     momentum: { score: number; signal: string; rsi: number };
     volatility: { score: number; signal: string };
     support_resistance: { signal: string };
+    vwap: { value: number; deviation: number; signal: string; upper_band: number; lower_band: number };
+    ichimoku: { signal: string; cloud_color: string; above_cloud: boolean; below_cloud: boolean; tk_cross: string; tenkan_sen: number; kijun_sen: number; senkou_a: number; senkou_b: number };
   };
   position: {
     position_size: number;
@@ -451,7 +453,42 @@ export const SignalDashboard: React.FC = () => {
               <span>S/R:</span>
               <span>{data.technical.support_resistance.signal}</span>
             </div>
+            {data.technical.vwap && (
+              <div className="flex justify-between text-gray-300">
+                <span>VWAP:</span>
+                <span>${data.technical.vwap.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <span className={`text-xs ${data.technical.vwap.signal === 'bullish' ? 'text-green-400' : 'text-red-400'}`}>({data.technical.vwap.deviation > 0 ? '+' : ''}{data.technical.vwap.deviation.toFixed(2)}%)</span></span>
+              </div>
+            )}
+            {data.technical.ichimoku && (
+              <div className="flex justify-between text-gray-300">
+                <span>Ichimoku:</span>
+                <span className={`text-xs ${data.technical.ichimoku.signal.includes('bullish') ? 'text-green-400' : data.technical.ichimoku.signal.includes('bearish') ? 'text-red-400' : 'text-yellow-400'}`}>{data.technical.ichimoku.signal.replace('_', ' ')} <span className="text-gray-500">(cloud: {data.technical.ichimoku.cloud_color})</span></span>
+              </div>
+            )}
           </div>
+
+          {/* VWAP & Ichimoku Details */}
+          {data.technical.vwap && data.technical.ichimoku && (
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="bg-white/5 rounded-lg p-3">
+                <div className="text-xs text-gray-400 mb-2">VWAP Bands</div>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between"><span className="text-gray-500">Upper:</span><span className="text-red-400">${data.technical.vwap.upper_band.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">VWAP:</span><span className="text-white">${data.technical.vwap.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Lower:</span><span className="text-green-400">${data.technical.vwap.lower_band.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                </div>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3">
+                <div className="text-xs text-gray-400 mb-2">Ichimoku Cloud</div>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between"><span className="text-gray-500">Tenkan:</span><span className="text-white">${data.technical.ichimoku.tenkan_sen.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Kijun:</span><span className="text-white">${data.technical.ichimoku.kijun_sen.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">TK Cross:</span><span className={data.technical.ichimoku.tk_cross === 'bullish' ? 'text-green-400' : 'text-red-400'}>{data.technical.ichimoku.tk_cross}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Position:</span><span className={data.technical.ichimoku.above_cloud ? 'text-green-400' : data.technical.ichimoku.below_cloud ? 'text-red-400' : 'text-yellow-400'}>{data.technical.ichimoku.above_cloud ? 'Above' : data.technical.ichimoku.below_cloud ? 'Below' : 'In'} Cloud</span></div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Position Sizer */}

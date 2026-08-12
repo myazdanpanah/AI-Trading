@@ -7,6 +7,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from .models import RegimeAnalysis, SignalReview, SkillUsageLog
+from apps.technical_analysis.services.indicator_engine import IndicatorEngine
 from .services.skills_engine import (
     TradingSkillsEngine,
     calculate_btc_trend,
@@ -195,6 +196,14 @@ def full_analysis(request):
         # === Run Skill 2: Technical Analyst ===
         technical = analyze_technical(closes, highs, lows)
 
+        # === Calculate VWAP + Ichimoku (new indicators) ===
+        all_indicators = IndicatorEngine.calculate_all_indicators(
+            [{'close': c, 'high': h, 'low': l, 'volume': v}
+             for c, h, l, v in zip(closes, highs, lows, volumes)]
+        )
+        vwap = all_indicators.get('vwap', {})
+        ichimoku = all_indicators.get('ichimoku', {})
+
         # === Run Skill 3: Position Sizer ===
         atr_pct = 0.02
         sl = current_price * (1 - atr_pct)
@@ -255,7 +264,7 @@ def full_analysis(request):
                 'composite': composite,
                 'exposure': exposure,
             }),
-            'technical': to_float(technical),
+            'technical': to_float({**technical, 'vwap': vwap, 'ichimoku': ichimoku}),
             'position': to_float({
                 **position,
                 'take_profits': [

@@ -287,6 +287,141 @@ class IndicatorEngine:
             'd_period': d_period,
         }
 
+    @staticmethod
+    def calculate_vwap(
+        highs: List[float],
+        lows: List[float],
+        closes: List[float],
+        volumes: List[float],
+        period: int = 20,
+    ) -> Dict:
+        """Calculate VWAP (Volume Weighted Average Price)."""
+        if len(closes) < period:
+            return {'value': closes[-1] if closes else 0, 'signal': 'neutral', 'deviation': 0}
+
+        # Calculate typical price * volume for each bar
+        typical_prices = [(h + l + c) / 3 for h, l, c in zip(highs[-period:], lows[-period:], closes[-period:])]
+        recent_volumes = volumes[-period:]
+
+        cum_tp_vol = sum(tp * v for tp, v in zip(typical_prices, recent_volumes))
+        cum_vol = sum(recent_volumes)
+
+        if cum_vol == 0:
+            vwap = closes[-1]
+        else:
+            vwap = cum_tp_vol / cum_vol
+
+        current_price = closes[-1]
+        deviation = ((current_price - vwap) / vwap) * 100 if vwap > 0 else 0
+
+        # Calculate upper/lower VWAP bands (1 std dev)
+        variance = sum(((tp - vwap) ** 2) * v for tp, v in zip(typical_prices, recent_volumes)) / cum_vol if cum_vol > 0 else 0
+        std_dev = variance ** 0.5
+        upper_band = vwap + std_dev
+        lower_band = vwap - std_dev
+
+        # Determine signal
+        if current_price > vwap and deviation > 1:
+            signal = 'bearish'  # Extended above VWAP
+        elif current_price < vwap and deviation < -1:
+            signal = 'bullish'  # Extended below VWAP
+        elif current_price > vwap:
+            signal = 'bullish'  # Above VWAP
+        elif current_price < vwap:
+            signal = 'bearish'  # Below VWAP
+        else:
+            signal = 'neutral'
+
+        return {
+            'value': round(float(vwap), 8),
+            'upper_band': round(float(upper_band), 8),
+            'lower_band': round(float(lower_band), 8),
+            'deviation': round(float(deviation), 2),
+            'signal': signal,
+            'period': period,
+        }
+
+    @staticmethod
+    def calculate_ichimoku(
+        highs: List[float],
+        lows: List[float],
+        closes: List[float],
+        tenkan_period: int = 9,
+        kijun_period: int = 26,
+        senkou_b_period: int = 52,
+    ) -> Dict:
+        """Calculate Ichimoku Cloud indicators."""
+        if len(closes) < senkou_b_period:
+            return {
+                'tenkan_sen': closes[-1] if closes else 0,
+                'kijun_sen': closes[-1] if closes else 0,
+                'senkou_a': closes[-1] if closes else 0,
+                'senkou_b': closes[-1] if closes else 0,
+                'chikou_span': closes[-1] if closes else 0,
+                'signal': 'neutral',
+                'cloud_color': 'neutral',
+            }
+
+        # Tenkan-sen (Conversion Line): (9-period high + 9-period low) / 2
+        tenkan_high = max(highs[-tenkan_period:])
+        tenkan_low = min(lows[-tenkan_period:])
+        tenkan_sen = (tenkan_high + tenkan_low) / 2
+
+        # Kijun-sen (Base Line): (26-period high + 26-period low) / 2
+        kijun_high = max(highs[-kijun_period:])
+        kijun_low = min(lows[-kijun_period:])
+        kijun_sen = (kijun_high + kijun_low) / 2
+
+        # Senkou Span A (Leading Span 1): (Tenkan + Kijun) / 2
+        senkou_a = (tenkan_sen + kijun_sen) / 2
+
+        # Senkou Span B (Leading Span 2): (52-period high + 52-period low) / 2
+        senkou_b_high = max(highs[-senkou_b_period:])
+        senkou_b_low = min(lows[-senkou_b_period:])
+        senkou_b = (senkou_b_high + senkou_b_low) / 2
+
+        # Chikou Span (Lagging Span): current close, shifted back 26 periods
+        chikou_span = closes[-1]
+
+        current_price = closes[-1]
+
+        # Determine cloud color
+        if senkou_a > senkou_b:
+            cloud_color = 'bullish'  # Green cloud
+        elif senkou_a < senkou_b:
+            cloud_color = 'bearish'  # Red cloud
+        else:
+            cloud_color = 'neutral'
+
+        # Determine overall signal
+        above_cloud = current_price > max(senkou_a, senkou_b)
+        below_cloud = current_price < min(senkou_a, senkou_b)
+        tk_cross_bullish = tenkan_sen > kijun_sen
+
+        if above_cloud and tk_cross_bullish and cloud_color == 'bullish':
+            signal = 'strong_bullish'
+        elif above_cloud:
+            signal = 'bullish'
+        elif below_cloud and not tk_cross_bullish and cloud_color == 'bearish':
+            signal = 'strong_bearish'
+        elif below_cloud:
+            signal = 'bearish'
+        else:
+            signal = 'neutral'  # In the cloud
+
+        return {
+            'tenkan_sen': round(float(tenkan_sen), 8),
+            'kijun_sen': round(float(kijun_sen), 8),
+            'senkou_a': round(float(senkou_a), 8),
+            'senkou_b': round(float(senkou_b), 8),
+            'chikou_span': round(float(chikou_span), 8),
+            'cloud_color': cloud_color,
+            'above_cloud': above_cloud,
+            'below_cloud': below_cloud,
+            'tk_cross': 'bullish' if tk_cross_bullish else 'bearish',
+            'signal': signal,
+        }
+
     @classmethod
     def calculate_all_indicators(cls, candle_data: List[Dict]) -> Dict:
         """Calculate all indicators from candle data."""
@@ -308,4 +443,6 @@ class IndicatorEngine:
             'ema_50': cls.calculate_ema(closes, 50),
             'atr_14': cls.calculate_atr(highs, lows, closes, 14),
             'stochastic': cls.calculate_stochastic(highs, lows, closes),
+            'vwap': cls.calculate_vwap(highs, lows, closes, volumes),
+            'ichimoku': cls.calculate_ichimoku(highs, lows, closes),
         }

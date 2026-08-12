@@ -15,11 +15,11 @@ class SignalGenerator:
     """
     
     DEFAULT_WEIGHTS = {
-        'technical': Decimal('0.30'),
-        'sentiment': Decimal('0.20'),
-        'news': Decimal('0.15'),
-        'ai': Decimal('0.20'),
-        'macro': Decimal('0.15'),
+        'technical': Decimal('0.35'),  # Increased: most reliable for crypto
+        'sentiment': Decimal('0.15'),  # Decreased: noisy, lagging
+        'news': Decimal('0.10'),       # Decreased: often priced in quickly
+        'ai': Decimal('0.25'),         # Increased: pattern recognition strength
+        'macro': Decimal('0.15'),      # Stable: BTC trend + DXY correlation
     }
     
     DIRECTION_THRESHOLDS = {
@@ -116,41 +116,49 @@ class SignalGenerator:
         return result
     
     def _score_technical(self, data: Dict) -> Decimal:
-        """Score based on technical analysis data."""
+        """Score based on technical analysis data with VWAP + Ichimoku."""
         if not data:
             return Decimal('50')
         
         score = Decimal('50')
         
-        # RSI scoring
+        # RSI scoring (stronger signals)
         rsi = data.get('rsi')
         if rsi is not None:
-            if rsi < 30:
-                score += Decimal('15')  # Oversold = bullish
+            if rsi < 25:
+                score += Decimal('18')  # Extremely oversold
+            elif rsi < 30:
+                score += Decimal('12')  # Oversold
+            elif rsi > 75:
+                score -= Decimal('18')  # Extremely overbought
             elif rsi > 70:
-                score -= Decimal('15')  # Overbought = bearish
-            elif 40 <= rsi <= 60:
-                score += Decimal('5')   # Neutral zone
+                score -= Decimal('12')  # Overbought
+            elif 45 <= rsi <= 55:
+                score += Decimal('3')   # Neutral zone
         
         # MACD scoring
         macd_signal = data.get('macd_signal')
         if macd_signal:
             if macd_signal == 'bullish_crossover':
-                score += Decimal('10')
+                score += Decimal('12')
             elif macd_signal == 'bearish_crossover':
-                score -= Decimal('10')
+                score -= Decimal('12')
+            elif macd_signal == 'bullish':
+                score += Decimal('6')
+            elif macd_signal == 'bearish':
+                score -= Decimal('6')
         
-        # Trend scoring
+        # Trend scoring (stronger signals)
         trend = data.get('trend')
         if trend:
             if trend == 'strong_uptrend':
-                score += Decimal('15')
+                score += Decimal('18')
             elif trend == 'uptrend':
-                score += Decimal('10')
+                score += Decimal('12')
             elif trend == 'downtrend':
-                score -= Decimal('10')
+                score -= Decimal('12')
             elif trend == 'strong_downtrend':
-                score -= Decimal('15')
+                score -= Decimal('18')
         
         # Support/Resistance scoring
         sr_signal = data.get('sr_signal')
@@ -164,9 +172,34 @@ class SignalGenerator:
         volume_signal = data.get('volume_signal')
         if volume_signal:
             if volume_signal == 'high_volume_breakout':
-                score += Decimal('5')
+                score += Decimal('8')
             elif volume_signal == 'low_volume':
                 score -= Decimal('5')
+        
+        # VWAP scoring (NEW)
+        vwap_signal = data.get('vwap_signal')
+        if vwap_signal:
+            vwap_deviation = data.get('vwap_deviation', 0)
+            if vwap_signal == 'bullish' and vwap_deviation < -2:
+                score += Decimal('10')  # Oversold vs VWAP
+            elif vwap_signal == 'bullish':
+                score += Decimal('5')
+            elif vwap_signal == 'bearish' and vwap_deviation > 2:
+                score -= Decimal('10')  # Overbought vs VWAP
+            elif vwap_signal == 'bearish':
+                score -= Decimal('5')
+        
+        # Ichimoku scoring (NEW)
+        ichimoku_signal = data.get('ichimoku_signal')
+        if ichimoku_signal:
+            if ichimoku_signal == 'strong_bullish':
+                score += Decimal('15')  # Above cloud + TK cross + bullish cloud
+            elif ichimoku_signal == 'bullish':
+                score += Decimal('8')
+            elif ichimoku_signal == 'strong_bearish':
+                score -= Decimal('15')
+            elif ichimoku_signal == 'bearish':
+                score -= Decimal('8')
         
         return max(Decimal('0'), min(Decimal('100'), score))
     
