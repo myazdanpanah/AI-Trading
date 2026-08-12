@@ -27,15 +27,21 @@ export const SignalDashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState('BTC');
+  const [error, setError] = useState<string | null>(null);
 
   const loadSignals = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await apiFetch(`/signals/?symbol=${selectedSymbol}`);
+      if (!response.ok) {
+        throw new Error('Failed to load signals');
+      }
       const data = await response.json();
       setSignals(data.results || data || []);
     } catch (error) {
       console.error('Failed to load signals:', error);
+      setError('Failed to load signals. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -44,13 +50,18 @@ export const SignalDashboard: React.FC = () => {
   const generateSignal = async () => {
     try {
       setGenerating(true);
-      await apiFetch('/signals/generate/', {
+      setError(null);
+      const response = await apiFetch('/signals/generate/', {
         method: 'POST',
         body: JSON.stringify({ symbol: selectedSymbol }),
       });
+      if (!response.ok) {
+        throw new Error('Failed to generate signal');
+      }
       await loadSignals();
     } catch (error) {
       console.error('Failed to generate signal:', error);
+      setError('Failed to generate signal. Please try again.');
     } finally {
       setGenerating(false);
     }
@@ -82,6 +93,9 @@ export const SignalDashboard: React.FC = () => {
     }
   };
 
+  // Ensure baseSymbols has at least some options
+  const symbolOptions = baseSymbols.length > 0 ? baseSymbols : ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
+
   return (
     <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
       <div className="flex items-center justify-between mb-4">
@@ -92,7 +106,7 @@ export const SignalDashboard: React.FC = () => {
             onChange={(e) => setSelectedSymbol(e.target.value)}
             className="bg-gray-700 text-white px-3 py-1.5 rounded text-sm"
           >
-            {baseSymbols.map((symbol) => (
+            {symbolOptions.map((symbol) => (
               <option key={symbol} value={symbol}>
                 {symbol}
               </option>
@@ -108,15 +122,21 @@ export const SignalDashboard: React.FC = () => {
         </div>
       </div>
 
+      {error && (
+        <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-sm">
+          {error}
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-8 text-gray-400">{t('common.loading')}</div>
       ) : signals.length === 0 ? (
         <div className="text-center py-8 text-gray-400">
-          {t('common.noData')}
-          <br />
+          <div className="text-4xl mb-4">🔔</div>
+          <p className="text-lg mb-2">{t('common.noData')}</p>
           <button
             onClick={generateSignal}
-            className="mt-2 text-blue-400 hover:text-blue-300"
+            className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             {t('signals.generate')}
           </button>
@@ -124,7 +144,7 @@ export const SignalDashboard: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {signals.map((signal, index) => (
-            <div key={index} className="bg-gray-750 rounded-lg border border-gray-600 p-4">
+            <div key={index} className="bg-gray-800 rounded-lg border border-gray-600 p-4">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-3 mb-2">
