@@ -97,7 +97,16 @@ export const SignalDashboard: React.FC = () => {
         }),
       });
       
-      const data = await response.json();
+      // Handle empty or non-JSON response
+      const text = await response.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        console.error('Invalid JSON response:', text);
+        setError(language === 'fa' ? 'خطا در پاسخ سرور' : 'Invalid server response');
+        return;
+      }
       
       if (!response.ok) {
         const errMsg = data.error || data.detail || 'Failed to generate signal';
@@ -111,6 +120,9 @@ export const SignalDashboard: React.FC = () => {
       } else if (data.details) {
         // Backend returned details without signal object
         setSignals(prev => [data.details, ...prev]);
+      } else if (data.symbol || data.direction) {
+        // Backend returned the signal directly
+        setSignals(prev => [data, ...prev]);
       } else {
         await loadSignals();
       }

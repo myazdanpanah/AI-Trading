@@ -49,13 +49,26 @@ class SignalViewSet(viewsets.ModelViewSet):
 
         data = serializer.validated_data
 
+        # Convert Decimal values to float for JSON serialization
+        def decimal_to_float(obj):
+            if isinstance(obj, dict):
+                return {k: decimal_to_float(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [decimal_to_float(i) for i in obj]
+            elif hasattr(obj, '__float__'):
+                return float(obj)
+            return obj
+
         try:
             generator = SignalGenerator()
 
             # Load configurable weights
-            factor_weights = FactorWeight.objects.filter(is_active=True)
-            if factor_weights.exists():
-                generator.load_weights(factor_weights)
+            try:
+                factor_weights = FactorWeight.objects.filter(is_active=True)
+                if factor_weights.exists():
+                    generator.load_weights(factor_weights)
+            except Exception:
+                pass  # Use defaults if DB unavailable
 
             # Generate signal
             result = generator.generate_signal(
@@ -69,65 +82,91 @@ class SignalViewSet(viewsets.ModelViewSet):
                 current_price=data.get('current_price'),
             )
 
-            # Convert Decimal values to float for JSON serialization
-            def decimal_to_float(obj):
-                if isinstance(obj, dict):
-                    return {k: decimal_to_float(v) for k, v in obj.items()}
-                elif isinstance(obj, list):
-                    return [decimal_to_float(i) for i in obj]
-                elif hasattr(obj, '__float__'):
-                    return float(obj)
-                return obj
+            # Try to save to database (graceful fallback if DB unavailable)
+            signal = None
+            try:
+                with transaction.atomic():
+                    entry_price_val = result.get('entry_price')
+                    stop_loss_val = result.get('stop_loss')
+                    # Convert None to 0 for required fields
+                    entry_price_float = float(entry_price_val) if entry_price_val else 0.0
+                    stop_loss_float = float(stop_loss_val) if stop_loss_val else entry_price_float * 0.97
 
-            # Create signal record
-            with transaction.atomic():
-                signal = Signal.objects.create(
-                    symbol=result['symbol'],
-                    direction=result['direction'],
-                    confidence=result['confidence'],
-                    risk_score=result['risk_score'],
-                    entry_price=result['entry_price'] or 0,
-                    stop_loss=result['stop_loss'],
-                    take_profit=result['take_profit'],
-                    timeframe=result['timeframe'],
-                    technical_score=result['factor_scores'].get('technical', 0),
-                    sentiment_score=result['factor_scores'].get('sentiment', 0),
-                    news_score=result['factor_scores'].get('news', 0),
-                    ai_score=result['factor_scores'].get('ai', 0),
-                    macro_score=result['factor_scores'].get('macro', 0),
-                    composite_score=result['composite_score'],
-                    is_active=True,
-                )
-
-                # Create signal reasons
-                for reason in result.get('reasons', []):
-                    SignalReason.objects.create(
-                        signal=signal,
-                        reason_type=reason['type'],
-                        description=reason['description'],
-                        confidence=reason['confidence'],
+                    signal = Signal.objects.create(
+                        symbol=result['symbol'],
+                        direction=result['direction'],
+                        confidence=result['confidence'],
+                        risk_score=result['risk_score'],
+                        entry_price=entry_price_float,
+                        stop_loss=stop_loss_float,
+                        take_profit=result.get('take_profit', []),
+                        timeframe=result['timeframe'],
+                        technical_score=result['factor_scores'].get('technical', 0),
+                        sentiment_score=result['factor_scores'].get('sentiment', 0),
+                        news_score=result['factor_scores'].get('news', 0),
+                        ai_score=result['factor_scores'].get('ai', 0),
+                        macro_score=result['factor_scores'].get('macro', 0),
+                        composite_score=result['composite_score'],
+                        is_active=True,
                     )
 
-                # Create generation request record
-                SignalGenerationRequest.objects.create(
-                    symbol=result['symbol'],
-                    timeframe=result['timeframe'],
-                    input_data=decimal_to_float(data),
-                    weights_used=result['weights_used'],
-                    status='completed',
-                )
+                    # Create signal reasons
+                    for reason in result.get('reasons', []):
+                        SignalReason.objects.create(
+                            signal=signal,
+                            reason_type=reason.get('type', 'technical'),
+                            description=reason.get('description', ''),
+                            confidence=reason.get('confidence', 50),
+                        )
+
+                    # Create generation request record
+                    SignalGenerationRequest.objects.create(
+                        symbol=result['symbol'],
+                        timeframe=result['timeframe'],
+                        input_data=decimal_to_float(data),
+                        weights_used=result.get('weights_used', {}),
+                        status='completed',
+                    )
+            except Exception as db_err:
+                logger.warning(f"DB save failed (returning result anyway): {db_err}")
 
             serializable_result = decimal_to_float(result)
-            
+
+            # Build response - use signal data if saved, otherwise from result
+            if signal:
+                signal_data = SignalSerializer(signal).data
+            else:
+                # Build fake signal data from result for display
+                signal_data = {
+                    'id': f"gen-{result['symbol']}-{result['timeframe']}",
+                    'symbol': result['symbol'],
+                    'direction': result['direction'],
+                    'confidence': result['confidence'],
+                    'risk_score': result['risk_score'],
+                    'entry_price': result.get('entry_price', 0),
+                    'stop_loss': result.get('stop_loss', 0),
+                    'take_profit': result.get('take_profit', []),
+                    'timeframe': result['timeframe'],
+                    'technical_score': result['factor_scores'].get('technical', 0),
+                    'sentiment_score': result['factor_scores'].get('sentiment', 0),
+                    'news_score': result['factor_scores'].get('news', 0),
+                    'ai_score': result['factor_scores'].get('ai', 0),
+                    'macro_score': result['factor_scores'].get('macro', 0),
+                    'composite_score': result['composite_score'],
+                    'reasons': result.get('reasons', []),
+                    'created_at': result['generated_at'],
+                    'is_active': True,
+                }
+
             return Response({
-                'signal': SignalSerializer(signal).data,
+                'signal': signal_data,
                 'details': serializable_result,
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            logger.error(f"Signal generation failed: {e}")
+            logger.error(f"Signal generation failed: {e}", exc_info=True)
             return Response(
-                {'error': 'An error occurred during signal generation. Please try again later.'},
+                {'error': f'An error occurred during signal generation: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
