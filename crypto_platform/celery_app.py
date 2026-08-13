@@ -1,7 +1,7 @@
 """Celery app configuration with beat schedule."""
 import os
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'crypto_platform.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'crypto_platform.settings.local')
 
 from celery import Celery
 

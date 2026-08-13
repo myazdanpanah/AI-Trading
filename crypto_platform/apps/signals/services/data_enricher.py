@@ -79,11 +79,12 @@ class SignalDataEnricher:
 
     @staticmethod
     def get_social_data(symbol: str) -> Dict:
-        """Get social sentiment data from fear/greed + news social category."""
+        """Get social sentiment from Fear/Greed + X/Twitter scraping + news."""
         try:
             from apps.journal.services.journal_writer import fetch_fear_greed_index
             from apps.news.models import NewsArticle
             from django.utils import timezone
+            import asyncio
 
             # Fear & Greed
             try:
@@ -92,44 +93,54 @@ class SignalDataEnricher:
             except Exception:
                 fear_greed = 50
 
-            # Social sentiment from news articles tagged as social
-            cutoff = timezone.now() - timedelta(hours=24)
-            social_articles = NewsArticle.objects.filter(
-                published_at__gte=cutoff,
-                source__name__icontains='social',
-            ).order_by('-impact_score')[:10]
+            # X/Twitter sentiment from top accounts
+            twitter_sentiment = 50
+            tweet_count = 0
+            try:
+                from apps.social.services.twitter_scraper import TwitterScraper
+                scraper = TwitterScraper()
+                # Fetch from key accounts only (fast: ~3-5 accounts)
+                key_accounts = {
+                    'CryptoCapo_': 'analyst',
+                    'WhaleAlert': 'whale',
+                    'WatcherGuru': 'news',
+                    'coindesk': 'news',
+                    'sentdefender': 'geopolitics',
+                }
+                tweets = asyncio.run(scraper.fetch_all_accounts(key_accounts, limit_per_user=3))
+                if tweets:
+                    sentiment_result = scraper.analyze_sentiment(tweets)
+                    twitter_sentiment = sentiment_result['score']
+                    tweet_count = sentiment_result['tweet_count']
+            except Exception as e:
+                logger.warning(f"Twitter scrape failed: {e}")
 
-            # Also check crypto-specific news for social buzz
+            # Crypto-specific news articles
+            cutoff = timezone.now() - timedelta(hours=24)
             crypto_articles = NewsArticle.objects.filter(
                 published_at__gte=cutoff,
                 title__icontains=symbol.replace('USDT', '').replace('USD', ''),
             ).order_by('-impact_score')[:10]
 
-            # Calculate social sentiment score
-            social_score = 50
-            if social_articles.exists():
-                sentiments = list(social_articles.values_list('sentiment', flat=True))
-                bullish = sentiments.count('bullish')
-                bearish = sentiments.count('bearish')
-                total = len(sentiments)
-                if total > 0:
-                    social_score = 50 + ((bullish - bearish) / total) * 40
-
-            # Whale activity detection from high-impact articles
+            # Whale activity detection
             whale_signal = None
-            if crypto_articles.exists():
-                for a in crypto_articles:
-                    title_lower = a.title.lower()
-                    if any(w in title_lower for w in ['whale', 'accumulation', 'buy pressure']):
-                        whale_signal = 'accumulation'
-                        break
-                    elif any(w in title_lower for w in ['sell-off', 'dump', 'distribution']):
-                        whale_signal = 'distribution'
-                        break
+            for a in crypto_articles:
+                title_lower = a.title.lower()
+                if any(w in title_lower for w in ['whale', 'accumulation', 'buy pressure']):
+                    whale_signal = 'accumulation'
+                    break
+                elif any(w in title_lower for w in ['sell-off', 'dump', 'distribution']):
+                    whale_signal = 'distribution'
+                    break
+
+            # Combine Fear/Greed + Twitter sentiment
+            combined_score = int((fear_greed + twitter_sentiment) / 2)
 
             return {
                 'fear_greed_index': fear_greed,
-                'social_sentiment': int(social_score),
+                'social_sentiment': combined_score,
+                'twitter_sentiment': twitter_sentiment,
+                'tweet_count': tweet_count,
                 'whale_signal': whale_signal,
                 'crypto_mention_count': crypto_articles.count(),
             }

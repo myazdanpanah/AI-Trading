@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { apiFetch } from '../../utils/api';
+import { WeightHistoryChart } from './WeightHistoryChart';
 
 const safe = {
   num: (v: any, d = 0): number => {
@@ -450,6 +451,11 @@ export const FeedbackPanel: React.FC = () => {
               <p>5. Run feedback cycle to generate insights and adjust weights</p>
               <p>6. Next signals benefit from learned patterns</p>
             </div>
+          </div>
+
+          {/* Weight History Chart */}
+          <div className="mt-6">
+            <WeightHistoryChart />
           </div>
         </div>
       )}

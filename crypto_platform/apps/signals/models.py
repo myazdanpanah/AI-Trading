@@ -131,6 +131,37 @@ class FactorWeight(models.Model):
         return f"{self.name}: {self.weight}"
 
 
+class WeightHistory(models.Model):
+    """Track how factor weights change over time as AI learns."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    factor_name = models.CharField(max_length=50, db_index=True)
+    old_weight = models.DecimalField(max_digits=5, decimal_places=4)
+    new_weight = models.DecimalField(max_digits=5, decimal_places=4)
+    reason = models.TextField(blank=True)
+    win_rate_before = models.DecimalField(max_digits=5, decimal_places=2, null=True)
+    win_rate_after = models.DecimalField(max_digits=5, decimal_places=2, null=True)
+    signals_evaluated = models.IntegerField(default=0)
+    adjustment_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('performance', 'Performance-based'),
+            ('manual', 'Manual adjustment'),
+            ('scheduled', 'Scheduled optimization'),
+        ],
+        default='scheduled',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'weight history'
+        verbose_name_plural = 'weight history'
+        db_table = 'weight_history'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.factor_name}: {self.old_weight} -> {self.new_weight}"
+
+
 class RiskProfile(models.Model):
     """Risk management profile for position sizing."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

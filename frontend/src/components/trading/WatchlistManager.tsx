@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useWatchlist, WatchlistItem } from '../../contexts/WatchlistContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -129,12 +129,60 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
     }
   }, [watchlist]);
 
-  // Fetch prices on mount and every 15 seconds
+  // WebSocket for live prices
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    fetchPrices();
-    const interval = setInterval(fetchPrices, 15000);
-    return () => clearInterval(interval);
-  }, [fetchPrices]);
+    let cancelled = false;
+
+    const connectWs = () => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) return;
+      try {
+        const ws = new WebSocket('ws://localhost:8000/ws/prices/');
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ action: 'update_symbols', symbols: watchlist.map(w => w.symbol.replace('USDT', '')) }));
+        };
+
+        ws.onmessage = (event) => {
+          if (cancelled) return;
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'prices_batch' && data.prices) {
+              const newPrices: PriceData = {};
+              for (const p of data.prices) {
+                newPrices[p.symbol + 'USDT'] = { price: p.price, change24h: p.change_24h, volume: p.volume_24h };
+              }
+              setPrices(prev => ({ ...prev, ...newPrices }));
+              setPriceSource('coingecko');
+            } else if (data.type === 'price_update') {
+              setPrices(prev => ({
+                ...prev,
+                [data.symbol + 'USDT']: { price: data.price, change24h: data.change_24h, volume: data.volume_24h },
+              }));
+              setPriceSource('coingecko');
+            }
+          } catch {}
+        };
+
+        ws.onclose = () => {
+          if (!cancelled) reconnectRef.current = setTimeout(connectWs, 3000);
+        };
+        ws.onerror = () => { ws.close(); };
+      } catch {
+        if (!cancelled) reconnectRef.current = setTimeout(connectWs, 5000);
+      }
+    };
+
+    connectWs();
+    return () => {
+      cancelled = true;
+      if (reconnectRef.current) clearTimeout(reconnectRef.current);
+      if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+    };
+  }, [watchlist.map(w => w.symbol).join(',')]);
 
   useEffect(() => {
     fetchBinanceSymbols();

@@ -143,6 +143,7 @@ class WeightAdjuster:
                 new_weights = {k: v / total_weight for k, v in new_weights.items()}
             
             # Save to database
+            from apps.signals.models import WeightHistory
             weights_changed = False
             for factor, new_weight in new_weights.items():
                 fw, created = FactorWeight.objects.get_or_create(
@@ -159,6 +160,18 @@ class WeightAdjuster:
                     fw.description = f'Auto-adjusted: {old_weight} -> {new_weight} ({factor_performance[factor]["win_rate"]:.1f}% win rate, {factor_performance[factor]["total_signals"]} signals)'
                     fw.save(update_fields=['weight', 'description', 'updated_at'])
                     weights_changed = True
+
+                    # Save weight history
+                    if old_weight != new_weight:
+                        WeightHistory.objects.create(
+                            factor_name=factor,
+                            old_weight=old_weight,
+                            new_weight=new_weight,
+                            reason=f'Auto-adjustment: win_rate={factor_performance[factor]["win_rate"]:.1f}%, signals={factor_performance[factor]["total_signals"]}',
+                            win_rate_before=factor_performance[factor]['win_rate'],
+                            signals_evaluated=factor_performance[factor]['total_signals'],
+                            adjustment_type='scheduled',
+                        )
             
             # Generate summary
             summary = cls._generate_adjustment_summary(adjustments, factor_performance, total_signals)
