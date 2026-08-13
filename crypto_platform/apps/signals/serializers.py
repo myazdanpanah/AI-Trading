@@ -2,10 +2,16 @@
 from rest_framework import serializers
 from .models import (
     Signal, SignalReason, SignalGenerationRequest,
-    FactorWeight, RiskProfile, PortfolioPosition,
+    FactorWeight, WeightHistory, RiskProfile, PortfolioPosition,
     SignalPerformance, BacktestResult,
     AlertRule, AlertHistory,
 )
+
+
+class WeightHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WeightHistory
+        fields = '__all__'
 
 
 class SignalReasonSerializer(serializers.ModelSerializer):

@@ -14,6 +14,7 @@ from .models import (
 from .serializers import (
     SignalSerializer, SignalReasonSerializer,
     SignalGenerationRequestSerializer, FactorWeightSerializer,
+    WeightHistorySerializer,
     RiskProfileSerializer, PortfolioPositionSerializer,
     SignalPerformanceSerializer, BacktestResultSerializer,
     SignalGenerationInputSerializer, RiskCalculationInputSerializer,
@@ -374,6 +375,13 @@ class FactorWeightViewSet(viewsets.ModelViewSet):
     partial_update=extend_schema(tags=['Signals'], summary='Partial update risk profile'),
     destroy=extend_schema(tags=['Signals'], summary='Delete risk profile'),
 )
+class WeightHistoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for WeightHistory - read only, created by weight adjuster."""
+    from .models import WeightHistory
+    queryset = WeightHistory.objects.all()[:100]
+    serializer_class = WeightHistorySerializer
+
+
 class RiskProfileViewSet(viewsets.ModelViewSet):
     """ViewSet for RiskProfile CRUD."""
     queryset = RiskProfile.objects.all()

@@ -1,5 +1,6 @@
 """Journal API views."""
 import time
+from django.db import models
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
@@ -23,7 +24,10 @@ class NewsSourceViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return NewsSource.objects.filter(user=self.request.user)
+        # Show user's sources + system-wide sources (no user assigned)
+        return NewsSource.objects.filter(
+            models.Q(user=self.request.user) | models.Q(user__isnull=True)
+        )
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
