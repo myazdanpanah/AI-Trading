@@ -287,25 +287,31 @@ class LearningInsightViewSet(viewsets.ModelViewSet):
 )
 class FeedbackCycleViewSet(viewsets.ModelViewSet):
     """ViewSet for FeedbackCycle - tracking feedback loop cycles."""
-    queryset = FeedbackCycle.objects.all()
     serializer_class = FeedbackCycleSerializer
     filterset_fields = ['cycle_type', 'status']
+
+    def get_queryset(self):
+        qs = FeedbackCycle.objects.all()
+        cycle_type = self.request.query_params.get('cycle_type')
+        if cycle_type:
+            qs = qs.filter(cycle_type=cycle_type)
+        return qs.order_by('-started_at')
     
     @action(detail=False, methods=['post'])
     def run_cycle(self, request):
         """Execute a feedback cycle."""
-        serializer = FeedbackCycleInputSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        data = serializer.validated_data
+        cycle_type = request.data.get('cycle_type', 'daily')
         
         try:
-            result = FeedbackOrchestrator.run_feedback_cycle(
-                cycle_type=data.get('cycle_type', 'daily'),
-                lookback_days=data.get('lookback_days', 1),
-                symbol=data.get('symbol'),
-            )
+            if cycle_type == '6hour_btc':
+                from .services.btc_feedback_loop import BTCFeedbackLoop
+                result = BTCFeedbackLoop.run()
+            else:
+                result = FeedbackOrchestrator.run_feedback_cycle(
+                    cycle_type=cycle_type,
+                    lookback_days=request.data.get('lookback_days', 1),
+                    symbol=request.data.get('symbol'),
+                )
             
             return Response(result, status=status.HTTP_201_CREATED)
         except Exception as e:

@@ -12,7 +12,8 @@ interface FeedbackCycle {
   weights_adjusted: boolean;
   summary: string;
   recommendations: string[];
-  created_at: string;
+  started_at?: string;
+  completed_at?: string;
 }
 
 interface LoopStatus {
@@ -42,22 +43,26 @@ export const FeedbackLoopStatus: React.FC = () => {
         const cycles = data.results || data || [];
         const lastCycle = cycles[0] || null;
 
-        // Calculate time since last run
+        // Calculate time since last run (use completed_at or started_at)
         if (lastCycle) {
-          const lastRun = new Date(lastCycle.created_at);
-          const now = new Date();
-          const diffMs = now.getTime() - lastRun.getTime();
-          const diffSec = Math.floor(diffMs / 1000);
-          const remaining = Math.max(0, 21600 - diffSec); // 6 hours - elapsed
-
-          setCountdown(remaining);
+          const lastRunTime = lastCycle.completed_at || lastCycle.started_at;
+          if (lastRunTime) {
+            const lastRun = new Date(lastRunTime);
+            const now = new Date();
+            const diffMs = now.getTime() - lastRun.getTime();
+            const diffSec = Math.floor(diffMs / 1000);
+            const remaining = Math.max(0, 21600 - diffSec);
+            if (!isNaN(remaining)) {
+              setCountdown(remaining);
+            }
+          }
 
           // Extract insights from summary
           const insights = (lastCycle.summary || '').split('\n').filter((s: string) => s.trim());
 
           setStatus({
             lastRun: lastCycle,
-            nextRunIn: formatCountdown(remaining),
+            nextRunIn: lastRunTime ? formatCountdown(Math.max(0, 21600 - Math.floor((Date.now() - new Date(lastRunTime).getTime()) / 1000))) : '--:--:--',
             isRunning: false,
             totalCycles: cycles.length,
             recentInsights: insights.slice(0, 5),
@@ -90,6 +95,7 @@ export const FeedbackLoopStatus: React.FC = () => {
   }, []);
 
   const formatCountdown = (seconds: number): string => {
+    if (!seconds || isNaN(seconds) || seconds < 0) return '--:--:--';
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
@@ -97,7 +103,9 @@ export const FeedbackLoopStatus: React.FC = () => {
   };
 
   const formatTimeAgo = (dateStr: string): string => {
+    if (!dateStr) return '--';
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '--';
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMin = Math.floor(diffMs / 60000);
@@ -215,7 +223,7 @@ export const FeedbackLoopStatus: React.FC = () => {
 
           {/* Last Run Time */}
           <div className="text-xs text-gray-500">
-            {language === 'fa' ? 'آخرین اجرا:' : 'Last run:'} {formatTimeAgo(lastCycle.created_at)}
+            {language === 'fa' ? 'آخرین اجرا:' : 'Last run:'} {formatTimeAgo(lastCycle.completed_at || lastCycle.started_at || '')}
           </div>
 
           {/* Recent Insights */}
