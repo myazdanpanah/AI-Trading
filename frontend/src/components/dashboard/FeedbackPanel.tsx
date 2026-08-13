@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { apiFetch } from '../../utils/api';
 import { WeightHistoryChart } from './WeightHistoryChart';
+import { FeedbackLoopStatus } from './FeedbackLoopStatus';
 
 const safe = {
   num: (v: any, d = 0): number => {
@@ -244,6 +245,11 @@ export const FeedbackPanel: React.FC = () => {
             <option value={90}>90D</option>
           </select>
         </div>
+      </div>
+
+      {/* Feedback Loop Status */}
+      <div className="mb-4">
+        <FeedbackLoopStatus />
       </div>
 
       {error && (
