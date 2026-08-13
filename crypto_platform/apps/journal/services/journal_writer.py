@@ -220,25 +220,37 @@ CRITICAL: Always cite sources when referencing news or data."""
     return prompt
 
 
-def call_ollama(prompt: str, model: str = 'gemma4:latest') -> Optional[str]:
-    """Call Ollama API for text generation."""
+def call_ollama(prompt: str, model: str = 'gemma4:latest', language: str = 'en') -> Optional[str]:
+    """Call Ollama API for text generation with language support."""
     try:
-        data = json.dumps({
-            'model': model,
-            'messages': [{'role': 'user', 'content': prompt}],
-            'stream': False,
-            'options': {'temperature': 0.7, 'num_predict': 2500},
-        }).encode('utf-8')
+        import httpx
+        import os
+        base_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
 
-        req = urllib.request.Request(
-            'http://localhost:11434/api/chat',
-            data=data,
-            headers={'Content-Type': 'application/json'},
-            method='POST'
+        # System prompt for language control
+        if language == 'fa':
+            system_prompt = "تو یک تحلیلگر مالی حرفه‌ای هستی. تمام پاسخ‌هایت باید به فارسی باشد. فقط نام ارزها (BTC, ETH) و اندیکاتورها (RSI, MACD) به انگلیسی باشد."
+        else:
+            system_prompt = "You are a professional financial analyst writing in English."
+
+        response = httpx.post(
+            f"{base_url}/api/chat",
+            json={
+                'model': model,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': prompt},
+                ],
+                'stream': False,
+                'options': {'temperature': 0.7, 'num_predict': 1500},
+            },
+            timeout=90.0,
         )
-        r = urllib.request.urlopen(req, timeout=120)
-        response = json.loads(r.read())
-        return response.get('message', {}).get('content', '')
+
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('message', {}).get('content', '')
+        return None
     except Exception as e:
         logger.error(f"Ollama call failed: {e}")
         return None
@@ -275,7 +287,7 @@ def generate_journal_entry(analysis_data: Dict, entry_type: str = 'market_analys
 
     # Generate AI content
     prompt = generate_market_summary(analysis_data, news, fear_greed, sources_used, language=language)
-    ai_content = call_ollama(prompt)
+    ai_content = call_ollama(prompt, language=language)
 
     if not ai_content:
         ai_content = _generate_fallback_content(analysis_data, fear_greed, news, sources_used)
