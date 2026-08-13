@@ -13,15 +13,15 @@ if 'daphne' not in INSTALLED_APPS:
 # Iran Standard Time (IRST / UTC+3:30)
 TIME_ZONE = 'Asia/Tehran'
 
-# Use SQLite for local dev (no PostgreSQL needed)
+# PostgreSQL database
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'crypto_platform',
-        'USER': 'postgres',
-        'PASSWORD': 'postgres',
-        'HOST': 'localhost',
-        'PORT': '5433',
+        'NAME': os.environ.get('DB_NAME', 'crypto_platform'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'postgres'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5433'),
     }
 }
 
@@ -54,3 +54,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
 ]
+
+# JWT Security - shorter lifetimes for dev
+SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=30)
+SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'] = timedelta(days=1)
+SIMPLE_JWT['ROTATE_REFRESH_TOKENS'] = True
+SIMPLE_JWT['BLACKLIST_AFTER_ROTATION'] = True
