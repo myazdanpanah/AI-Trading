@@ -15,18 +15,28 @@ class NewsSource(models.Model):
             ('twitter', 'Twitter/X'),
             ('reddit', 'Reddit'),
             ('telegram', 'Telegram'),
+            ('youtube', 'YouTube'),
             ('blog', 'Official Blog'),
             ('government', 'Government'),
         ]
     )
+    category = models.CharField(max_length=50, blank=True, default='crypto_news')
+    icon = models.CharField(max_length=10, blank=True, default='📰')
+    reliability_score = models.IntegerField(default=70)
+    is_primary = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     fetch_interval = models.IntegerField(default=300)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = 'news source'
         verbose_name_plural = 'news sources'
         db_table = 'news_sources'
+        ordering = ['-reliability_score', 'name']
+
+    def __str__(self):
+        return f"{self.icon} {self.name} ({self.category})"
 
     def __str__(self):
         return self.name
