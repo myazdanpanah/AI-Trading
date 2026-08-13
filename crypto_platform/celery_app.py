@@ -64,6 +64,11 @@ app.conf.beat_schedule = {
         'schedule': 14400.0,  # Every 4 hours
         'kwargs': {'timeframe': '1h', 'limit': 100},
     },
+    # Comprehensive 6-hour BTC feedback loop (ALL data sources)
+    'feedback-btc-6hour': {
+        'task': 'feedback.btc_6hour_cycle',
+        'schedule': 21600.0,  # Every 6 hours
+    },
     # Cleanup old memories monthly
     'feedback-cleanup-monthly': {
         'task': 'feedback.cleanup_old_memories',

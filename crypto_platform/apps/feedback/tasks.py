@@ -429,3 +429,40 @@ def auto_record_expired_signals(self):
     except Exception as e:
         logger.error(f"Failed to auto-record expired signals: {e}")
         raise
+
+
+@shared_task(bind=True, name='feedback.btc_6hour_cycle')
+def btc_6hour_feedback_cycle(self):
+    """
+    Comprehensive 6-hour BTC feedback loop.
+    
+    Scans ALL data sources every 6 hours:
+    - News articles (RSS feeds)
+    - Candle changes (patterns, volume)
+    - Price action (support/resistance, trends)
+    - Order book (bid/ask imbalance)
+    - Social sentiment (X/Twitter, fear/greed)
+    - Technical indicators (RSI, MACD, VWAP, Ichimoku)
+    - Macro data (BTC dominance, market cap)
+    - Past signal evaluation (win/loss tracking)
+    
+    Then:
+    - Generates insights about what worked/didn't
+    - Adjusts factor weights based on performance
+    - Updates the AI learning model
+    - Stores everything for the feedback panel
+    """
+    try:
+        logger.info("Starting 6-hour BTC feedback cycle")
+        from .services.btc_feedback_loop import BTCFeedbackLoop
+        
+        result = BTCFeedbackLoop.run()
+        
+        logger.info(f"6-hour BTC feedback cycle completed: {result.get('status')}, "
+                   f"{len(result.get('insights', []))} insights, "
+                   f"{result.get('execution_time_seconds', 0)}s")
+        
+        return result
+    except Exception as e:
+        logger.error(f"6-hour BTC feedback cycle failed: {e}")
+        raise self.retry(exc=e, countdown=600, max_retries=3)
