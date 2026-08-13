@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚀 AI-Trading
+# AI-Trading
 
 ### Enterprise-Grade AI-Powered Cryptocurrency Intelligence Platform
 
@@ -16,94 +16,87 @@
 
 </div>
 
-## 🌟 Overview
+## Overview
 
 AI-Trading is a full-stack cryptocurrency trading platform that combines **multi-agent AI architecture**, **real-time market analysis**, **self-learning capabilities**, and **social trading** to generate intelligent trading signals.
 
 ### What Makes It Special
 
-- **🤖 Self-Learning AI** — The system learns from past signals, automatically adjusting weights based on what actually works
-- **📊 Real Data** — Live prices via WebSocket, TradingView charts, 68+ news sources, 30+ X/Twitter accounts
-- **🧠 6-Hour Feedback Loop** — Scans news, candles, price, orderbook, social, technical, macro, and signals every 6 hours
-- **📈 TradingView UI** — Professional dark-theme interface with real-time charts
-- **🌐 Bilingual** — Full English/Persian (فارسی) support throughout
-- **🔒 Security Hardened** — Restricted hosts, CORS, JWT tokens, rate limiting
+- **Self-Learning AI** — The system learns from past signals, automatically adjusting weights based on what actually works
+- **Real Data** — Live prices via WebSocket, TradingView charts, 68+ news sources, 30+ X/Twitter accounts
+- **6-Hour Feedback Loop** — Scans news, candles, price, orderbook, social, technical, macro, and signals every 6 hours
+- **TradingView UI** — Professional dark-theme interface with real-time charts
+- **Bilingual** — Full English/Persian (Farsi) support throughout
+- **Security Hardened** — Restricted hosts, CORS, JWT tokens, rate limiting
+- **No Celery Required** — Standalone scheduler runs all tasks without Redis/Celery
 
 ---
 
-## 🎯 Key Features
+## Key Features
 
-### 📈 Trading Interface
+### Trading Interface
 - **TradingView Widget** — Professional candlestick charts with indicators
 - **WebSocket Live Prices** — Real-time price updates via Daphne
 - **Watchlist** — User-defined cryptocurrency pairs with live prices
 - **Portfolio Tracker** — Position tracking with P&L
 
-### 🎯 Signal Engine (5 Factors with REAL Data)
+### Signal Engine (5 Factors with REAL Data)
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  SIGNAL GENERATION - All 5 Factors Now Use Real Data            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. 📈 TECHNICAL (35%)                                         │
-│     RSI, MACD, EMA, VWAP, Ichimoku, ATR                       │
-│     Source: CoinGecko candles → IndicatorEngine                 │
-│                                                                 │
-│  2. 💬 SENTIMENT (15%)                                         │
-│     Fear & Greed Index + Social mentions                       │
-│     Source: Alternative.me + X/Twitter via Nitter               │
-│                                                                 │
-│  3. 📰 NEWS (10%)                                              │
-│     20 recent articles, sentiment + keyword analysis           │
-│     Source: 35+ RSS feeds (CoinDesk, Reuters, BBC, etc.)       │
-│                                                                 │
-│  4. 🤖 AI (25%)                                                │
-│     gemma4 LLM prediction with JSON parsing                    │
-│     Source: Ollama local inference                              │
-│                                                                 │
-│  5. 🌍 MACRO (15%)                                             │
-│     BTC dominance, total market cap change                     │
-│     Source: CoinGecko global API                                │
-│                                                                 │
-│  Composite Score → Direction → Confidence → Entry/SL/TP        │
-└─────────────────────────────────────────────────────────────────┘
+SIGNAL GENERATION - All 5 Factors Now Use Real Data
+
+1. TECHNICAL (35%)
+   RSI, MACD, EMA, VWAP, Ichimoku, ATR
+   Source: CoinGecko candles -> IndicatorEngine
+
+2. SENTIMENT (15%)
+   Fear & Greed Index + Social mentions
+   Source: Alternative.me + X/Twitter via Nitter
+
+3. NEWS (10%)
+   20 recent articles, sentiment + keyword analysis
+   Source: 35+ RSS feeds (CoinDesk, Reuters, BBC, etc.)
+
+4. AI (25%)
+   gemma4 LLM prediction with JSON parsing
+   Source: Ollama local inference
+
+5. MACRO (15%)
+   BTC dominance, total market cap change
+   Source: CoinGecko global API
+
+Composite Score -> Direction -> Confidence -> Entry/SL/TP
 ```
 
-### 🧠 6-Hour BTC Feedback Loop
+### 6-Hour BTC Feedback Loop
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  🔄 COMPREHENSIVE FEEDBACK LOOP (Every 6 Hours)                │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  SCANS ALL 8 DATA SOURCES:                                      │
-│  1. 📰 NEWS       30 articles, sentiment analysis              │
-│  2. 🕯️ CANDLES    Price changes, volume, patterns              │
-│  3. 💰 PRICE      SMA/EMA, trend, support/resistance           │
-│  4. 📊 ORDERBOOK  Volume, bid/ask imbalance                    │
-│  5. 💬 SOCIAL     Fear & Greed + X/Twitter sentiment           │
-│  6. 📈 TECHNICAL  RSI, MACD, VWAP, EMA crossovers             │
-│  7. 🌍 MACRO      BTC dominance, market cap change             │
-│  8. ⚡ SIGNALS    Past signals vs actual outcomes               │
-│                                                                 │
-│  THEN:                                                          │
-│  ✅ Generates actionable insights                              │
-│  ✅ Adjusts factor weights based on performance                │
-│  ✅ Stores results in database                                 │
-│  ✅ Updates learning summary                                    │
-│                                                                 │
-│  Test run: 22.2 seconds, all 8 sections completed              │
-└─────────────────────────────────────────────────────────────────┘
+COMPREHENSIVE FEEDBACK LOOP (Every 6 Hours)
+
+SCANS ALL 8 DATA SOURCES:
+1. NEWS       30 articles, sentiment analysis
+2. CANDLES    Price changes, volume, patterns
+3. PRICE      SMA/EMA, trend, support/resistance
+4. ORDERBOOK  Volume, bid/ask imbalance
+5. SOCIAL     Fear & Greed + X/Twitter sentiment
+6. TECHNICAL  RSI, MACD, VWAP, EMA crossovers
+7. MACRO      BTC dominance, market cap change
+8. SIGNALS    Past signals vs actual outcomes
+
+THEN:
+- Generates actionable insights
+- Adjusts factor weights based on performance
+- Stores results in database
+- Updates learning summary
 ```
 
-### 💬 Chatbot (Bilingual)
+### Chatbot (Bilingual)
 - **Persian Support** — 99.4% Persian ratio on Farsi questions
 - **Tab-Aware** — Knows which tab you're on, suggests relevant questions
 - **Conversation History** — Last 10 messages sent to LLM for context
 - **Analysis Integration** — Provides recommendation, confidence, risks, levels
 
-### 📊 News & Social Media (68+ Sources)
+### News & Social Media (68+ Sources)
 ```
-📰 NEWS SOURCES (40+):
+NEWS SOURCES (40+):
    Crypto: CoinDesk, CoinTelegraph, The Block, Decrypt
    Finance: Bloomberg, FT, WSJ, CNBC
    Geopolitics: BBC, Al Jazeera, Guardian, DW News
@@ -111,7 +104,7 @@ AI-Trading is a full-stack cryptocurrency trading platform that combines **multi
    Energy: OilPrice, Rigzone, EIA
    Central Banks: Federal Reserve, ECB
 
-🐦 X/TWITTER ACCOUNTS (30+):
+X/TWITTER ACCOUNTS (30+):
    Analysts: CryptoCapo, PlanB, WillyWoo, Hayes
    News: WatcherGuru, tier10k, WhaleAlert
    Geopolitics: sentdefender, BNONews, LiveSquawk
@@ -119,34 +112,52 @@ AI-Trading is a full-stack cryptocurrency trading platform that combines **multi
    Macro: GoldTelegraph, SantiagoAuFund
 ```
 
----
-
-## 🏗️ Architecture
-
+### Scheduler (No Celery Required)
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    FRONTEND (:3000)                              │
-│  Trading | Signals | Compare | Analysis | Journal | Feedback    │
-│  TradingView Widget | WebSocket Live Prices | Recharts          │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │ HTTP + WebSocket
-┌───────────────────────────┴─────────────────────────────────────┐
-│                DJANGO BACKEND (:8000) + DAPHNE (:8001)          │
-│  Market Engine | Signal Engine | AI Engine | Learning Engine     │
-│  News Sources | Sentiment | Technical | Journal | Feedback       │
-│  WebSocket Consumer | Weight Adjuster | Celery Worker            │
-└───────┬────────────┬────────────┬────────────┬─────────────────┘
-        │            │            │            │
-┌───────┴──────┐┌────┴────┐┌─────┴─────┐┌─────┴─────┐
-│  PostgreSQL  ││  Cache  ││  Ollama   ││  APIs     │
-│  Port 5433   ││  LocMem ││  gemma4   ││ CoinGecko │
-│  35+ tables  ││         ││  :latest  ││ Nitter RSS│
-└──────────────┘└─────────┘└───────────┘└───────────┘
+STANDALONE SCHEDULER - Backup for Celery
+
+Runs all 10 scheduled tasks without Redis:
+
+  news-crawl       every 30 min  - RSS feed crawling
+  news-analyze     every hour    - Article sentiment analysis
+  signals-generate every hour    - Signal generation (5 factors)
+  signals-evaluate every hour    - Signal outcome evaluation
+  candles-collect  every 4 hours - Candle data for AI training
+  btc-6hour        every 6 hours - Full BTC feedback loop
+  daily-feedback   daily 1 AM    - Daily analysis cycle
+  weight-adjust    daily 2 AM    - Factor weight optimization
+  weekly-feedback  Sunday 2 AM   - Comprehensive weekly review
+  cleanup          monthly 3 AM  - Memory cleanup (90 day retention)
 ```
 
 ---
 
-## 🚀 Quick Start
+## Architecture
+
+```
+                    FRONTEND (:3000)
+  Trading | Signals | Compare | Analysis | Journal | Feedback
+  TradingView Widget | WebSocket Live Prices | Recharts
+
+                            |
+                            v HTTP + WebSocket
+
+              DJANGO BACKEND (:8000) + DAPHNE (:8001)
+  Market Engine | Signal Engine | AI Engine | Learning Engine
+  News Sources | Sentiment | Technical | Journal | Feedback
+  WebSocket Consumer | Weight Adjuster | Standalone Scheduler
+
+        |            |            |            |
+        v            v            v            v
+
+  PostgreSQL    LocMem      Ollama       APIs
+  Port 5433     Cache       gemma4       CoinGecko
+  35+ tables                :latest      Nitter RSS
+```
+
+---
+
+## Quick Start
 
 ### Prerequisites
 - **Python** 3.11+
@@ -173,7 +184,7 @@ DJANGO_SETTINGS_MODULE=crypto_platform.settings.local python manage.py runserver
 cd frontend
 npm install
 npm run dev
-# → http://localhost:3000
+# -> http://localhost:3000
 ```
 
 ### 4. WebSocket Server
@@ -181,8 +192,15 @@ npm run dev
 daphne -b 0.0.0.0 -p 8001 crypto_platform.asgi:application
 ```
 
-### 5. Celery (for auto tasks)
+### 5. Scheduler (No Celery Required)
 ```bash
+# Option A: Standalone scheduler (recommended)
+python scripts/scheduler.py
+
+# Option B: Manual feedback loop
+python manage.py run_feedback_loop
+
+# Option C: Celery (if Redis available)
 celery -A crypto_platform worker -l info -P solo
 celery -A crypto_platform beat -l info
 ```
@@ -196,21 +214,21 @@ Password: 123456
 
 ---
 
-## 📊 Dashboard Tabs
+## Dashboard Tabs
 
 | Tab | Description |
 |-----|-------------|
-| 📈 **Trading** | Live TradingView chart, Order Book, Watchlist, Portfolio |
-| 🔔 **Signals** | Generate signals with 5-factor analysis + history |
-| 📊 **Compare** | Multi-symbol comparison side by side |
-| 📈 **Analysis** | Interactive gauges, charts, regime analysis, journal |
-| 📝 **Journal** | AI-generated journal entries with news sources |
-| 🧠 **Feedback** | Performance metrics, AI insights, 6h loop status |
-| ⚙️ **Settings** | AI models, news sources, alerts, user settings |
+| **Trading** | Live TradingView chart, Order Book, Watchlist, Portfolio |
+| **Signals** | Generate signals with 5-factor analysis + history |
+| **Compare** | Multi-symbol comparison side by side |
+| **Analysis** | Interactive gauges, charts, regime analysis, journal |
+| **Journal** | AI-generated journal entries with news sources |
+| **Feedback** | Performance metrics, AI insights, 6h loop status |
+| **Settings** | AI models, news sources, alerts, user settings |
 
 ---
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### Authentication
 ```bash
@@ -254,7 +272,7 @@ ws://localhost:8001/ws/prices/   # Live price feed
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### Database
 ```python
@@ -282,9 +300,22 @@ SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=30)
 
 ---
 
-## 🗺️ Roadmap
+## Services
 
-### ✅ Completed (56 Phases)
+| Service | Port | Status |
+|---------|------|--------|
+| Frontend | 3000 | Running |
+| Backend | 8000 | Running |
+| WebSocket | 8001 | Running |
+| PostgreSQL | 5433 | Running |
+| Ollama | 11434 | Running |
+| Scheduler | - | Running (background) |
+
+---
+
+## Roadmap
+
+### Completed (56 Phases)
 - Foundation, Signals, Learning, Feedback
 - PostgreSQL, Real Signal Engine, AI Feedback Loop
 - Celery Automation, Analysis Panel, Iran Timezone
@@ -293,17 +324,18 @@ SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=30)
 - News Sources, Persian Language, Data Enricher
 - WebSocket, X/Twitter, Weight History
 - News Seeding, 6-Hour Feedback Loop, Security
+- Standalone Scheduler (Celery backup)
 
-### 🔜 Next Steps
+### Next Steps
 - [ ] Multi-Symbol Feedback Loop (ETH, SOL, BNB, XRP)
 - [ ] Real-Time News Sentiment Scoring (LLM-based)
 - [ ] Mobile App React Native Update
 - [ ] Docker Production Setup
-- [ ] Redis Caching
+- [ ] Redis Caching (optional, for performance)
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the **MIT License**.
 
@@ -311,6 +343,6 @@ This project is licensed under the **MIT License**.
 
 <div align="center">
 
-**Built with ❤️ by the AI-Trading Team**
+**Built with care by the AI-Trading Team**
 
 </div>
