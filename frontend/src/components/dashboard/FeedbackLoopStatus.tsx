@@ -240,11 +240,28 @@ export const FeedbackLoopStatus: React.FC = () => {
               <div className="text-xs text-gray-400 mb-2">
                 {language === 'fa' ? 'توصیه‌ها:' : 'Recommendations:'}
               </div>
-              {lastCycle.recommendations.map((rec, i) => (
-                <div key={i} className="text-xs text-yellow-300 bg-yellow-900/20 rounded p-1.5 mb-1">
-                  ⚠️ {rec}
-                </div>
-              ))}
+              {lastCycle.recommendations.map((rec: any, i) => {
+                // Handle both string and object formats
+                const isObject = typeof rec === 'object' && rec !== null;
+                const title = isObject ? (rec.title || rec.message || '') : String(rec);
+                const description = isObject ? rec.description : '';
+                const action = isObject ? rec.action : '';
+                const priority = isObject ? rec.priority : '';
+                return (
+                  <div key={i} className="text-xs bg-yellow-900/20 rounded p-1.5 mb-1">
+                    <div className="flex items-start gap-1">
+                      <span className={priority === 'high' ? 'text-red-400' : 'text-yellow-300'}>
+                        {priority === 'high' ? '🔴' : '⚠️'}
+                      </span>
+                      <div>
+                        <div className="text-yellow-300 font-medium">{title}</div>
+                        {description && <div className="text-gray-400 mt-0.5">{description}</div>}
+                        {action && <div className="text-blue-400 mt-0.5">→ {action}</div>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
