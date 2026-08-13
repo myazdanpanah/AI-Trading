@@ -139,7 +139,7 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
     const connectWs = () => {
       if (wsRef.current?.readyState === WebSocket.OPEN) return;
       try {
-        const ws = new WebSocket('ws://localhost:8000/ws/prices/');
+        const ws = new WebSocket('ws://localhost:8001/ws/prices/');
         wsRef.current = ws;
 
         ws.onopen = () => {

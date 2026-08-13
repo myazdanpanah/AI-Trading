@@ -139,6 +139,14 @@ def full_analysis(request):
     """
     start = time.time()
     symbol = request.query_params.get('symbol', 'BTC').upper()
+
+    # Cache analysis for 60 seconds to avoid repeated expensive computations
+    from django.core.cache import cache
+    cache_key = f'full_analysis_{symbol}'
+    cached_result = cache.get(cache_key)
+    if cached_result:
+        cached_result['from_cache'] = True
+        return Response(cached_result)
     account_size = float(request.query_params.get('account_size', 10000))
     risk_pct = float(request.query_params.get('risk_pct', 0.02))
 
@@ -317,6 +325,9 @@ def full_analysis(request):
             },
             'execution_time_ms': int((time.time() - start) * 1000),
         }
+
+        # Cache result for 60 seconds
+        cache.set(cache_key, result, 60)
 
         return Response(result)
 

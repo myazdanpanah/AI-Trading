@@ -3,6 +3,13 @@ from .base import *
 
 DEBUG = True
 
+# ASGI for WebSocket support
+ASGI_APPLICATION = 'crypto_platform.asgi.application'
+
+# Insert daphne at the top of INSTALLED_APPS
+if 'daphne' not in INSTALLED_APPS:
+    INSTALLED_APPS = ['daphne'] + INSTALLED_APPS
+
 # Iran Standard Time (IRST / UTC+3:30)
 TIME_ZONE = 'Asia/Tehran'
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useWatchlist } from '../../contexts/WatchlistContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { apiFetch } from '../../utils/api';
+import { SignalHistory } from './SignalHistory';
 
 // Safe helpers - never crash
 const safe = {
@@ -331,6 +332,11 @@ export const SignalDashboard: React.FC = () => {
           })}
         </div>
       )}
+
+      {/* Signal History Table */}
+      <div className="mt-6">
+        <SignalHistory />
+      </div>
     </div>
   );
 };
