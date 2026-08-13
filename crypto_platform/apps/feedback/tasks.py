@@ -250,19 +250,30 @@ def generate_signals_hourly(self):
                     'atr': atr_data.get('value', current_price * 0.02),
                 }
                 
-                # Sentiment
-                try:
-                    fg = fetch_fear_greed_index()
-                    sentiment_data = {'fear_greed_index': fg.get('value', 50), 'social_sentiment': 50}
-                except Exception:
-                    sentiment_data = {'fear_greed_index': 50, 'social_sentiment': 50}
+                # Gather ALL data sources (news, social, macro, AI)
+                from apps.signals.services.data_enricher import SignalDataEnricher
+                enriched = SignalDataEnricher.enrich(
+                    symbol=symbol,
+                    technical_data=technical_data,
+                    current_price=float(current_price),
+                )
+                sentiment_data = enriched['sentiment_data']
+                news_data = enriched['news_data']
+                macro_data = enriched['macro_data']
+                ai_data = enriched['ai_data']
                 
-                # Generate signal
+                logger.info(f"{symbol} enriched: news={news_data.get('article_count',0)} articles, "
+                           f"ai={ai_data.get('prediction','?')}, macro={macro_data.get('market_regime','?')}")
+                
+                # Generate signal with ALL 5 factors
                 gen = SignalGenerator()
                 result = gen.generate_signal(
                     symbol=symbol, timeframe='1h',
                     technical_data=technical_data,
                     sentiment_data=sentiment_data,
+                    news_data=news_data,
+                    ai_data=ai_data,
+                    macro_data=macro_data,
                     current_price=current_price,
                 )
                 
