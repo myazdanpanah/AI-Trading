@@ -25,7 +25,7 @@ class OllamaProvider(BaseProvider):
     def __init__(self, base_url: str = 'http://localhost:11434'):
         super().__init__('ollama', base_url=base_url)
         self.base_url = base_url.rstrip('/')
-        self.client = httpx.AsyncClient(timeout=120.0)
+        self.client = httpx.AsyncClient(timeout=50.0)
 
     async def _get_installed_model(self) -> str:
         """Get the first installed model from Ollama."""

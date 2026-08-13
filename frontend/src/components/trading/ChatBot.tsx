@@ -237,6 +237,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({ activeTab = 'trading' }) => {
       const tabCtx = getTabContext();
       const response = await apiFetch('/skills/chat/', {
         method: 'POST',
+        timeout: 50000,
         body: JSON.stringify({
           symbol: selectedSymbol.replace('USDT', ''),
           question: text,

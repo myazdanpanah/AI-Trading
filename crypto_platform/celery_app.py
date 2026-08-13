@@ -11,6 +11,16 @@ app.autodiscover_tasks()
 
 # Celery Beat Schedule for Feedback Loop
 app.conf.beat_schedule = {
+    # Crawl news every 30 minutes
+    'news-crawl-halfhourly': {
+        'task': 'news.tasks.crawl_news_sources',
+        'schedule': 1800.0,  # Every 30 minutes
+    },
+    # Analyze unanalyzed articles every hour
+    'news-analyze-hourly': {
+        'task': 'news.tasks.analyze_news_batch',
+        'schedule': 3600.0,  # Every hour
+    },
     # Generate new signals every hour
     'signals-generate-hourly': {
         'task': 'signals.generate_hourly',

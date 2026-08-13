@@ -44,18 +44,35 @@ export function getAuthHeaders(): HeadersInit {
 /**
  * Authenticated fetch wrapper
  */
-export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+export interface ApiFetchOptions extends RequestInit {
+  timeout?: number;
+}
+
+export async function apiFetch(url: string, options: ApiFetchOptions = {}): Promise<Response> {
   const headers = {
     ...getAuthHeaders(),
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers,
-  });
+  const { timeout: timeoutMs, ...fetchOptions } = options;
+  let signal = fetchOptions.signal;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  if (timeoutMs && !signal) {
+    const controller = new AbortController();
+    signal = controller.signal;
+    timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  }
 
-  return response;
+  try {
+    const response = await fetch(`${API_BASE}${url}`, {
+      ...fetchOptions,
+      headers,
+      signal,
+    });
+    return response;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
 }
 
 /**

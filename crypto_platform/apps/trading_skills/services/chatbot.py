@@ -136,7 +136,7 @@ class TradingChatBot:
                             'repeat_penalty': 1.1,
                         }
                     },
-                    timeout=120.0
+                    timeout=50.0
                 )
                 
                 if response.status_code == 200:
@@ -157,7 +157,7 @@ class TradingChatBot:
                             'repeat_penalty': 1.1,
                         }
                     },
-                    timeout=120.0
+                    timeout=50.0
                 )
                 
                 if response.status_code == 200:
