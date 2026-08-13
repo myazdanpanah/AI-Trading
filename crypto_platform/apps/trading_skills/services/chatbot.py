@@ -143,12 +143,17 @@ class TradingChatBot:
                     data = response.json()
                     return data.get('message', {}).get('content', '')
             else:
-                # Fallback to generate API for single prompts
+                # Always use chat API with system prompt for better language control
+                messages = []
+                if system_prompt:
+                    messages.append({'role': 'system', 'content': system_prompt})
+                messages.append({'role': 'user', 'content': prompt})
+                
                 response = httpx.post(
-                    f"{base_url}/api/generate",
+                    f"{base_url}/api/chat",
                     json={
                         'model': model,
-                        'prompt': prompt,
+                        'messages': messages,
                         'stream': False,
                         'options': {
                             'temperature': temperature,
@@ -162,7 +167,7 @@ class TradingChatBot:
                 
                 if response.status_code == 200:
                     data = response.json()
-                    return data.get('response', '')
+                    return data.get('message', {}).get('content', '')
         except Exception as e:
             logger.warning(f"LLM generation failed: {e}")
         return None
@@ -220,23 +225,46 @@ User is currently on the {tab_name} tab.
 Capabilities available: {', '.join(capabilities)}
 You can answer questions about this tab and any other tabs. If the user asks about something not on this tab, explain what's available elsewhere."""
         
-        llm_prompt = f"""{system_prompt}
+        current_price = analysis.get('current_price', 'N/A')
+        trend = analysis.get('trend', {}).get('bias', 'neutral')
+        tech_score = analysis.get('technical', {}).get('overall_score', 50)
+        candle_score = analysis.get('candlestick', {}).get('overall_score', {}).get('overall', 50)
+        rsi = analysis.get('technical', {}).get('momentum', {}).get('rsi', 50)
+        fg = analysis.get('sentiment', {}).get('fear_greed_index', 50)
+        rec = response['recommendation']
 
-The user is asking about {symbol}/USD trading.{tab_info}
+        if language == 'fa':
+            llm_prompt = f"""کاربر درباره معامله {symbol}/USD سؤال کرده.{tab_info}
+
+داده‌های بازار:
+- قیمت: ${current_price:,.2f}
+- روند: {trend}
+- امتیاز تکنیکال: {tech_score}/100
+- امتیاز کندل‌استیک: {candle_score}/100
+- RSI: {rsi}
+- شاخص ترس و طمع: {fg}
+
+تحلیل من: سیگنال {rec} با اطمینان {confidence}%.
+
+سؤال کاربر: {question}
+
+به فارسی پاسخ بده. مثل یک دوست با تجربه صحبت کن، ساده و قابل فهم توضیح بده."""
+        else:
+            llm_prompt = f"""The user is asking about {symbol}/USD trading.{tab_info}
 
 Current market data:
-- Price: ${analysis.get('current_price', 'N/A'):,.2f}
-- Trend: {analysis.get('trend', {}).get('bias', 'neutral')}
-- Technical Score: {analysis.get('technical', {}).get('overall_score', 50)}/100
-- Candlestick Score: {analysis.get('candlestick', {}).get('overall_score', {}).get('overall', 50)}/100
-- RSI: {analysis.get('technical', {}).get('momentum', {}).get('rsi', 50)}
-- Fear & Greed: {analysis.get('sentiment', {}).get('fear_greed_index', 50)}
+- Price: ${current_price:,.2f}
+- Trend: {trend}
+- Technical Score: {tech_score}/100
+- Candlestick Score: {candle_score}/100
+- RSI: {rsi}
+- Fear & Greed: {fg}
 
-My analysis suggests: {response['recommendation']} with {confidence}% confidence.
+My analysis suggests: {rec} with {confidence}% confidence.
 
 User's question: {question}
 
-Respond naturally and conversationally in the same language as the user. Be helpful, explain your reasoning clearly, and provide actionable insights. Do not use markdown formatting - just write naturally like a knowledgeable friend would explain it. You can answer questions about any tab (Trading, Signals, Analysis, Journal, Feedback, Settings) - not just the current one."""
+Respond naturally and conversationally in English. Be helpful, explain your reasoning clearly, and provide actionable insights. Do not use markdown formatting - just write naturally like a knowledgeable friend would explain it. You can answer questions about any tab (Trading, Signals, Analysis, Journal, Feedback, Settings) - not just the current one."""
 
         # Try to enhance response with LLM if available
         llm_response = cls._generate_with_llm(llm_prompt, actual_model, temperature, history=history, system_prompt=system_prompt)
@@ -272,7 +300,9 @@ Respond naturally and conversationally in the same language as the user. Be help
     def _get_system_prompt(cls, language: str) -> str:
         """Get the system prompt based on language."""
         if language == 'fa':
-            return """تو یک متخصص ترید ارز دیجیتال هستی که به زبان فارسی صحبت می‌کنی.
+            return """IMPORTANT: You MUST respond entirely in Persian (Farsi). Do NOT use English at all. Every word in your response must be in Persian.
+
+تو یک متخصص ترید ارز دیجیتال هستی که به زبان فارسی صحبت می‌کنی.
 تو باید:
 - مثل یک دوست با تجربه صحبت کنی، نه مثل یک ربات
 - از اصطلاحات ترید فارسی استفاده کنی (مثل خرید، فروش، سود، ضرر)
