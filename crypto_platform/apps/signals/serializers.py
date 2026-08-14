@@ -5,6 +5,7 @@ from .models import (
     FactorWeight, WeightHistory, RiskProfile, PortfolioPosition,
     SignalPerformance, BacktestResult,
     WalkForwardRun, WalkForwardWindow,
+    RiskConfig, RiskEvent, KillSwitchState,
     AlertRule, AlertHistory,
 )
 
@@ -117,6 +118,34 @@ class WalkForwardWindowSerializer(serializers.ModelSerializer):
     class Meta:
         model = WalkForwardWindow
         fields = '__all__'
+
+
+class RiskConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RiskConfig
+        fields = '__all__'
+
+
+class RiskEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RiskEvent
+        fields = '__all__'
+
+
+class KillSwitchStateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = KillSwitchState
+        fields = '__all__'
+
+
+class RiskValidationInputSerializer(serializers.Serializer):
+    """Input for signal validation through the Risk Engine."""
+    symbol = serializers.CharField(max_length=20)
+    direction = serializers.CharField(max_length=20)
+    entry_price = serializers.DecimalField(max_digits=20, decimal_places=8)
+    stop_loss = serializers.DecimalField(max_digits=20, decimal_places=8)
+    confidence = serializers.IntegerField(default=50)
+    account_balance = serializers.DecimalField(max_digits=20, decimal_places=2)
 
 
 class WalkForwardInputSerializer(serializers.Serializer):

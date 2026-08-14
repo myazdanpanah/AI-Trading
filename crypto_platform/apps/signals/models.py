@@ -481,3 +481,107 @@ class WalkForwardWindow(models.Model):
 
     def __str__(self):
         return f"Window {self.window_index}: IS {self.is_return_percent}% / OOS {self.oos_return_percent}%"
+
+
+class RiskConfig(models.Model):
+    """Independent risk configuration — the safety gate between Signal and Execution."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100, unique=True)
+    # Position limits
+    max_risk_per_trade = models.DecimalField(max_digits=5, decimal_places=2, default=1.0, help_text='Max risk per trade as % of account')
+    max_position_size_pct = models.DecimalField(max_digits=5, decimal_places=2, default=10.0, help_text='Max single position as % of account')
+    max_concurrent_positions = models.IntegerField(default=5, help_text='Maximum open positions')
+    max_correlated_positions = models.IntegerField(default=3, help_text='Max positions in correlated assets')
+    # Portfolio limits
+    max_portfolio_risk_pct = models.DecimalField(max_digits=5, decimal_places=2, default=5.0, help_text='Max total portfolio risk as %')
+    max_portfolio_exposure_pct = models.DecimalField(max_digits=5, decimal_places=2, default=50.0, help_text='Max total exposure as %')
+    # Drawdown limits
+    max_drawdown_pct = models.DecimalField(max_digits=5, decimal_places=2, default=15.0, help_text='Max drawdown before kill switch')
+    daily_loss_limit_pct = models.DecimalField(max_digits=5, decimal_places=2, default=3.0, help_text='Max daily loss as %')
+    # Kill switch triggers
+    kill_switch_enabled = models.BooleanField(default=True)
+    kill_on_drawdown = models.BooleanField(default=True, help_text='Trigger on max drawdown')
+    kill_on_daily_loss = models.BooleanField(default=True, help_text='Trigger on daily loss limit')
+    kill_on_data_feed_failure = models.BooleanField(default=True, help_text='Trigger if data feeds fail')
+    kill_on_api_failure = models.BooleanField(default=True, help_text='Trigger if exchange API fails')
+    kill_on_extreme_volatility = models.BooleanField(default=True, help_text='Trigger on extreme volatility')
+    kill_on_risk_engine_failure = models.BooleanField(default=True, help_text='Trigger if risk engine itself fails')
+    # Active state
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'risk config'
+        verbose_name_plural = 'risk configs'
+        db_table = 'risk_configs'
+
+    def __str__(self):
+        return self.name
+
+
+class RiskEvent(models.Model):
+    """Log of all risk engine decisions and events."""
+    EVENT_TYPES = [
+        ('signal_approved', 'Signal Approved'),
+        ('signal_rejected', 'Signal Rejected'),
+        ('position_sized', 'Position Sized'),
+        ('kill_switch_activated', 'Kill Switch Activated'),
+        ('kill_switch_deactivated', 'Kill Switch Deactivated'),
+        ('drawdown_warning', 'Drawdown Warning'),
+        ('daily_loss_warning', 'Daily Loss Warning'),
+        ('exposure_warning', 'Exposure Warning'),
+        ('risk_limit_hit', 'Risk Limit Hit'),
+        ('portfolio_assessed', 'Portfolio Assessed'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    risk_config = models.ForeignKey(RiskConfig, on_delete=models.SET_NULL, null=True, blank=True, related_name='events')
+    event_type = models.CharField(max_length=30, choices=EVENT_TYPES, db_index=True)
+    symbol = models.CharField(max_length=20, blank=True)
+    signal_id = models.UUIDField(null=True, blank=True)
+    # Event details
+    decision = models.CharField(max_length=20, choices=[('approved', 'Approved'), ('rejected', 'Rejected'), ('modified', 'Modified')])
+    reason = models.TextField(blank=True)
+    risk_data = models.JSONField(default=dict, blank=True)
+    # Risk state at time of event
+    portfolio_exposure_pct = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    portfolio_risk_pct = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    current_drawdown_pct = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    daily_pnl_pct = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    active_positions = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'risk event'
+        verbose_name_plural = 'risk events'
+        db_table = 'risk_events'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.event_type}: {self.symbol} - {self.decision}"
+
+
+class KillSwitchState(models.Model):
+    """Tracks kill switch state — must be independent from LLM and Signal Engine."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    is_active = models.BooleanField(default=False)
+    triggered_by = models.CharField(max_length=100, blank=True, help_text='What triggered the kill switch')
+    triggered_at = models.DateTimeField(null=True, blank=True)
+    deactivated_at = models.DateTimeField(null=True, blank=True)
+    deactivation_reason = models.TextField(blank=True)
+    # Snapshot at time of activation
+    portfolio_drawdown_pct = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    daily_pnl_pct = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    active_positions = models.IntegerField(default=0)
+    total_exposure_pct = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'kill switch state'
+        verbose_name_plural = 'kill switch states'
+        db_table = 'kill_switch_state'
+
+    def __str__(self):
+        return f"Kill Switch: {'ACTIVE' if self.is_active else 'inactive'}"

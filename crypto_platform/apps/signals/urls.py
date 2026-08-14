@@ -13,6 +13,7 @@ router.register(r'positions', views.PortfolioPositionViewSet)
 router.register(r'performance', views.SignalPerformanceViewSet)
 router.register(r'backtests', views.BacktestResultViewSet)
 router.register(r'walk-forward', views.WalkForwardResultViewSet, basename='walk-forward')
+router.register(r'risk-engine', views.RiskEngineViewSet, basename='risk-engine')
 router.register(r'alerts', views.AlertRuleViewSet, basename='alert-rules')
 router.register(r'alert-history', views.AlertHistoryViewSet, basename='alert-history')
 

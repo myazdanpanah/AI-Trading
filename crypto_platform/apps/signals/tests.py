@@ -846,6 +846,231 @@ class WalkForwardTest(TestCase):
         self.assertFalse(result['leakage_detected'])
 
 
+class RiskEngineTest(TestCase):
+    """Tests for independent RiskEngine — the safety gate."""
+
+    def setUp(self):
+        from .services.risk_engine import RiskEngine
+        self.engine = RiskEngine()
+        self.account_balance = Decimal('10000')
+        self.base_signal = {
+            'symbol': 'BTC/USDT',
+            'direction': 'buy',
+            'entry_price': Decimal('50000'),
+            'stop_loss': Decimal('49000'),
+            'confidence': 70,
+        }
+
+    def test_approve_valid_signal(self):
+        """Valid signal should be approved."""
+        decision = self.engine.validate_signal(
+            signal=self.base_signal,
+            account_balance=self.account_balance,
+            current_positions=[],
+            current_prices={},
+        )
+        self.assertTrue(decision.approved)
+        self.assertGreater(decision.position_size, 0)
+
+    def test_reject_invalid_entry_price(self):
+        """Signal with zero entry price should be rejected."""
+        signal = {**self.base_signal, 'entry_price': Decimal('0')}
+        decision = self.engine.validate_signal(
+            signal=signal,
+            account_balance=self.account_balance,
+            current_positions=[],
+            current_prices={},
+        )
+        self.assertFalse(decision.approved)
+        self.assertIn('entry price', decision.reason.lower())
+
+    def test_reject_invalid_stop_loss(self):
+        """Signal with zero stop loss should be rejected."""
+        signal = {**self.base_signal, 'stop_loss': Decimal('0')}
+        decision = self.engine.validate_signal(
+            signal=signal,
+            account_balance=self.account_balance,
+            current_positions=[],
+            current_prices={},
+        )
+        self.assertFalse(decision.approved)
+        self.assertIn('stop loss', decision.reason.lower())
+
+    def test_reject_invalid_direction(self):
+        """Signal with invalid direction should be rejected."""
+        signal = {**self.base_signal, 'direction': 'hold'}
+        decision = self.engine.validate_signal(
+            signal=signal,
+            account_balance=self.account_balance,
+            current_positions=[],
+            current_prices={},
+        )
+        self.assertFalse(decision.approved)
+        self.assertIn('direction', decision.reason.lower())
+
+    def test_reject_max_concurrent_positions(self):
+        """Should reject when max positions reached."""
+        positions = [{'symbol': f'COIN{i}/USDT', 'is_active': True, 'quantity': 1, 'current_price': 100, 'risk_amount': 10} for i in range(5)]
+        decision = self.engine.validate_signal(
+            signal=self.base_signal,
+            account_balance=self.account_balance,
+            current_positions=positions,
+            current_prices={},
+        )
+        self.assertFalse(decision.approved)
+        self.assertIn('concurrent', decision.reason.lower())
+
+    def test_reject_daily_loss_limit(self):
+        """Should reject and activate kill switch on daily loss limit."""
+        decision = self.engine.validate_signal(
+            signal=self.base_signal,
+            account_balance=self.account_balance,
+            current_positions=[],
+            current_prices={},
+            daily_pnl=Decimal('-500'),  # 5% daily loss
+            current_equity=Decimal('10000'),
+        )
+        self.assertFalse(decision.approved)
+        self.assertTrue(decision.kill_switch_active)
+
+    def test_reject_drawdown_limit(self):
+        """Should reject and activate kill switch on drawdown limit."""
+        decision = self.engine.validate_signal(
+            signal=self.base_signal,
+            account_balance=self.account_balance,
+            current_positions=[],
+            current_prices={},
+            peak_equity=Decimal('12000'),
+            current_equity=Decimal('9500'),  # 20.8% drawdown > 15% limit
+        )
+        self.assertFalse(decision.approved)
+        self.assertTrue(decision.kill_switch_active)
+
+    def test_reject_exposure_limit(self):
+        """Should reject when portfolio exposure limit reached."""
+        positions = [
+            {'symbol': 'BTC/USDT', 'is_active': True, 'quantity': 1, 'current_price': 50000, 'risk_amount': 500},
+        ]  # 50000 exposure = 500% of 10000
+        decision = self.engine.validate_signal(
+            signal=self.base_signal,
+            account_balance=self.account_balance,
+            current_positions=positions,
+            current_prices={},
+        )
+        self.assertFalse(decision.approved)
+        self.assertIn('exposure', decision.reason.lower())
+
+    def test_reject_correlated_positions(self):
+        """Should reject when too many correlated positions."""
+        positions = [
+            {'symbol': 'BTC/USDT', 'is_active': True, 'quantity': 0.01, 'current_price': 50000, 'risk_amount': 10},
+            {'symbol': 'BTC/USDT', 'is_active': True, 'quantity': 0.01, 'current_price': 50000, 'risk_amount': 10},
+            {'symbol': 'BTC/USDT', 'is_active': True, 'quantity': 0.01, 'current_price': 50000, 'risk_amount': 10},
+        ]  # 3 BTC positions = max correlated
+        decision = self.engine.validate_signal(
+            signal=self.base_signal,
+            account_balance=self.account_balance,
+            current_positions=positions,
+            current_prices={},
+        )
+        self.assertFalse(decision.approved)
+        self.assertIn('correlated', decision.reason.lower())
+
+    def test_position_sizing(self):
+        """Position size should be calculated correctly."""
+        decision = self.engine.validate_signal(
+            signal=self.base_signal,
+            account_balance=self.account_balance,
+            current_positions=[],
+            current_prices={},
+        )
+        self.assertTrue(decision.approved)
+        # Risk should be approximately 1% of account
+        self.assertLessEqual(decision.risk_percent, 1.5)  # Allow some tolerance
+
+    def test_kill_switch_blocks_all_trades(self):
+        """Kill switch should block all new trades."""
+        self.engine.activate_kill_switch('Test activation')
+        decision = self.engine.validate_signal(
+            signal=self.base_signal,
+            account_balance=self.account_balance,
+            current_positions=[],
+            current_prices={},
+        )
+        self.assertFalse(decision.approved)
+        self.assertTrue(decision.kill_switch_active)
+
+    def test_deactivate_kill_switch(self):
+        """Deactivated kill switch should allow trades again."""
+        self.engine.activate_kill_switch('Test')
+        self.engine.deactivate_kill_switch('Test deactivation')
+        decision = self.engine.validate_signal(
+            signal=self.base_signal,
+            account_balance=self.account_balance,
+            current_positions=[],
+            current_prices={},
+        )
+        self.assertTrue(decision.approved)
+
+    def test_kill_switch_triggers(self):
+        """Check all kill switch trigger conditions."""
+        # Drawdown trigger
+        should, reason = self.engine.check_kill_switch_triggers(
+            account_balance=Decimal('10000'),
+            current_equity=Decimal('8000'),
+            peak_equity=Decimal('10000'),
+            daily_pnl=Decimal('0'),
+        )
+        self.assertTrue(should)
+        self.assertIn('drawdown', reason.lower())
+
+    def test_kill_switch_no_trigger_normal(self):
+        """Normal conditions should not trigger kill switch."""
+        should, reason = self.engine.check_kill_switch_triggers(
+            account_balance=Decimal('10000'),
+            current_equity=Decimal('10000'),
+            peak_equity=Decimal('10000'),
+            daily_pnl=Decimal('0'),
+        )
+        self.assertFalse(should)
+
+    def test_portfolio_risk_state(self):
+        """Portfolio risk state should return comprehensive data."""
+        state = self.engine.get_portfolio_risk_state(
+            account_balance=self.account_balance,
+            current_positions=[],
+        )
+        self.assertIn('kill_switch_active', state)
+        self.assertIn('position_count', state)
+        self.assertIn('exposure_percent', state)
+        self.assertIn('risk_percent', state)
+        self.assertIn('limits', state)
+
+    def test_sell_signal_position_sizing(self):
+        """Short positions should be sized correctly."""
+        signal = {**self.base_signal, 'direction': 'sell', 'stop_loss': Decimal('51000')}
+        decision = self.engine.validate_signal(
+            signal=signal,
+            account_balance=self.account_balance,
+            current_positions=[],
+            current_prices={},
+        )
+        self.assertTrue(decision.approved)
+        self.assertGreater(decision.position_size, 0)
+
+    def test_risk_state_logged(self):
+        """Risk state should be included in decision."""
+        decision = self.engine.validate_signal(
+            signal=self.base_signal,
+            account_balance=self.account_balance,
+            current_positions=[],
+            current_prices={},
+        )
+        self.assertIn('exposure_pct', decision.risk_state)
+        self.assertIn('risk_pct', decision.risk_state)
+        self.assertIn('active_positions', decision.risk_state)
+
+
 class SignalModelTest(TestCase):
     """Tests for Signal models."""
 

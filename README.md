@@ -352,7 +352,7 @@ SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=30)
 
 ## Roadmap
 
-### Completed (58 Phases)
+### Completed (59 Phases)
 - Foundation, Signals, Learning, Feedback
 - PostgreSQL, Real Signal Engine, AI Feedback Loop
 - Celery Automation, Analysis Panel, Iran Timezone
@@ -364,6 +364,7 @@ SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=30)
 - Standalone Scheduler (Celery backup)
 - **Phase 57: Quant Research Engine** (backtesting with fees, slippage, Sortino, MFE/MAE, CAGR, deterministic replay)
 - **Phase 58: Walk-Forward Validation** (rolling windows, parameter freezing, leakage detection, overfitting analysis)
+- **Phase 59: Risk Engine** (independent safety gate, kill switch, position sizing, exposure limits)
 
 ### Next Steps (Implementation Plan Phases 58-70)
 - [ ] Phase 58: Walk-Forward Validation (prevent overfitting)

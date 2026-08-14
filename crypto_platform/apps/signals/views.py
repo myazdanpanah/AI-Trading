@@ -1,5 +1,6 @@
 """Signal views - Full CRUD + analysis endpoints."""
 import logging
+from datetime import datetime
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -11,6 +12,7 @@ from .models import (
     FactorWeight, RiskProfile, PortfolioPosition,
     SignalPerformance, BacktestResult,
     WalkForwardRun, WalkForwardWindow,
+    RiskConfig, RiskEvent, KillSwitchState,
 )
 from .serializers import (
     SignalSerializer, SignalReasonSerializer,
@@ -20,6 +22,8 @@ from .serializers import (
     SignalPerformanceSerializer, BacktestResultSerializer,
     WalkForwardRunSerializer, WalkForwardWindowSerializer,
     WalkForwardInputSerializer,
+    RiskConfigSerializer, RiskEventSerializer, KillSwitchStateSerializer,
+    RiskValidationInputSerializer,
     SignalGenerationInputSerializer, RiskCalculationInputSerializer,
     BacktestInputSerializer,
     AlertRuleSerializer, AlertHistorySerializer,
@@ -670,6 +674,183 @@ class WalkForwardResultViewSet(viewsets.ModelViewSet):
         engine = WalkForwardEngine()
         comparison = engine.compare_windows(window_list)
         return Response(comparison)
+
+
+@extend_schema_view(
+    list=extend_schema(tags=['Signals'], summary='List alert rules'),
+    create=extend_schema(tags=['Signals'], summary='Create alert rule'),
+    retrieve=extend_schema(tags=['Signals'], summary='Get alert rule'),
+    update=extend_schema(tags=['Signals'], summary='Update alert rule'),
+    partial_update=extend_schema(tags=['Signals'], summary='Partial update alert rule'),
+    destroy=extend_schema(tags=['Signals'], summary='Delete alert rule'),
+    run=extend_schema(tags=['Signals'], summary='Run a backtest'),
+)
+class RiskEngineViewSet(viewsets.ViewSet):
+    """ViewSet for the independent Risk Engine — the safety gate."""
+
+    @action(detail=False, methods=['post'])
+    def validate_signal(self, request):
+        """Validate a signal through the Risk Engine (Signal → Risk → Execution)."""
+        serializer = RiskValidationInputSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+
+        try:
+            from decimal import Decimal
+            from .services.risk_engine import RiskEngine
+
+            # Get active risk config
+            config = RiskConfig.objects.filter(is_active=True).first()
+            engine = RiskEngine(config=config)
+
+            # Get current positions
+            positions = list(PortfolioPosition.objects.filter(
+                is_active=True
+            ).values('symbol', 'quantity', 'current_price', 'risk_amount', 'side', 'is_active'))
+
+            # Validate signal
+            decision = engine.validate_signal(
+                signal={
+                    'symbol': data['symbol'],
+                    'direction': data['direction'],
+                    'entry_price': data['entry_price'],
+                    'stop_loss': data['stop_loss'],
+                    'confidence': data.get('confidence', 50),
+                },
+                account_balance=data['account_balance'],
+                current_positions=positions,
+                current_prices={},
+            )
+
+            # Log risk event
+            RiskEvent.objects.create(
+                risk_config=config,
+                event_type='signal_approved' if decision.approved else 'signal_rejected',
+                symbol=data['symbol'],
+                decision='approved' if decision.approved else 'rejected',
+                reason=decision.reason,
+                risk_data={
+                    'position_size': decision.position_size,
+                    'risk_amount': decision.risk_amount,
+                    'risk_percent': decision.risk_percent,
+                    'modified': decision.modified,
+                },
+                portfolio_exposure_pct=decision.risk_state.get('exposure_pct', 0),
+                portfolio_risk_pct=decision.risk_state.get('risk_pct', 0),
+                active_positions=decision.risk_state.get('active_positions', 0),
+            )
+
+            return Response({
+                'approved': decision.approved,
+                'modified': decision.modified,
+                'reason': decision.reason,
+                'position_size': decision.position_size,
+                'risk_amount': decision.risk_amount,
+                'risk_percent': decision.risk_percent,
+                'kill_switch_active': decision.kill_switch_active,
+                'risk_state': decision.risk_state,
+            })
+
+        except Exception as e:
+            logger.error(f"Risk validation failed: {e}")
+            return Response(
+                {'error': f'Risk validation failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'])
+    def status(self, request):
+        """Get current risk engine status and portfolio risk state."""
+        try:
+            from decimal import Decimal
+            from .services.risk_engine import RiskEngine
+
+            config = RiskConfig.objects.filter(is_active=True).first()
+            engine = RiskEngine(config=config)
+
+            account_balance = Decimal(str(request.query_params.get('balance', 10000)))
+            positions = list(PortfolioPosition.objects.filter(
+                is_active=True
+            ).values('symbol', 'quantity', 'current_price', 'risk_amount', 'side', 'is_active'))
+
+            risk_state = engine.get_portfolio_risk_state(
+                account_balance=account_balance,
+                current_positions=positions,
+            )
+
+            return Response(risk_state)
+
+        except Exception as e:
+            logger.error(f"Risk status failed: {e}")
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'])
+    def kill_switch(self, request):
+        """Get kill switch state."""
+        state = KillSwitchState.objects.order_by('-created_at').first()
+        if state:
+            return Response(KillSwitchStateSerializer(state).data)
+        return Response({'is_active': False, 'reason': 'No kill switch events'})
+
+    @action(detail=False, methods=['post'])
+    def activate_kill_switch(self, request):
+        """Manually activate kill switch."""
+        reason = request.data.get('reason', 'Manual activation')
+
+        state = KillSwitchState.objects.create(
+            is_active=True,
+            triggered_by=reason,
+            triggered_at=datetime.now(),
+        )
+
+        # Also log a risk event
+        RiskEvent.objects.create(
+            event_type='kill_switch_activated',
+            decision='rejected',
+            reason=reason,
+        )
+
+        return Response(KillSwitchStateSerializer(state).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'])
+    def deactivate_kill_switch(self, request):
+        """Deactivate kill switch."""
+        reason = request.data.get('reason', 'Manual deactivation')
+        state = KillSwitchState.objects.order_by('-created_at').first()
+
+        if state and state.is_active:
+            state.is_active = False
+            state.deactivated_at = datetime.now()
+            state.deactivation_reason = reason
+            state.save()
+
+            RiskEvent.objects.create(
+                event_type='kill_switch_deactivated',
+                decision='approved',
+                reason=reason,
+            )
+
+            return Response(KillSwitchStateSerializer(state).data)
+
+        return Response({'message': 'Kill switch was not active'}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'])
+    def events(self, request):
+        """Get recent risk events."""
+        limit = int(request.query_params.get('limit', 50))
+        event_type = request.query_params.get('type')
+
+        qs = RiskEvent.objects.all()
+        if event_type:
+            qs = qs.filter(event_type=event_type)
+
+        events = qs[:limit]
+        return Response(RiskEventSerializer(events, many=True).data)
 
 
 @extend_schema_view(

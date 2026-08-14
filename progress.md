@@ -45,6 +45,7 @@
 | 56 | Security Hardening | ✅ COMPLETE | 100% |
 | **57** | **Quant Research Engine** | ✅ **COMPLETE** | **100%** |
 | **58** | **Walk-Forward Validation** | ✅ **COMPLETE** | **100%** |
+| **59** | **Risk Engine** | ✅ **COMPLETE** | **100%** |
 
 ---
 
@@ -152,6 +153,47 @@ SignalBacktesterTest:
 - [x] No future data enters earlier windows
 - [x] Parameters frozen before OOS
 - [x] Rolling windows supported
+
+## Phase 59: Risk Engine ✅ COMPLETE
+
+### What Was Done
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| RiskConfig model | ✅ | Configurable limits: position, exposure, drawdown, daily loss |
+| RiskEvent model | ✅ | Logs all risk decisions with portfolio state snapshot |
+| KillSwitchState model | ✅ | Independent kill switch with activation/deactivation tracking |
+| RiskEngine service | ✅ | Independent safety gate: Signal → Risk → Execution |
+| Kill switch | ✅ | 7 triggers: drawdown, daily loss, data feed, API, volatility, risk engine failure |
+| Position sizing | ✅ | Risk-budget based, confidence-adjusted, Kelly criterion support |
+| Portfolio limits | ✅ | Exposure, risk, correlated positions, max concurrent |
+| API endpoints | ✅ | validate_signal, status, kill_switch, activate/deactivate, events |
+| Unit tests | ✅ | 17/17 tests pass |
+
+### Files Created/Modified
+
+| File | Action | Description |
+|------|--------|-------------|
+| `crypto_platform/apps/signals/models.py` | MODIFIED | +RiskConfig, +RiskEvent, +KillSwitchState |
+| `crypto_platform/apps/signals/services/risk_engine.py` | CREATED | Independent RiskEngine service |
+| `crypto_platform/apps/signals/serializers.py` | MODIFIED | +4 serializers |
+| `crypto_platform/apps/signals/views.py` | MODIFIED | +RiskEngineViewSet |
+| `crypto_platform/apps/signals/urls.py` | MODIFIED | +risk-engine route |
+| `crypto_platform/apps/signals/tests.py` | MODIFIED | +17 RiskEngine tests |
+| `crypto_platform/apps/signals/migrations/0007_risk_engine.py` | CREATED | Migration |
+
+### Definition of Done — Phase 59
+
+- [x] Risk Engine is independent from LLM, Signal Engine, Strategy, UI, Exchange
+- [x] Signal → Risk → Execution (never bypassed)
+- [x] Kill switch with multiple triggers
+- [x] Position sizing based on risk budgets
+- [x] Portfolio exposure limits
+- [x] Drawdown protection
+- [x] Daily loss limits
+- [x] Maximum concurrent positions
+- [x] All risk decisions logged
+- [x] 17/17 tests pass
 
 ---
 
