@@ -1,19 +1,33 @@
-FROM node:20-alpine
+# ══════════════════════════════════════════════════════════════════════
+# Frontend Dockerfile — Multi-stage build for production
+# ══════════════════════════════════════════════════════════════════════
+
+# ── Stage 1: Build ──────────────────────────────────────────────────
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
+RUN npm ci --only=production 2>/dev/null || npm install
 
-# Install dependencies
-RUN npm install
-
-# Copy application code
 COPY . .
+RUN npm run build
 
-EXPOSE 3000
+# ── Stage 2: Production (Nginx) ────────────────────────────────────
+FROM nginx:alpine AS production
 
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1
+# Remove default nginx config
+RUN rm /etc/nginx/conf.d/default.conf
 
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
+# Copy built assets
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:80 || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

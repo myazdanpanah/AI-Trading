@@ -48,7 +48,7 @@ CHANNEL_LAYERS = {
 
 # AI Settings - local Ollama
 OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
-AI_MODE = os.environ.get('AI_MODE', 'off')  # off, lite, standard, cloud
+AI_MODE = os.environ.get('AI_MODE', 'standard')  # off, lite, standard, cloud
 
 # CORS
 CORS_ALLOWED_ORIGINS = [

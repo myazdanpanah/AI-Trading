@@ -1,403 +1,548 @@
-# Deployment Guide
-
-## Crypto AI Signal Platform
-
-This guide covers deploying the Crypto AI Signal Platform in development and production environments.
-
----
+# ══════════════════════════════════════════════════════════════════════
+# AI-Trading Platform — Production Deployment Guide
+# ══════════════════════════════════════════════════════════════════════
 
 ## Table of Contents
 
-1. [Prerequisites](#prerequisites)
-2. [Development Setup](#development-setup)
-3. [Production Deployment](#production-deployment)
-4. [Environment Variables](#environment-variables)
-5. [Database Setup](#database-setup)
-6. [Services Configuration](#services-configuration)
-7. [Monitoring & Observability](#monitoring--observability)
-8. [Troubleshooting](#troubleshooting)
+1. [Prerequisites](#1-prerequisites)
+2. [Quick Start](#2-quick-start)
+3. [Environment Variables](#3-environment-variables)
+4. [Docker Deployment](#4-docker-deployment)
+5. [Security Checklist](#5-security-checklist)
+6. [Database Setup](#6-database-setup)
+7. [AI / LLM Configuration](#7-ai--llm-configuration)
+8. [Monitoring & Logging](#8-monitoring--logging)
+9. [Backup & Recovery](#9-backup--recovery)
+10. [Performance Tuning](#10-performance-tuning)
+11. [Troubleshooting](#11-troubleshooting)
 
 ---
 
-## Prerequisites
+## 1. Prerequisites
 
-### Required Software
-- **Docker** >= 24.0
-- **Docker Compose** >= 2.20
-- **Git** >= 2.40
+### System Requirements
 
-### Optional (for local development without Docker)
-- **Python** >= 3.11
-- **Node.js** >= 20
-- **PostgreSQL** >= 16 (or TimescaleDB)
-- **Redis** >= 7
+| Resource | Minimum | Recommended |
+|----------|---------|-------------|
+| CPU | 4 cores | 8+ cores |
+| RAM | 8 GB | 16+ GB |
+| Storage | 50 GB SSD | 100+ GB SSD |
+| GPU | None | NVIDIA (for Ollama) |
 
----
+### Software Requirements
 
-## Development Setup
+- **Docker** 24.0+ with Docker Compose v2
+- **Git** 2.30+
+- **PostgreSQL** 15+ (or use Docker)
+- **Redis** 7+ (or use Docker)
 
-### 1. Clone the Repository
+### Install Docker (Ubuntu)
 
 ```bash
-git clone <repository-url>
-cd crypto-platform
+# Add Docker's official GPG key
+sudo apt-get update
+sudo apt-get install ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# Add the repository
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Install Docker
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Start Docker
+sudo systemctl start docker
+sudo systemctl enable docker
 ```
 
-### 2. Environment Configuration
+---
+
+## 2. Quick Start
 
 ```bash
-# Copy environment template
+# 1. Clone the repository
+git clone https://github.com/myazdanpanah/AI-Trading.git
+cd AI-Trading
+
+# 2. Create .env file
 cp .env.example .env
+# Edit .env with your settings (see Section 3)
 
-# Edit with your configuration
-# At minimum, set DJANGO_SECRET_KEY
+# 3. Start all services
+docker compose up -d
+
+# 4. Run migrations
+docker compose exec backend python manage.py migrate
+
+# 5. Create admin user
+docker compose exec backend python manage.py createsuperuser
+
+# 6. Pull AI model into Ollama
+docker compose exec ollama ollama pull gemma4:latest
+
+# 7. Access the platform
+# Frontend: http://localhost:80
+# Backend API: http://localhost:8000/api/
+# Admin: http://localhost:8000/admin/
+# Grafana: http://localhost:3001
 ```
 
-### 3. Start Services with Docker Compose
+---
+
+## 3. Environment Variables
+
+Copy `.env.example` to `.env` and configure:
 
 ```bash
-# Start all services
-docker-compose up -d
+cp .env.example .env
+```
 
-# Or start with build
-docker-compose up -d --build
+### Required Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DJANGO_SECRET_KEY` | Django secret key (50+ chars) | `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"` |
+| `DB_PASSWORD` | PostgreSQL password | `your-secure-password` |
+| `ALLOWED_HOSTS` | Comma-separated domains | `yourdomain.com,www.yourdomain.com` |
+
+### Optional Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AI_MODE` | `standard` | `off` / `lite` / `standard` / `cloud` |
+| `LIVE_TRADING_ENABLED` | `False` | Enable real trading (DANGEROUS) |
+| `SECURE_SSL_REDIRECT` | `False` | Force HTTPS |
+
+---
+
+## 4. Docker Deployment
+
+### Development Mode
+
+```bash
+# Start with hot-reload
+docker compose up -d
 
 # View logs
-docker-compose logs -f
+docker compose logs -f backend
 
-# View specific service logs
-docker-compose logs -f backend
+# Stop
+docker compose down
 ```
 
-### 4. Access Services
-
-| Service | URL | Description |
-|---------|-----|-------------|
-| Frontend | http://localhost:3000 | React dashboard |
-| Backend API | http://localhost:8000/api/ | Django REST API |
-| Swagger UI | http://localhost:8000/api/docs/ | API documentation |
-| ReDoc | http://localhost:8000/api/redoc/ | Alternative API docs |
-| Admin | http://localhost:8000/admin/ | Django admin |
-| PostgreSQL | localhost:5432 | Database |
-| Redis | localhost:6379 | Cache/Celery broker |
-| Ollama | http://localhost:11434 | Local AI inference |
-| Prometheus | http://localhost:9090 | Metrics |
-| Grafana | http://localhost:3001 | Dashboards |
-
-### 5. Initialize Database
+### Production Mode
 
 ```bash
+# Build production images
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build
+
+# Start production
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Verify health
+docker compose ps
+curl http://localhost:8000/health/
+```
+
+### Service Architecture
+
+```
+                    ┌─────────────┐
+                    │   Nginx     │
+                    │   (Port 80) │
+                    └──────┬──────┘
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+        ┌─────▼─────┐ ┌───▼───┐ ┌─────▼─────┐
+        │ Frontend  │ │  API  │ │  Static   │
+        │ (React)   │ │ Proxy │ │  Files    │
+        └───────────┘ └───┬───┘ └───────────┘
+                          │
+                    ┌─────▼─────┐
+                    │  Django   │
+                    │ (Gunicorn)│
+                    └─────┬─────┘
+                          │
+           ┌──────────────┼──────────────┐
+           │              │              │
+     ┌─────▼─────┐ ┌─────▼─────┐ ┌─────▼─────┐
+     │ PostgreSQL│ │   Redis   │ │  Ollama   │
+     │  (Data)   │ │ (Cache)   │ │  (LLM)   │
+     └───────────┘ └───────────┘ └───────────┘
+           │              │
+     ┌─────▼─────┐ ┌─────▼─────┐
+     │  Celery   │ │  Celery   │
+     │  Worker   │ │   Beat    │
+     └───────────┘ └───────────┘
+```
+
+---
+
+## 5. Security Checklist
+
+### ✅ Pre-Deployment
+
+- [ ] **SECRET_KEY**: Generated unique 50+ character key
+- [ ] **DEBUG**: Set to `False`
+- [ ] **ALLOWED_HOSTS**: Configured with actual domain(s)
+- [ ] **Database password**: Strong, unique password
+- [ ] **Redis password**: Set if exposed
+- [ ] **SSL/TLS**: Configured (Let's Encrypt or Cloudflare)
+
+### ✅ Authentication & Authorization
+
+- [ ] **JWT tokens**: Short-lived (15 min access, 1 day refresh)
+- [ ] **Token rotation**: Enabled (`ROTATE_REFRESH_TOKENS=True`)
+- [ ] **Blacklist**: Enabled after rotation
+- [ ] **Rate limiting**: Configured (100/hr anonymous, 1000/hr authenticated)
+- [ ] **Admin access**: Restricted to specific IPs
+
+### ✅ Network Security
+
+- [ ] **Firewall**: Only ports 80/443 open
+- [ ] **Database**: Not exposed to internet (internal only)
+- [ ] **Redis**: Not exposed to internet (internal only)
+- [ ] **Ollama**: Not exposed to internet (internal only)
+- [ ] **VPN**: Required for admin access
+
+### ✅ Data Security
+
+- [ ] **HTTPS**: Enforced (`SECURE_SSL_REDIRECT=True`)
+- [ ] **HSTS**: Enabled (1 year)
+- [ ] **CORS**: Restricted to specific origins
+- [ ] **CSRF**: Cookie secure
+- [ ] **XSS protection**: Enabled
+- [ ] **Content-Type sniff**: Blocked
+
+### ✅ Trading Security
+
+- [ ] **LIVE_TRADING_ENABLED**: Set to `False` unless ready
+- [ ] **Exchange testnet**: Enabled by default
+- [ ] **Kill switch**: Configured and tested
+- [ ] **Position limits**: Set maximum exposure
+- [ ] **Alerts**: Configured for unusual activity
+
+---
+
+## 6. Database Setup
+
+### Initial Setup
+
+```bash
+# Create database
+docker compose exec postgres psql -U postgres -c "CREATE DATABASE crypto_platform;"
+
 # Run migrations
-docker-compose exec backend python manage.py migrate
+docker compose exec backend python manage.py migrate
 
 # Create superuser
-docker-compose exec backend python manage.py createsuperuser
+docker compose exec backend python manage.py createsuperuser
+```
 
-# Load initial data (optional)
-docker-compose exec backend python manage.py loaddata initial_data
+### Backup Script
+
+```bash
+#!/bin/bash
+# scripts/backup-db.sh
+
+BACKUP_DIR="/backups/postgres"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+FILE="$BACKUP_DIR/backup_$TIMESTAMP.sql.gz"
+
+mkdir -p $BACKUP_DIR
+
+docker compose exec -T postgres pg_dump -U postgres crypto_platform | gzip > $FILE
+
+# Keep last 30 backups
+ls -t $BACKUP_DIR/backup_*.sql.gz | tail -n +31 | xargs rm -f 2>/dev/null
+
+echo "Backup completed: $FILE"
+```
+
+### Restore Script
+
+```bash
+#!/bin/bash
+# scripts/restore-db.sh
+
+BACKUP_FILE=$1
+
+if [ -z "$BACKUP_FILE" ]; then
+    echo "Usage: $0 <backup_file.sql.gz>"
+    exit 1
+fi
+
+gunzip -c $BACKUP_FILE | docker compose exec -T postgres psql -U postgres crypto_platform
+echo "Restore completed from $BACKUP_FILE"
 ```
 
 ---
 
-## Production Deployment
+## 7. AI / LLM Configuration
 
-### 1. Security Configuration
-
-Before deploying to production, update the following in `.env`:
+### Local Ollama (Recommended)
 
 ```bash
-# Generate a secure secret key
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-
-# Set in .env
-DJANGO_SECRET_KEY=<your-generated-key>
-
-# Set allowed hosts
-ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
-
-# Set CORS origins
-CORS_ALLOWED_ORIGINS=https://yourdomain.com
-
-# Enable SSL redirect
-SECURE_SSL_REDIRECT=True
-
-# Database credentials (use strong passwords)
-DB_PASSWORD=<secure-password>
-POSTGRES_PASSWORD=<secure-password>
-```
-
-### 2. Start Production Services
-
-```bash
-# Use production settings
-export DJANGO_SETTINGS_MODULE=crypto_platform.settings.security
-
-# Build and start
-docker-compose -f docker-compose.yml up -d --build
-
-# Run migrations
-docker-compose exec backend python manage.py migrate --settings=crypto_platform.settings.security
-
-# Collect static files
-docker-compose exec backend python manage.py collectstatic --no-input
-```
-
-### 3. SSL/TLS Configuration
-
-For HTTPS, configure nginx with SSL certificates:
-
-```nginx
-# docker/nginx/nginx.conf
-server {
-    listen 443 ssl;
-    server_name yourdomain.com;
-    
-    ssl_certificate /etc/nginx/ssl/cert.pem;
-    ssl_certificate_key /etc/nginx/ssl/key.pem;
-    
-    # ... rest of configuration
-}
-```
-
-### 4. Backup Strategy
-
-```bash
-# Database backup
-docker-compose exec postgres pg_dump -U postgres crypto_platform > backup_$(date +%Y%m%d).sql
-
-# Restore from backup
-docker-compose exec -T postgres psql -U postgres crypto_platform < backup.sql
-```
-
----
-
-## Environment Variables
-
-### Core Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DJANGO_SECRET_KEY` | `django-insecure-...` | Django secret key (REQUIRED in production) |
-| `DJANGO_SETTINGS_MODULE` | `crypto_platform.settings` | Settings module |
-| `DEBUG` | `False` | Debug mode (set to False in production) |
-
-### Database Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DB_ENGINE` | `django.db.backends.postgresql` | Database engine |
-| `DB_NAME` | `crypto_platform` | Database name |
-| `DB_USER` | `postgres` | Database user |
-| `DB_PASSWORD` | `postgres` | Database password |
-| `DB_HOST` | `localhost` | Database host |
-| `DB_PORT` | `5432` | Database port |
-| `DB_SSLMODE` | `prefer` | SSL mode for database |
-
-### Redis Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis connection URL |
-
-### AI Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API URL |
-| `OPENAI_API_KEY` | - | OpenAI API key (optional) |
-| `ANTHROPIC_API_KEY` | - | Anthropic API key (optional) |
-
-### Security Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated allowed hosts |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated CORS origins |
-| `SECURE_SSL_REDIRECT` | `False` | Redirect HTTP to HTTPS |
-
----
-
-## Database Setup
-
-### PostgreSQL with TimescaleDB
-
-The platform uses TimescaleDB for time-series data optimization:
-
-```bash
-# TimescaleDB is included in docker-compose.yml
-# No additional setup required
-```
-
-### Manual PostgreSQL Setup
-
-If not using Docker:
-
-```sql
--- Create database
-CREATE DATABASE crypto_platform;
-
--- Enable TimescaleDB (if installed)
-CREATE EXTENSION IF NOT EXISTS timescaledb;
-
--- Create user
-CREATE USER postgres WITH PASSWORD 'postgres';
-GRANT ALL PRIVILEGES ON DATABASE crypto_platform TO postgres;
-```
-
----
-
-## Services Configuration
-
-### Celery Worker & Beat
-
-The platform uses Celery for background tasks:
-
-```bash
-# Celery worker processes tasks
-docker-compose exec celery-worker celery -A crypto_platform worker -l info
-
-# Celery beat schedules periodic tasks
-docker-compose exec celery-beat celery -A crypto_platform beat -l info
-```
-
-### Ollama (Local AI)
-
-Ollama provides local AI inference without external API costs:
-
-```bash
-# Pull a model
-docker-compose exec ollama ollama pull llama2
-
-# Or use a smaller model
-docker-compose exec ollama ollama pull mistral
-```
-
----
-
-## Monitoring & Observability
-
-### Prometheus
-
-Metrics are collected at http://localhost:9090
-
-Key metrics to monitor:
-- `django_http_requests_total` - Total HTTP requests
-- `django_http_response_status_codes` - Response status codes
-- `celery_task_duration_seconds` - Celery task execution time
-
-### Grafana
-
-Dashboards are available at http://localhost:3001
-
-Default credentials:
-- Username: `admin`
-- Password: `admin` (change on first login)
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. Database Connection Errors
-
-```bash
-# Check if PostgreSQL is running
-docker-compose ps postgres
-
-# View PostgreSQL logs
-docker-compose logs postgres
+# Pull model
+docker compose exec ollama ollama pull gemma4:latest
 
 # Test connection
-docker-compose exec postgres psql -U postgres -d crypto_platform
+curl http://localhost:11434/api/tags
+
+# Configure in .env
+AI_MODE=standard
+OLLAMA_BASE_URL=http://ollama:11434
 ```
 
-#### 2. Redis Connection Errors
+### Cloud LLM (Optional)
 
 ```bash
-# Check if Redis is running
-docker-compose ps redis
-
-# Test connection
-docker-compose exec redis redis-cli ping
+# Add to .env
+AI_MODE=cloud
+OPENAI_API_KEY=sk-...
+# or
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-#### 3. Migration Errors
+### Model Selection
+
+| Model | Size | Speed | Quality | Use Case |
+|-------|------|-------|---------|----------|
+| `gemma4:latest` | 8B | Fast | Good | Default |
+| `llama3:latest` | 8B | Fast | Good | Alternative |
+| `qwen3.5:latest` | 8B | Fast | Good | Persian |
+
+---
+
+## 8. Monitoring & Logging
+
+### Prometheus + Grafana
 
 ```bash
-# Check migration status
-docker-compose exec backend python manage.py showmigrations
+# Access Grafana
+open http://localhost:3001
+# Login: admin / admin (change on first login)
 
-# Apply pending migrations
-docker-compose exec backend python manage.py migrate
-
-# Reset migrations (CAUTION: destroys data)
-docker-compose exec backend python manage.py migrate --zero
+# Access Prometheus
+open http://localhost:9090
 ```
 
-#### 4. Static Files Not Loading
-
-```bash
-# Collect static files
-docker-compose exec backend python manage.py collectstatic --no-input
-
-# Check static files directory
-ls -la staticfiles/
-```
-
-### Logs
+### Application Logs
 
 ```bash
 # View all logs
-docker-compose logs
+docker compose logs -f
 
 # View specific service
-docker-compose logs backend
-docker-compose logs celery-worker
-docker-compose logs nginx
+docker compose logs -f backend
+docker compose logs -f celery-worker
 
-# Follow logs in real-time
-docker-compose logs -f backend
+# View last 100 lines
+docker compose logs --tail 100 backend
 ```
 
-### Performance Issues
+### Health Checks
 
 ```bash
+# Backend health
+curl http://localhost:8000/health/
+
+# Database health
+docker compose exec postgres pg_isready -U postgres
+
+# Redis health
+docker compose exec redis redis-cli ping
+
+# Ollama health
+curl http://localhost:11434/api/tags
+```
+
+---
+
+## 9. Backup & Recovery
+
+### Automated Backups (Cron)
+
+```bash
+# Add to crontab
+0 2 * * * /path/to/scripts/backup-db.sh >> /var/log/backup.log 2>&1
+```
+
+### Full Backup Script
+
+```bash
+#!/bin/bash
+# scripts/backup-full.sh
+
+BACKUP_DIR="/backups/ai-trading"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+mkdir -p $BACKUP_DIR
+
+# Database backup
+docker compose exec -T postgres pg_dump -U postgres crypto_platform | gzip > "$BACKUP_DIR/db_$TIMESTAMP.sql.gz"
+
+# Media files backup
+tar -czf "$BACKUP_DIR/media_$TIMESTAMP.tar.gz" media/
+
+# Configuration backup
+tar -czf "$BACKUP_DIR/config_$TIMESTAMP.tar.gz" .env docker-compose*.yml
+
+echo "Full backup completed: $BACKUP_DIR"
+```
+
+---
+
+## 10. Performance Tuning
+
+### PostgreSQL Tuning
+
+```sql
+-- Check current settings
+SHOW shared_buffers;
+SHOW effective_cache_size;
+SHOW work_mem;
+
+-- Recommended for 16GB RAM
+ALTER SYSTEM SET shared_buffers = '4GB';
+ALTER SYSTEM SET effective_cache_size = '12GB';
+ALTER SYSTEM SET work_mem = '16MB';
+ALTER SYSTEM SET maintenance_work_mem = '512MB';
+ALTER SYSTEM SET max_connections = 200;
+
+-- Reload
+SELECT pg_reload_conf();
+```
+
+### Redis Tuning
+
+```bash
+# Check memory usage
+docker compose exec redis redis-cli info memory
+
+# Recommended settings in docker-compose.prod.yml
+command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+```
+
+### Celery Tuning
+
+```bash
+# Increase concurrency for CPU-bound tasks
+docker compose exec celery-worker celery -A crypto_platform worker -l info --concurrency=8
+
+# For I/O-bound tasks
+docker compose exec celery-worker celery -A crypto_platform worker -l info --concurrency=16 -P gevent
+```
+
+---
+
+## 11. Troubleshooting
+
+### Common Issues
+
+#### Backend won't start
+
+```bash
+# Check logs
+docker compose logs backend
+
+# Common fix: migrate database
+docker compose exec backend python manage.py migrate
+
+# Common fix: collect static files
+docker compose exec backend python manage.py collectstatic --noinput
+```
+
+#### Database connection refused
+
+```bash
+# Check PostgreSQL is running
+docker compose ps postgres
+
+# Check credentials
+docker compose exec postgres psql -U postgres -c "\l"
+
+# Reset database
+docker compose down -v
+docker compose up -d postgres
+docker compose exec backend python manage.py migrate
+```
+
+#### Ollama not responding
+
+```bash
+# Check Ollama status
+curl http://localhost:11434/api/tags
+
+# Pull model if missing
+docker compose exec ollama ollama pull gemma4:latest
+
+# Check logs
+docker compose logs ollama
+```
+
+#### Frontend not loading
+
+```bash
+# Rebuild frontend
+docker compose build frontend --no-cache
+
+# Check nginx config
+docker compose exec frontend nginx -t
+
+# View logs
+docker compose logs frontend
+```
+
+### Useful Commands
+
+```bash
+# Restart a specific service
+docker compose restart backend
+
+# Rebuild a specific service
+docker compose build backend --no-cache
+docker compose up -d backend
+
+# Enter a running container
+docker compose exec backend bash
+
 # Check resource usage
 docker stats
 
-# Restart services
-docker-compose restart
-
-# Full rebuild
-docker-compose down
-docker-compose up -d --build
+# Clean up unused resources
+docker system prune -a
 ```
 
 ---
 
-## Updating
+## Production Checklist
 
-```bash
-# Pull latest changes
-git pull origin main
+Before going live:
 
-# Rebuild and restart
-docker-compose down
-docker-compose up -d --build
-
-# Run migrations
-docker-compose exec backend python manage.py migrate
-
-# Collect static files
-docker-compose exec backend python manage.py collectstatic --no-input
-```
+- [ ] All environment variables configured
+- [ ] SSL certificate installed
+- [ ] Database backups scheduled
+- [ ] Monitoring dashboards configured
+- [ ] Alert rules set up (Prometheus/Grafana)
+- [ ] Kill switch tested
+- [ ] Rate limiting configured
+- [ ] CORS restricted to production domain
+- [ ] Debug mode disabled
+- [ ] Secret key is unique and secure
+- [ ] Database password is strong
+- [ ] Redis is not exposed to internet
+- [ ] Ollama is not exposed to internet
+- [ ] Firewall configured
+- [ ] VPN access for admin panel
 
 ---
 
-## Support
-
-For issues and support:
-- Check the [Troubleshooting](#troubleshooting) section
-- Review logs for error messages
-- Ensure all environment variables are properly configured
+*Last updated: August 2026*

@@ -14,9 +14,11 @@ import JournalPanel from '../journal/JournalPanel';
 import SettingsPanel from '../settings/SettingsPanel';
 import ComparisonPanel from './ComparisonPanel';
 import FeedbackPanel from './FeedbackPanel';
+import { ReproducibilityDashboard } from './ReproducibilityDashboard';
+import { PaperTradingPanel } from '../trading/PaperTradingPanel';
 import { ChatBot } from '../trading/ChatBot';
 
-type TabType = 'trading' | 'signals' | 'comparison' | 'analysis' | 'journal' | 'feedback' | 'settings';
+type TabType = 'trading' | 'signals' | 'comparison' | 'analysis' | 'journal' | 'feedback' | 'reproducibility' | 'paper' | 'settings';
 
 // Error Boundary Component
 class ErrorBoundary extends Component<{ children: ReactNode; tabName: string }, { hasError: boolean; error: string }> {
@@ -72,6 +74,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialTab = 'trading' }) 
     { id: 'analysis', label: t('nav.analysis'), icon: '📈' },
     { id: 'journal', label: t('nav.journal'), icon: '📝' },
     { id: 'feedback', label: language === 'fa' ? 'بازخورد' : 'Feedback', icon: '🧠' },
+    { id: 'reproducibility', label: language === 'fa' ? 'بازتولیدپذیری' : 'Reproducibility', icon: '🔍' },
+    { id: 'paper', label: language === 'fa' ? 'ترید کاغذی' : 'Paper', icon: '📝' },
     { id: 'settings', label: t('nav.settings'), icon: '⚙️' },
   ];
 
@@ -131,6 +135,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialTab = 'trading' }) 
         return (
           <ErrorBoundary tabName="Feedback">
             <FeedbackPanel />
+          </ErrorBoundary>
+        );
+      case 'reproducibility':
+        return (
+          <ErrorBoundary tabName="Reproducibility">
+            <ReproducibilityDashboard />
+          </ErrorBoundary>
+        );
+      case 'paper':
+        return (
+          <ErrorBoundary tabName="Paper Trading">
+            <PaperTradingPanel />
           </ErrorBoundary>
         );
       case 'settings':

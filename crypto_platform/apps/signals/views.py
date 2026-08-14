@@ -345,6 +345,65 @@ class SignalViewSet(viewsets.ModelViewSet):
                         weights_used=result.get('weights_used', {}),
                         status='completed',
                     )
+
+                    # ── Capture Versioning & Data Lineage (Phase 67) ──
+                    try:
+                        from .services.versioning import VersionTracker
+                        tracker = VersionTracker()
+
+                        lineage_data = tracker.capture_lineage(
+                            signal_data={
+                                'symbol': result['symbol'],
+                                'direction': result['direction'],
+                                'confidence': result['confidence'],
+                                'composite_score': result.get('composite_score', 50),
+                                'timeframe': result['timeframe'],
+                            },
+                            factor_scores=result.get('factor_scores', {}),
+                            regime=regime,
+                            regime_confidence=regime_state.confidence,
+                            weights_used=result.get('weights_used', {}),
+                            market_snapshot=tracker.build_market_snapshot(
+                                current_price=float(current_price) if current_price else 0,
+                                indicators=technical_data,
+                                candles_count=len(historical_candles),
+                            ),
+                            news_snapshot=tracker.build_news_snapshot(),
+                            social_snapshot=tracker.build_social_snapshot(
+                                fear_greed_index=sentiment_data.get('fear_greed_index', 50),
+                                social_sentiment=sentiment_data.get('social_sentiment', 50),
+                            ),
+                            derivatives_snapshot=tracker.build_derivatives_snapshot(),
+                            ensemble_output=ensemble_result.to_dict() if ensemble_result else {},
+                        )
+
+                        from .models import SignalLineage
+                        SignalLineage.objects.create(
+                            signal=signal,
+                            strategy_version=lineage_data['versions'].get('strategy', '1.0'),
+                            feature_version=lineage_data['versions'].get('features', '1.0'),
+                            model_version=lineage_data['versions'].get('ensemble', '1.0'),
+                            prompt_version=lineage_data['versions'].get('calibration', '1.0'),
+                            ensemble_version=lineage_data['versions'].get('ensemble', '1.0'),
+                            risk_version=lineage_data['versions'].get('risk', '1.0'),
+                            regime=regime,
+                            regime_confidence=regime_state.confidence,
+                            weights_snapshot=result.get('weights_used', {}),
+                            factor_scores=result.get('factor_scores', {}),
+                            market_snapshot=lineage_data.get('market_snapshot', {}),
+                            news_snapshot=lineage_data.get('news_snapshot', {}),
+                            social_snapshot=lineage_data.get('social_snapshot', {}),
+                            derivatives_snapshot=lineage_data.get('derivatives_snapshot', {}),
+                            llm_context=lineage_data.get('llm_context', {}),
+                            llm_output=lineage_data.get('llm_output', {}),
+                            ensemble_output=lineage_data.get('ensemble_output', {}),
+                            risk_decision={},
+                            data_lineage=lineage_data,
+                        )
+                        logger.info(f"Lineage captured for signal {signal.id}")
+                    except Exception as lin_err:
+                        logger.warning(f"Lineage capture failed (non-critical): {lin_err}")
+
             except Exception as db_err:
                 logger.warning(f"DB save failed (returning result anyway): {db_err}")
 
