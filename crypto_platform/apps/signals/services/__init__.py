@@ -10,5 +10,6 @@ from .signal_fusion import SignalFusionEngine
 from .calibration import CalibrationEngine, ProbabilityAdjuster
 from .versioning import VersionTracker
 from .paper_trading import PaperTradingEngine
+from .shadow_trading import ShadowTradingEngine
 
-__all__ = ['SignalGenerator', 'RiskManager', 'RiskEngine', 'PortfolioTracker', 'SignalBacktester', 'WalkForwardEngine', 'RegimeEngine', 'SignalFusionEngine', 'CalibrationEngine', 'ProbabilityAdjuster', 'VersionTracker', 'PaperTradingEngine']
+__all__ = ['SignalGenerator', 'RiskManager', 'RiskEngine', 'PortfolioTracker', 'SignalBacktester', 'WalkForwardEngine', 'RegimeEngine', 'SignalFusionEngine', 'CalibrationEngine', 'ProbabilityAdjuster', 'VersionTracker', 'PaperTradingEngine', 'ShadowTradingEngine']

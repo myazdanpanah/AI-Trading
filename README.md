@@ -352,7 +352,7 @@ SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=30)
 
 ## Roadmap
 
-### Completed (68 Phases)
+### Completed (69 Phases)
 - Foundation, Signals, Learning, Feedback
 - PostgreSQL, Real Signal Engine, AI Feedback Loop
 - Celery Automation, Analysis Panel, Iran Timezone
@@ -374,9 +374,10 @@ SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=30)
 - **Phase 66: Calibration Engine** (Brier Score, ECE, reliability curves, probability calibration)
 - **Phase 67: Versioning & Data Lineage** (every signal fully reproducible with snapshots)
 - **Phase 68: Paper Trading** (simulated execution with same pipeline as live)
+- **Phase 69: Shadow Trading** (real market data, expected vs actual, execution quality)
 
-### Next Steps (Implementation Plan Phases 69-70)
-- [ ] Phase 69: Shadow Trading
+### Next Steps (Implementation Plan Phase 70)
+- [ ] Phase 70: Live Execution
 - [ ] Phase 70: Live Execution (requires production review)
 
 ---

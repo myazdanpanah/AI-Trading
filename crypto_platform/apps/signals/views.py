@@ -683,6 +683,71 @@ class SignalViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    # ── Shadow Trading Endpoints ─────────────────────────────────────
+
+    @action(detail=False, methods=['get'])
+    def shadow_status(self, request):
+        """Get shadow trading account status."""
+        try:
+            from .services.shadow_trading import ShadowTradingEngine
+            engine = ShadowTradingEngine()
+            return Response(engine.get_status())
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def shadow_signal(self, request):
+        """Record a shadow trade from a signal.
+
+        POST {
+            "symbol": "BTCUSDT",
+            "side": "long",
+            "signal_confidence": 75,
+            "expected_entry": 50000,
+            "expected_exit": 52000,
+            "current_price": 50100,
+            "spread_bps": 5
+        }
+        """
+        try:
+            from .services.shadow_trading import ShadowTradingEngine
+
+            data = request.data
+            required = ['symbol', 'side', 'signal_confidence', 'expected_entry']
+            for field in required:
+                if field not in data:
+                    return Response(
+                        {'error': f'Missing required field: {field}'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            engine = ShadowTradingEngine()
+            result = engine.shadow_signal(
+                symbol=data['symbol'],
+                side=data['side'],
+                signal_confidence=int(data['signal_confidence']),
+                expected_entry=float(data['expected_entry']),
+                expected_exit=float(data['expected_exit']) if 'expected_exit' in data else None,
+                signal_id=data.get('signal_id'),
+                current_price=float(data['current_price']) if 'current_price' in data else None,
+                spread_bps=float(data.get('spread_bps', 5.0)),
+            )
+
+            return Response(result, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
+    def shadow_quality(self, request):
+        """Get shadow trading execution quality report."""
+        try:
+            from .services.shadow_trading import ShadowTradingEngine
+            engine = ShadowTradingEngine()
+            return Response(engine.get_execution_quality_report())
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema_view(
     list=extend_schema(tags=['Signals'], summary='List signal reasons'),
