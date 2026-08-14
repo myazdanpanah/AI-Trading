@@ -1431,6 +1431,202 @@ class RegimeEngineTest(TestCase):
         self.assertEqual(state_partial.regime, state_full.regime)
 
 
+class SignalFusionTest(TestCase):
+    """Tests for Signal Fusion Engine — regime-aware multi-factor fusion."""
+
+    def setUp(self):
+        from .services.signal_fusion import SignalFusionEngine
+        self.engine = SignalFusionEngine()
+
+    def test_default_composite_score(self):
+        """Default scores should produce neutral composite (~50)."""
+        result = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=50, sentiment_score=50, news_score=50,
+            macro_score=50, derivatives_score=50, market_structure_score=50,
+            order_book_score=50, portfolio_context_score=50,
+        )
+        self.assertAlmostEqual(result['quant_composite_score'], 50.0, places=0)
+        self.assertEqual(result['direction'], 'hold')
+
+    def test_bullish_composite(self):
+        """High scores across factors should produce buy signal."""
+        result = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=80, sentiment_score=70, news_score=65,
+            macro_score=70, derivatives_score=60, market_structure_score=65,
+            order_book_score=60, portfolio_context_score=60,
+        )
+        self.assertGreater(result['quant_composite_score'], 60)
+        self.assertIn(result['direction'], ['buy', 'strong_buy'])
+
+    def test_bearish_composite(self):
+        """Low scores across factors should produce sell signal."""
+        result = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=20, sentiment_score=30, news_score=35,
+            macro_score=30, derivatives_score=40, market_structure_score=35,
+            order_book_score=40, portfolio_context_score=40,
+        )
+        self.assertLess(result['quant_composite_score'], 40)
+        self.assertIn(result['direction'], ['sell', 'strong_sell'])
+
+    def test_per_component_contributions(self):
+        """Each factor should have score, weight, and contribution."""
+        result = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=80, sentiment_score=50, news_score=50,
+            macro_score=50, derivatives_score=50, market_structure_score=50,
+            order_book_score=50, portfolio_context_score=50,
+        )
+        self.assertIn('factor_contributions', result)
+        for factor in ['technical', 'sentiment', 'news', 'macro', 'derivatives',
+                       'market_structure', 'order_book', 'portfolio_context']:
+            self.assertIn(factor, result['factor_contributions'])
+            self.assertIn('score', result['factor_contributions'][factor])
+            self.assertIn('weight', result['factor_contributions'][factor])
+            self.assertIn('contribution', result['factor_contributions'][factor])
+
+    def test_weights_sum_to_one(self):
+        """All weight sets should sum to 1.0."""
+        result = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=50, sentiment_score=50, news_score=50,
+            macro_score=50, derivatives_score=50, market_structure_score=50,
+            order_book_score=50, portfolio_context_score=50,
+        )
+        total = sum(result['weights_used'].values())
+        self.assertAlmostEqual(total, 1.0, places=2)
+
+    def test_regime_conditioned_weights(self):
+        """Regime weights should override defaults."""
+        regime_weights = {
+            'technical': 0.40, 'sentiment': 0.10, 'news': 0.10,
+            'macro': 0.10, 'derivatives': 0.10, 'market_structure': 0.10,
+            'order_book': 0.05, 'portfolio_context': 0.05,
+        }
+        result = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=80, sentiment_score=50, news_score=50,
+            macro_score=50, derivatives_score=50, market_structure_score=50,
+            order_book_score=50, portfolio_context_score=50,
+            regime='bull_trend',
+            regime_weights=regime_weights,
+        )
+        self.assertTrue(result['regime_weights_applied'])
+        self.assertAlmostEqual(result['weights_used']['technical'], 0.40, places=2)
+
+    def test_no_ai_dependency(self):
+        """Quant composite should work without AI (AI OFF mode)."""
+        result = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=70, sentiment_score=60, news_score=55,
+            macro_score=65, derivatives_score=60, market_structure_score=55,
+            order_book_score=50, portfolio_context_score=50,
+            ai_validation=None,  # AI OFF
+        )
+        self.assertFalse(result['ai_validated'])
+        self.assertGreater(result['quant_composite_score'], 50)
+
+    def test_ai_validation_adjusts_score(self):
+        """AI validation should adjust confidence but not dominate."""
+        result_no_ai = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=60, sentiment_score=50, news_score=50,
+            macro_score=50, derivatives_score=50, market_structure_score=50,
+            order_book_score=50, portfolio_context_score=50,
+            ai_validation=None,
+        )
+        result_with_ai = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=60, sentiment_score=50, news_score=50,
+            macro_score=50, derivatives_score=50, market_structure_score=50,
+            order_book_score=50, portfolio_context_score=50,
+            ai_validation={'direction': 'bullish', 'confidence': 80},
+        )
+        # AI can adjust by max ±10%
+        diff = abs(result_with_ai['composite_score'] - result_no_ai['quant_composite_score'])
+        self.assertLessEqual(diff, 15)  # Allow some tolerance
+
+    def test_reproducibility(self):
+        """Same inputs should produce identical outputs."""
+        kwargs = dict(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=70, sentiment_score=60, news_score=55,
+            macro_score=65, derivatives_score=60, market_structure_score=55,
+            order_book_score=50, portfolio_context_score=50,
+            regime='bull_trend',
+        )
+        r1 = self.engine.fuse_signal(**kwargs)
+        r2 = self.engine.fuse_signal(**kwargs)
+        self.assertEqual(r1['quant_composite_score'], r2['quant_composite_score'])
+        self.assertEqual(r1['direction'], r2['direction'])
+        self.assertEqual(r1['confidence'], r2['confidence'])
+
+    def test_get_quant_composite_only(self):
+        """Pure quant composite should work in AI OFF mode."""
+        scores = {
+            'technical': 70, 'sentiment': 60, 'news': 55,
+            'macro': 65, 'derivatives': 60, 'market_structure': 55,
+            'order_book': 50, 'portfolio_context': 50,
+        }
+        score = self.engine.get_quant_composite_only(scores, 'bull_trend')
+        self.assertGreater(score, 50)
+        self.assertLess(score, 100)
+
+    def test_factor_scores_backward_compatible(self):
+        """factor_scores should contain original 5 factors for backward compat."""
+        result = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=70, sentiment_score=60, news_score=55,
+            macro_score=65, derivatives_score=60, market_structure_score=55,
+            order_book_score=50, portfolio_context_score=50,
+        )
+        self.assertIn('technical', result['factor_scores'])
+        self.assertIn('sentiment', result['factor_scores'])
+        self.assertIn('news', result['factor_scores'])
+        self.assertIn('macro', result['factor_scores'])
+        self.assertEqual(result['factor_scores']['technical'], 70)
+
+    def test_engine_version(self):
+        """Should report engine version 2.0."""
+        result = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=50, sentiment_score=50, news_score=50,
+            macro_score=50, derivatives_score=50, market_structure_score=50,
+            order_book_score=50, portfolio_context_score=50,
+        )
+        self.assertEqual(result['engine_version'], '2.0')
+
+    def test_regime_stored_in_output(self):
+        """Regime should be stored in signal output."""
+        result = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=50, sentiment_score=50, news_score=50,
+            macro_score=50, derivatives_score=50, market_structure_score=50,
+            order_book_score=50, portfolio_context_score=50,
+            regime='high_volatility',
+        )
+        self.assertEqual(result['regime'], 'high_volatility')
+
+    def test_ai_risks_and_reasons(self):
+        """AI risks and reasons should be passed through."""
+        result = self.engine.fuse_signal(
+            symbol='BTC/USDT', timeframe='1h',
+            technical_score=50, sentiment_score=50, news_score=50,
+            macro_score=50, derivatives_score=50, market_structure_score=50,
+            order_book_score=50, portfolio_context_score=50,
+            ai_validation={
+                'direction': 'bullish',
+                'confidence': 70,
+                'risks': ['High funding rate'],
+                'reasons': ['Strong technical setup'],
+            },
+        )
+        self.assertIn('High funding rate', result['ai_risks'])
+        self.assertIn('Strong technical setup', result['ai_reasons'])
+
+
 class SignalModelTest(TestCase):
     """Tests for Signal models."""
 
