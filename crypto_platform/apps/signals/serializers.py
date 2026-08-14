@@ -4,6 +4,7 @@ from .models import (
     Signal, SignalReason, SignalGenerationRequest,
     FactorWeight, WeightHistory, RiskProfile, PortfolioPosition,
     SignalPerformance, BacktestResult,
+    WalkForwardRun, WalkForwardWindow,
     AlertRule, AlertHistory,
 )
 
@@ -104,6 +105,35 @@ class RiskCalculationInputSerializer(serializers.Serializer):
     stop_loss = serializers.DecimalField(max_digits=20, decimal_places=8)
     signal_confidence = serializers.IntegerField(default=50)
     signal_direction = serializers.CharField(max_length=20)
+
+
+class WalkForwardRunSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WalkForwardRun
+        fields = '__all__'
+
+
+class WalkForwardWindowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WalkForwardWindow
+        fields = '__all__'
+
+
+class WalkForwardInputSerializer(serializers.Serializer):
+    """Input serializer for walk-forward validation endpoint."""
+    strategy_name = serializers.CharField(max_length=100)
+    symbol = serializers.CharField(max_length=20)
+    timeframe = serializers.CharField(max_length=10, default='1h')
+    start_date = serializers.DateTimeField()
+    end_date = serializers.DateTimeField()
+    initial_capital = serializers.DecimalField(max_digits=20, decimal_places=2, default=10000)
+    train_days = serializers.IntegerField(default=90)
+    validate_days = serializers.IntegerField(default=30)
+    test_days = serializers.IntegerField(default=30)
+    step_days = serializers.IntegerField(default=30)
+    fee_rate = serializers.DecimalField(max_digits=10, decimal_places=6, default=0.001)
+    slippage_rate = serializers.DecimalField(max_digits=10, decimal_places=6, default=0.0005)
+    strategy_version = serializers.CharField(max_length=50, default='1.0')
 
 
 class BacktestInputSerializer(serializers.Serializer):

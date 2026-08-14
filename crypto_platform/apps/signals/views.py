@@ -10,6 +10,7 @@ from .models import (
     Signal, SignalReason, SignalGenerationRequest,
     FactorWeight, RiskProfile, PortfolioPosition,
     SignalPerformance, BacktestResult,
+    WalkForwardRun, WalkForwardWindow,
 )
 from .serializers import (
     SignalSerializer, SignalReasonSerializer,
@@ -17,6 +18,8 @@ from .serializers import (
     WeightHistorySerializer,
     RiskProfileSerializer, PortfolioPositionSerializer,
     SignalPerformanceSerializer, BacktestResultSerializer,
+    WalkForwardRunSerializer, WalkForwardWindowSerializer,
+    WalkForwardInputSerializer,
     SignalGenerationInputSerializer, RiskCalculationInputSerializer,
     BacktestInputSerializer,
     AlertRuleSerializer, AlertHistorySerializer,
@@ -497,6 +500,185 @@ class SignalPerformanceViewSet(viewsets.ModelViewSet):
     update=extend_schema(tags=['Signals'], summary='Update backtest result'),
     partial_update=extend_schema(tags=['Signals'], summary='Partial update backtest result'),
     destroy=extend_schema(tags=['Signals'], summary='Delete backtest result'),
+    run=extend_schema(tags=['Signals'], summary='Run a backtest'),
+)
+class WalkForwardResultViewSet(viewsets.ModelViewSet):
+    """ViewSet for WalkForwardRun CRUD and walk-forward validation."""
+    queryset = WalkForwardRun.objects.all()
+    serializer_class = WalkForwardRunSerializer
+
+    @action(detail=False, methods=['post'])
+    def run(self, request):
+        """Run a walk-forward validation."""
+        serializer = WalkForwardInputSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+
+        try:
+            import asyncio
+            from decimal import Decimal
+            from .services.walk_forward import WalkForwardEngine
+            from .services.backtester import HistoricalDataFetcher
+
+            engine = WalkForwardEngine(
+                initial_capital=data.get('initial_capital', 10000),
+                fee_rate=data.get('fee_rate', Decimal('0.001')),
+                slippage_rate=data.get('slippage_rate', Decimal('0.0005')),
+            )
+
+            # Fetch historical data
+            # Map symbol to CoinGecko id
+            symbol_map = {
+                'BTC/USDT': 'bitcoin', 'ETH/USDT': 'ethereum',
+                'SOL/USDT': 'solana', 'BNB/USDT': 'binancecoin',
+                'XRP/USDT': 'ripple', 'ADA/USDT': 'cardano',
+            }
+            coin_id = symbol_map.get(data['symbol'].upper(), 'bitcoin')
+
+            days_needed = (data['end_date'] - data['start_date']).days
+            loop = asyncio.new_event_loop()
+            historical_data = loop.run_until_complete(
+                HistoricalDataFetcher.fetch_candles(coin_id, data['timeframe'], days_needed)
+            )
+            loop.close()
+
+            if not historical_data:
+                return Response(
+                    {'error': 'Failed to fetch historical data'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Capture current weights
+            weight_snapshot = {}
+            try:
+                for fw in FactorWeight.objects.filter(is_active=True):
+                    weight_snapshot[fw.name] = float(fw.weight)
+            except Exception:
+                pass
+
+            # Create run record
+            run_record = WalkForwardRun.objects.create(
+                strategy_name=data['strategy_name'],
+                strategy_version=data.get('strategy_version', '1.0'),
+                symbol=data['symbol'],
+                timeframe=data['timeframe'],
+                train_days=data.get('train_days', 90),
+                validate_days=data.get('validate_days', 30),
+                test_days=data.get('test_days', 30),
+                step_days=data.get('step_days', 30),
+                start_date=data['start_date'],
+                end_date=data['end_date'],
+                initial_capital=data.get('initial_capital', 10000),
+                fee_rate=data.get('fee_rate', Decimal('0.001')),
+                slippage_rate=data.get('slippage_rate', Decimal('0.0005')),
+                weight_snapshot=weight_snapshot,
+                status='running',
+                started_at=datetime.now(),
+            )
+
+            # Run walk-forward
+            result = engine.run_walk_forward(
+                strategy_name=data['strategy_name'],
+                symbol=data['symbol'],
+                timeframe=data['timeframe'],
+                start_date=data['start_date'],
+                end_date=data['end_date'],
+                historical_data=historical_data,
+                train_days=data.get('train_days', 90),
+                validate_days=data.get('validate_days', 30),
+                test_days=data.get('test_days', 30),
+                step_days=data.get('step_days', 30),
+                strategy_version=data.get('strategy_version', '1.0'),
+                weight_snapshot=weight_snapshot,
+            )
+
+            # Update run record
+            run_record.status = result.get('status', 'completed')
+            run_record.total_windows = result.get('total_windows', 0)
+            run_record.avg_oos_return = result.get('avg_oos_return', 0)
+            run_record.avg_oos_sharpe = result.get('avg_oos_sharpe', 0)
+            run_record.avg_oos_win_rate = result.get('avg_oos_win_rate', 0)
+            run_record.oos_vs_is_ratio = result.get('oos_vs_is_ratio', 0)
+            run_record.max_oos_drawdown = result.get('max_oos_drawdown', 0)
+            run_record.leakage_detected = result.get('leakage_detected', False)
+            run_record.leakage_details = result.get('leakage_details', {})
+            run_record.completed_at = datetime.now()
+            run_record.save()
+
+            # Save individual windows
+            for w in result.get('windows', []):
+                WalkForwardWindow.objects.create(
+                    run=run_record,
+                    window_index=w['window_index'],
+                    train_start=w['train_start'],
+                    train_end=w['train_end'],
+                    validate_start=w['validate_start'],
+                    validate_end=w['validate_end'],
+                    test_start=w['test_start'],
+                    test_end=w['test_end'],
+                    is_return_percent=w.get('is_return_percent', 0),
+                    is_sharpe=w.get('is_sharpe', 0),
+                    is_win_rate=w.get('is_win_rate', 0),
+                    is_trades=w.get('is_trades', 0),
+                    is_max_drawdown=w.get('is_max_drawdown', 0),
+                    oos_return_percent=w.get('oos_return_percent', 0),
+                    oos_sharpe=w.get('oos_sharpe', 0),
+                    oos_win_rate=w.get('oos_win_rate', 0),
+                    oos_trades=w.get('oos_trades', 0),
+                    oos_max_drawdown=w.get('oos_max_drawdown', 0),
+                    frozen_weights=w.get('frozen_weights', {}),
+                    is_equity_curve=w.get('is_equity_curve', []),
+                    oos_equity_curve=w.get('oos_equity_curve', []),
+                    has_leakage=w.get('has_leakage', False),
+                    leakage_reason=w.get('leakage_reason', ''),
+                )
+
+            return Response(
+                WalkForwardRunSerializer(run_record).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        except Exception as e:
+            logger.error(f"Walk-forward failed: {e}")
+            # Update run record if it exists
+            if 'run_record' in locals():
+                run_record.status = 'failed'
+                run_record.error_message = str(e)
+                run_record.completed_at = datetime.now()
+                run_record.save()
+            return Response(
+                {'error': f'Walk-forward failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'])
+    def windows(self, request, pk=None):
+        """Get all windows for a walk-forward run."""
+        run = self.get_object()
+        windows = WalkForwardWindow.objects.filter(run=run)
+        return Response(WalkForwardWindowSerializer(windows, many=True).data)
+
+    @action(detail=True, methods=['get'])
+    def compare(self, request, pk=None):
+        """Compare IS vs OOS performance for a walk-forward run."""
+        from .services.walk_forward import WalkForwardEngine
+        run = self.get_object()
+        windows = WalkForwardWindow.objects.filter(run=run).values()
+        window_list = list(windows)
+        engine = WalkForwardEngine()
+        comparison = engine.compare_windows(window_list)
+        return Response(comparison)
+
+
+@extend_schema_view(
+    list=extend_schema(tags=['Signals'], summary='List alert rules'),
+    create=extend_schema(tags=['Signals'], summary='Create alert rule'),
+    retrieve=extend_schema(tags=['Signals'], summary='Get alert rule'),
+    update=extend_schema(tags=['Signals'], summary='Update alert rule'),
+    partial_update=extend_schema(tags=['Signals'], summary='Partial update alert rule'),
+    destroy=extend_schema(tags=['Signals'], summary='Delete alert rule'),
     run=extend_schema(tags=['Signals'], summary='Run a backtest'),
 )
 class AlertRuleViewSet(viewsets.ModelViewSet):

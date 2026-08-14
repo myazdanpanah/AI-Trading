@@ -44,6 +44,7 @@
 | 55 | 6-Hour BTC Feedback Loop | ✅ COMPLETE | 100% |
 | 56 | Security Hardening | ✅ COMPLETE | 100% |
 | **57** | **Quant Research Engine** | ✅ **COMPLETE** | **100%** |
+| **58** | **Walk-Forward Validation** | ✅ **COMPLETE** | **100%** |
 
 ---
 
@@ -113,6 +114,44 @@ SignalBacktesterTest:
 - [x] No future information is available (no-look-ahead)
 - [x] API is documented (OpenAPI via drf-spectacular)
 - [x] Migration is tested
+
+---
+
+## Phase 58: Walk-Forward Validation ✅ COMPLETE
+
+### What Was Done
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| WalkForwardRun model | ✅ | Stores run config, aggregate OOS metrics, leakage detection |
+| WalkForwardWindow model | ✅ | IS/OOS metrics, frozen weights, equity curves per window |
+| WalkForwardEngine | ✅ | Rolling windows, parameter freezing, leakage detection |
+| API endpoints | ✅ | POST /walk-forward/run/, GET windows, GET compare |
+| Leakage detection | ✅ | Timestamp overlap, chronological ordering, window isolation |
+| Window comparison | ✅ | OOS/IS ratio, consistency %, overfitting verdict |
+| Unit tests | ✅ | 12/12 tests pass |
+
+### Files Created/Modified
+
+| File | Action | Description |
+|------|--------|-------------|
+| `crypto_platform/apps/signals/models.py` | MODIFIED | +WalkForwardRun, +WalkForwardWindow |
+| `crypto_platform/apps/signals/services/walk_forward.py` | CREATED | WalkForwardEngine |
+| `crypto_platform/apps/signals/serializers.py` | MODIFIED | +3 serializers |
+| `crypto_platform/apps/signals/views.py` | MODIFIED | +WalkForwardResultViewSet |
+| `crypto_platform/apps/signals/urls.py` | MODIFIED | +walk-forward route |
+| `crypto_platform/apps/signals/tests.py` | MODIFIED | +12 walk-forward tests |
+| `crypto_platform/apps/signals/migrations/0006_walk_forward_validation.py` | CREATED | Migration |
+
+### Definition of Done — Phase 58
+
+- [x] Walk-forward runs are reproducible
+- [x] OOS results are stored
+- [x] Leakage tests pass
+- [x] Results can be compared
+- [x] No future data enters earlier windows
+- [x] Parameters frozen before OOS
+- [x] Rolling windows supported
 
 ---
 

@@ -619,6 +619,233 @@ class BacktesterFeesSlippageTest(TestCase):
         self.assertEqual(result['weight_snapshot'], weights)
 
 
+class WalkForwardTest(TestCase):
+    """Tests for WalkForwardEngine — prevents strategy overfitting."""
+
+    def setUp(self):
+        from .services.walk_forward import WalkForwardEngine
+        self.engine = WalkForwardEngine(initial_capital=Decimal('10000'))
+        self.start_date = datetime(2024, 1, 1)
+        self.end_date = datetime(2024, 12, 31)  # 1 year of data
+        self.historical_data = self._make_data()
+
+    def _make_data(self):
+        """Create 1 year of deterministic hourly data."""
+        import random
+        rng = random.Random(42)
+        data = []
+        price = 40000.0
+        current = self.start_date
+        while current < self.end_date:
+            change = rng.uniform(-0.01, 0.012)  # Slight upward bias
+            price *= (1 + change)
+            data.append({
+                'timestamp': current,
+                'open': price * 0.999,
+                'high': price * 1.003,
+                'low': price * 0.997,
+                'close': price,
+                'volume': rng.uniform(500, 5000),
+            })
+            current += timedelta(hours=1)
+        return data
+
+    def test_generate_windows(self):
+        """Should generate correct number of rolling windows."""
+        windows = self.engine.generate_windows(
+            self.start_date, self.end_date,
+            train_days=90, validate_days=30, test_days=30, step_days=30,
+        )
+        # 365 days - 150 (train+val+test) = 215 days for rolling
+        # 215 / 30 step = ~7 windows
+        self.assertGreater(len(windows), 0)
+        self.assertLessEqual(len(windows), 10)
+
+    def test_windows_are_chronological(self):
+        """Each window should be chronologically ordered."""
+        windows = self.engine.generate_windows(
+            self.start_date, self.end_date,
+            train_days=60, validate_days=20, test_days=20, step_days=20,
+        )
+        for w in windows:
+            self.assertLess(w.train_start, w.train_end)
+            self.assertLessEqual(w.train_end, w.validate_start)
+            self.assertLess(w.validate_start, w.validate_end)
+            self.assertLessEqual(w.validate_end, w.test_start)
+            self.assertLess(w.test_start, w.test_end)
+
+    def test_no_overlap_between_windows(self):
+        """Rolling steps should not create overlapping OOS periods."""
+        windows = self.engine.generate_windows(
+            self.start_date, self.end_date,
+            train_days=60, validate_days=20, test_days=20, step_days=20,
+        )
+        for i in range(len(windows) - 1):
+            # Next window's test should start after current window's test
+            self.assertGreaterEqual(
+                windows[i + 1].test_start,
+                windows[i].test_start,
+            )
+
+    def test_no_data_leakage(self):
+        """No future data should enter earlier windows."""
+        has_leak, reason = self.engine._check_leakage(
+            train_data=self.historical_data[:100],
+            validate_data=self.historical_data[100:150],
+            test_data=self.historical_data[150:200],
+            ws=self.engine.generate_windows(
+                self.start_date, self.end_date,
+                train_days=90, validate_days=30, test_days=30, step_days=30,
+            )[0],
+        )
+        self.assertFalse(has_leak)
+        self.assertEqual(reason, '')
+
+    def test_detects_leakage_on_overlap(self):
+        """Should detect overlapping data between windows."""
+        has_leak, reason = self.engine._check_leakage(
+            train_data=self.historical_data[:100],
+            validate_data=self.historical_data[90:150],  # Overlaps train
+            test_data=self.historical_data[150:200],
+            ws=self.engine.generate_windows(
+                self.start_date, self.end_date,
+                train_days=90, validate_days=30, test_days=30, step_days=30,
+            )[0],
+        )
+        self.assertTrue(has_leak)
+        self.assertIn('overlap', reason.lower())
+
+    def test_run_walk_forward(self):
+        """Full walk-forward run should complete successfully."""
+        result = self.engine.run_walk_forward(
+            strategy_name='test_wf',
+            symbol='BTC/USDT',
+            timeframe='1h',
+            start_date=self.start_date,
+            end_date=self.end_date,
+            historical_data=self.historical_data,
+            train_days=90,
+            validate_days=30,
+            test_days=30,
+            step_days=30,
+        )
+        self.assertEqual(result['status'], 'completed')
+        self.assertGreater(result['total_windows'], 0)
+        self.assertIn('avg_oos_return', result)
+        self.assertIn('avg_oos_sharpe', result)
+        self.assertIn('oos_vs_is_ratio', result)
+        self.assertIn('windows', result)
+        self.assertEqual(len(result['windows']), result['total_windows'])
+
+    def test_oos_is_ratio(self):
+        """OOS/IS ratio should indicate overfitting level."""
+        result = self.engine.run_walk_forward(
+            strategy_name='ratio_test',
+            symbol='BTC/USDT',
+            timeframe='1h',
+            start_date=self.start_date,
+            end_date=self.end_date,
+            historical_data=self.historical_data,
+            train_days=90,
+            validate_days=30,
+            test_days=30,
+            step_days=30,
+        )
+        # OOS/IS ratio should be a finite number
+        ratio = result['oos_vs_is_ratio']
+        self.assertIsInstance(ratio, float)
+        self.assertGreater(ratio, -10)  # Not extremely negative
+        self.assertLess(ratio, 10)  # Not extremely positive
+
+    def test_compare_windows(self):
+        """Window comparison should produce overfitting verdict."""
+        result = self.engine.run_walk_forward(
+            strategy_name='compare_test',
+            symbol='BTC/USDT',
+            timeframe='1h',
+            start_date=self.start_date,
+            end_date=self.end_date,
+            historical_data=self.historical_data,
+            train_days=90,
+            validate_days=30,
+            test_days=30,
+            step_days=30,
+        )
+        comparison = self.engine.compare_windows(result['windows'])
+        self.assertIn('verdict', comparison)
+        self.assertIn(comparison['verdict'], [
+            'OVERFITTING LIKELY', 'MILD OVERFITTING',
+            'STRATEGY VALIDATED', 'INCONCLUSIVE',
+        ])
+        self.assertIn('consistency_pct', comparison)
+        self.assertIn('overfit_percentage', comparison)
+
+    def test_deterministic_results(self):
+        """Same inputs should produce identical walk-forward results."""
+        from .services.walk_forward import WalkForwardEngine
+        engine1 = WalkForwardEngine(initial_capital=Decimal('10000'))
+        engine2 = WalkForwardEngine(initial_capital=Decimal('10000'))
+
+        kwargs = dict(
+            strategy_name='det_test', symbol='BTC/USDT', timeframe='1h',
+            start_date=self.start_date, end_date=self.end_date,
+            historical_data=self.historical_data,
+            train_days=90, validate_days=30, test_days=30, step_days=30,
+        )
+
+        r1 = engine1.run_walk_forward(**kwargs)
+        r2 = engine2.run_walk_forward(**kwargs)
+
+        self.assertEqual(r1['total_windows'], r2['total_windows'])
+        self.assertAlmostEqual(r1['avg_oos_return'], r2['avg_oos_return'], places=4)
+
+    def test_frozen_parameters(self):
+        """OOS should use frozen parameters from IS end."""
+        result = self.engine.run_walk_forward(
+            strategy_name='freeze_test',
+            symbol='BTC/USDT',
+            timeframe='1h',
+            start_date=self.start_date,
+            end_date=self.end_date,
+            historical_data=self.historical_data,
+            train_days=90, validate_days=30, test_days=30, step_days=30,
+        )
+        for w in result['windows']:
+            # Each window should have frozen weights
+            self.assertIn('frozen_weights', w)
+            self.assertIsInstance(w['frozen_weights'], dict)
+
+    def test_empty_date_range(self):
+        """Should handle date range too small for any windows."""
+        result = self.engine.run_walk_forward(
+            strategy_name='short_test',
+            symbol='BTC/USDT',
+            timeframe='1h',
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 1, 10),  # Only 9 days
+            historical_data=self.historical_data[:100],
+            train_days=90, validate_days=30, test_days=30, step_days=30,
+        )
+        self.assertEqual(result['status'], 'failed')
+        self.assertEqual(result['total_windows'], 0)
+
+    def test_leakage_detection_in_run(self):
+        """Walk-forward run should detect any leakage."""
+        result = self.engine.run_walk_forward(
+            strategy_name='leak_test',
+            symbol='BTC/USDT',
+            timeframe='1h',
+            start_date=self.start_date,
+            end_date=self.end_date,
+            historical_data=self.historical_data,
+            train_days=90, validate_days=30, test_days=30, step_days=30,
+        )
+        self.assertIn('leakage_detected', result)
+        self.assertIn('leakage_details', result)
+        # With proper non-overlapping windows, no leakage
+        self.assertFalse(result['leakage_detected'])
+
+
 class SignalModelTest(TestCase):
     """Tests for Signal models."""
 

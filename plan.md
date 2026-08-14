@@ -39,18 +39,19 @@ An enterprise-grade AI-powered cryptocurrency intelligence platform with multi-a
 | 55 | 6-Hour BTC Feedback Loop | ✅ |
 | 56 | Security Hardening | ✅ |
 | **57** | **Quant Research Engine** | ✅ |
+| **58** | **Walk-Forward Validation** | ✅ |
 
 ---
 
 ## 🔜 NEXT STEPS (from AI-Trading-Implementation-Plan.md)
 
-### Phase 58: Walk-Forward Validation (Next)
+### Phase 58: Walk-Forward Validation ✅
 Prevent strategy overfitting with train/validate/test splits.
-- Training window, validation window, test window
-- Rolling windows support
-- Freeze optimized parameters before OOS
-- Store each run, compare windows
-- Detect leakage
+- Training window, validation window, test window ✅
+- Rolling windows support ✅
+- Freeze optimized parameters before OOS ✅
+- Store each run, compare windows ✅
+- Detect leakage ✅
 
 ### Phase 59: Risk Engine
 Independent risk-control layer — the critical safety gate.

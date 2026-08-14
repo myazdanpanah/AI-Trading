@@ -376,3 +376,108 @@ class BacktestResult(models.Model):
 
     def __str__(self):
         return f"{self.strategy_name} v{self.strategy_version} - {self.symbol} - {self.total_return_percent}%"
+
+
+class WalkForwardRun(models.Model):
+    """Walk-forward validation run — prevents strategy overfitting."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    # Strategy identification
+    strategy_name = models.CharField(max_length=100)
+    strategy_version = models.CharField(max_length=50, default='1.0')
+    symbol = models.CharField(max_length=20, db_index=True)
+    timeframe = models.CharField(max_length=10)
+    # Window configuration
+    train_days = models.IntegerField(default=90, help_text='Training window in days')
+    validate_days = models.IntegerField(default=30, help_text='Validation window in days')
+    test_days = models.IntegerField(default=30, help_text='Test/OOS window in days')
+    step_days = models.IntegerField(default=30, help_text='Rolling step in days')
+    # Overall period
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
+    # Capital
+    initial_capital = models.DecimalField(max_digits=20, decimal_places=2, default=10000)
+    fee_rate = models.DecimalField(max_digits=10, decimal_places=6, default=0.001)
+    slippage_rate = models.DecimalField(max_digits=10, decimal_places=6, default=0.0005)
+    # Aggregate metrics (across all windows)
+    total_windows = models.IntegerField(default=0)
+    avg_oos_return = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    avg_oos_sharpe = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    avg_oos_win_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    oos_vs_is_ratio = models.DecimalField(max_digits=5, decimal_places=4, default=0, help_text='OOS performance / IS performance ratio')
+    max_oos_drawdown = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    # Leakage detection
+    leakage_detected = models.BooleanField(default=False)
+    leakage_details = models.JSONField(default=dict, blank=True)
+    # Weight snapshot at run start
+    weight_snapshot = models.JSONField(default=dict, blank=True)
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('running', 'Running'),
+            ('completed', 'Completed'),
+            ('failed', 'Failed'),
+        ],
+        default='pending'
+    )
+    error_message = models.TextField(blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'walk-forward run'
+        verbose_name_plural = 'walk-forward runs'
+        db_table = 'walk_forward_runs'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"WF: {self.strategy_name} - {self.symbol} ({self.total_windows} windows)"
+
+
+class WalkForwardWindow(models.Model):
+    """Individual window within a walk-forward run."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    run = models.ForeignKey(WalkForwardRun, on_delete=models.CASCADE, related_name='windows')
+    window_index = models.IntegerField(default=0)
+    # Window periods
+    train_start = models.DateTimeField()
+    train_end = models.DateTimeField()
+    validate_start = models.DateTimeField()
+    validate_end = models.DateTimeField()
+    test_start = models.DateTimeField()
+    test_end = models.DateTimeField()
+    # IS (in-sample) metrics — from training + validation
+    is_return_percent = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    is_sharpe = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    is_win_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    is_trades = models.IntegerField(default=0)
+    is_max_drawdown = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    # OOS (out-of-sample) metrics — from test window
+    oos_return_percent = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    oos_sharpe = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    oos_win_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    oos_trades = models.IntegerField(default=0)
+    oos_max_drawdown = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    # Frozen parameters (captured at end of training)
+    frozen_weights = models.JSONField(default=dict, blank=True)
+    # Equity curves
+    is_equity_curve = models.JSONField(default=list, blank=True)
+    oos_equity_curve = models.JSONField(default=list, blank=True)
+    # Full backtest results
+    is_backtest_result = models.JSONField(default=dict, blank=True)
+    oos_backtest_result = models.JSONField(default=dict, blank=True)
+    # Leakage check
+    has_leakage = models.BooleanField(default=False)
+    leakage_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'walk-forward window'
+        verbose_name_plural = 'walk-forward windows'
+        db_table = 'walk_forward_windows'
+        ordering = ['run', 'window_index']
+
+    def __str__(self):
+        return f"Window {self.window_index}: IS {self.is_return_percent}% / OOS {self.oos_return_percent}%"
