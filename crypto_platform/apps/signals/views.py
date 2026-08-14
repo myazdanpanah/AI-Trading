@@ -228,6 +228,65 @@ class SignalViewSet(viewsets.ModelViewSet):
             result['risk_score'] = old_result.get('risk_score', 50)
             result['reasons'] = old_result.get('reasons', [])
 
+            # ── AI Validation via LLMRouter (Phase 64) ───────────────
+            ai_validation_result = None
+            try:
+                from apps.ai_engine.services.llm_router import LLMRouter, AIConfig, AIMode, AgentRole
+                import asyncio
+
+                # Get AI mode from settings
+                ai_mode = getattr(__import__('django.conf', fromlist=['settings']).settings, 'AI_MODE', 'off')
+                ollama_url = getattr(__import__('django.conf', fromlist=['settings']).settings, 'OLLAMA_BASE_URL', 'http://localhost:11434')
+
+                if ai_mode != 'off':
+                    ai_config = AIConfig(
+                        mode=AIMode(ai_mode) if ai_mode in ['off', 'lite', 'standard', 'cloud'] else AIMode.STANDARD,
+                        base_url=ollama_url,
+                        timeout=50000,  # 50 seconds per user request
+                    )
+                    llm_router = LLMRouter(ai_config)
+
+                    # Build context for AI validation
+                    ai_context = {
+                        'quant_composite_score': result.get('quant_composite_score', 50),
+                        'regime': regime,
+                        'technical_score': factor_scores.get('technical', 50),
+                        'sentiment_score': factor_scores.get('sentiment', 50),
+                        'news_score': factor_scores.get('news', 50),
+                        'derivatives_score': 50,
+                    }
+
+                    # Run AI validation
+                    loop = asyncio.new_event_loop()
+                    ai_response = loop.run_until_complete(
+                        llm_router.analyze(
+                            context=ai_context,
+                            role=AgentRole.FINAL_VALIDATOR,
+                        )
+                    )
+                    loop.close()
+
+                    if ai_response.success and ai_response.parsed_output:
+                        ai_validation_result = ai_response.parsed_output
+                        # Apply AI adjustment to result
+                        if ai_response.parsed_output.get('verdict') == 'validate':
+                            result['ai_validated'] = True
+                            result['ai_adjustment'] = ai_response.parsed_output.get('adjusted_confidence', result['confidence'])
+                            result['ai_risks'] = ai_response.parsed_output.get('risks', [])
+                            result['ai_reasons'] = ai_response.parsed_output.get('reasons', [])
+                        elif ai_response.parsed_output.get('verdict') == 'reject':
+                            result['direction'] = 'hold'
+                            result['confidence'] = max(10, result['confidence'] - 20)
+                            result['ai_validated'] = False
+                            result['ai_risks'] = ai_response.parsed_output.get('risks', ['AI rejected signal'])
+
+                        logger.info(
+                            f"AI validation: {ai_response.parsed_output.get('verdict')} | "
+                            f"Latency: {ai_response.latency_ms}ms | Model: {ai_response.model}"
+                        )
+            except Exception as ai_err:
+                logger.warning(f"AI validation failed (continuing with quant-only): {ai_err}")
+
             # ── Save to database ─────────────────────────────────────
             signal = None
             try:
@@ -301,6 +360,10 @@ class SignalViewSet(viewsets.ModelViewSet):
                     'created_at': result['generated_at'],
                     'is_active': True,
                 }
+
+            # Add AI validation to response
+            if ai_validation_result:
+                serializable_result['ai_validation'] = ai_validation_result
 
             return Response({
                 'signal': signal_data,
