@@ -560,6 +560,129 @@ class SignalViewSet(viewsets.ModelViewSet):
         from .services.versioning import SYSTEM_VERSIONS
         return Response(SYSTEM_VERSIONS)
 
+    # ── Paper Trading Endpoints ──────────────────────────────────────
+
+    @action(detail=False, methods=['get'])
+    def paper_status(self, request):
+        """Get paper trading account status."""
+        try:
+            from .services.paper_trading import PaperTradingEngine
+            engine = PaperTradingEngine()
+            return Response(engine.get_status())
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def paper_open(self, request):
+        """Open a paper position.
+
+        POST {
+            "symbol": "BTCUSDT",
+            "side": "long",
+            "entry_price": 50000,
+            "stop_loss": 49000,
+            "take_profit": 52000,
+            "signal_confidence": 75,
+            "signal_id": "..."
+        }
+        """
+        try:
+            from .services.paper_trading import PaperTradingEngine
+
+            data = request.data
+            required = ['symbol', 'side', 'entry_price']
+            for field in required:
+                if field not in data:
+                    return Response(
+                        {'error': f'Missing required field: {field}'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            engine = PaperTradingEngine()
+            result = engine.open_position(
+                symbol=data['symbol'],
+                side=data['side'],
+                entry_price=float(data['entry_price']),
+                quantity=float(data['quantity']) if 'quantity' in data else None,
+                stop_loss=float(data['stop_loss']) if 'stop_loss' in data else None,
+                take_profit=float(data['take_profit']) if 'take_profit' in data else None,
+                signal_confidence=int(data.get('signal_confidence', 50)),
+                signal_id=data.get('signal_id'),
+            )
+
+            status_code = status.HTTP_201_CREATED if result['success'] else status.HTTP_400_BAD_REQUEST
+            return Response(result, status=status_code)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def paper_close(self, request):
+        """Close a paper position.
+
+        POST {"position_id": "PAPER-000001", "exit_price": 51000, "reason": "manual"}
+        """
+        try:
+            from .services.paper_trading import PaperTradingEngine
+
+            data = request.data
+            position_id = data.get('position_id')
+            exit_price = data.get('exit_price')
+            reason = data.get('reason', 'manual')
+
+            if not position_id or exit_price is None:
+                return Response(
+                    {'error': 'position_id and exit_price are required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            engine = PaperTradingEngine()
+            result = engine.close_position(position_id, float(exit_price), reason)
+
+            status_code = status.HTTP_200_OK if result['success'] else status.HTTP_400_BAD_REQUEST
+            return Response(result, status=status_code)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def paper_update_prices(self, request):
+        """Update prices for all paper positions.
+
+        POST {"prices": {"BTCUSDT": 51000, "ETHUSDT": 3200}}
+        """
+        try:
+            from .services.paper_trading import PaperTradingEngine
+
+            prices = request.data.get('prices', {})
+            engine = PaperTradingEngine()
+            result = engine.update_prices(prices)
+            return Response(result)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
+    def paper_performance(self, request):
+        """Get paper trading performance metrics."""
+        try:
+            from .services.paper_trading import PaperTradingEngine
+            engine = PaperTradingEngine()
+            return Response(engine.get_performance_metrics())
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def paper_reset(self, request):
+        """Reset paper trading account."""
+        try:
+            from .services.paper_trading import PaperTradingEngine
+            initial = float(request.data.get('initial_capital', 10000))
+            engine = PaperTradingEngine(initial_capital=initial)
+            return Response(engine.get_status())
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema_view(
     list=extend_schema(tags=['Signals'], summary='List signal reasons'),
