@@ -16,6 +16,8 @@ import ComparisonPanel from './ComparisonPanel';
 import FeedbackPanel from './FeedbackPanel';
 import { ReproducibilityDashboard } from './ReproducibilityDashboard';
 import { PaperTradingPanel } from '../trading/PaperTradingPanel';
+import { SignalToastManager, useSignalNotifications } from '../common/SignalToast';
+import { useSignalPoller } from '../../hooks/useSignalPoller';
 import { ChatBot } from '../trading/ChatBot';
 
 type TabType = 'trading' | 'signals' | 'comparison' | 'analysis' | 'journal' | 'feedback' | 'reproducibility' | 'paper' | 'settings';
@@ -64,6 +66,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialTab = 'trading' }) 
   const { selectedSymbol, setSelectedSymbol } = useWatchlist();
   const { t, language } = useLanguage();
   const navigate = useNavigate();
+  const { notifications, addNotification, dismissNotification } = useSignalNotifications();
+
+  // Poll for new signals and show notifications
+  useSignalPoller({
+    intervalMs: 30000, // Check every 30 seconds
+    enabled: true,
+    onNewSignal: (signal) => {
+      addNotification({
+        symbol: signal.symbol,
+        direction: signal.direction,
+        confidence: signal.confidence,
+        price: signal.entry_price,
+        timeframe: signal.timeframe,
+      });
+    },
+  });
   
   const activeTab = initialTab as TabType;
 
@@ -202,6 +220,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialTab = 'trading' }) 
       <main className="flex-1 p-4 overflow-auto">
         {renderTabContent()}
       </main>
+
+      {/* Signal Toast Notifications */}
+      <SignalToastManager
+        notifications={notifications}
+        onDismiss={dismissNotification}
+      />
 
       {/* Floating ChatBot */}
       <ChatBot activeTab={activeTab} />
