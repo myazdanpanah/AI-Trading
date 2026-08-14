@@ -7,7 +7,7 @@ An enterprise-grade AI-powered cryptocurrency intelligence platform with multi-a
 
 ---
 
-## Completed Phases (1-56)
+## Completed Phases (1-57)
 
 | Phase | Name | Status |
 |-------|------|--------|
@@ -38,40 +38,84 @@ An enterprise-grade AI-powered cryptocurrency intelligence platform with multi-a
 | 54 | News Source Seeding | ✅ |
 | 55 | 6-Hour BTC Feedback Loop | ✅ |
 | 56 | Security Hardening | ✅ |
+| **57** | **Quant Research Engine** | ✅ |
 
 ---
 
-## 🔜 NEXT STEPS
+## 🔜 NEXT STEPS (from AI-Trading-Implementation-Plan.md)
 
-### Priority 1: Multi-Symbol Feedback Loop (HIGH IMPACT)
-- Extend 6-hour feedback loop to ETH, SOL, BNB, XRP
-- Each symbol gets its own analysis cycle
-- Cross-symbol correlation analysis
-- **Why:** Currently only BTC has comprehensive feedback
+### Phase 58: Walk-Forward Validation (Next)
+Prevent strategy overfitting with train/validate/test splits.
+- Training window, validation window, test window
+- Rolling windows support
+- Freeze optimized parameters before OOS
+- Store each run, compare windows
+- Detect leakage
 
-### Priority 2: Real-Time News Sentiment Scoring (HIGH IMPACT)
-- Add LLM-based sentiment scoring to news articles
-- Use gemma4 to analyze article impact on crypto
-- Store sentiment scores in NewsArticle model
-- **Why:** Currently news sentiment is keyword-based, not AI-analyzed
+### Phase 59: Risk Engine
+Independent risk-control layer — the critical safety gate.
+- Position sizing
+- Maximum risk enforcement
+- Portfolio exposure limits
+- Drawdown limits
+- Daily loss limit
+- Kill switch
+- **Rule: Signal → Risk → Execution (never LLM → Order)**
 
-### Priority 3: Signal History Table Enhancements (MEDIUM IMPACT)
-- Add filtering by symbol, date range, outcome
-- Add export to CSV
-- Add performance charts per symbol
-- **Why:** Users want deeper signal analysis
+### Phase 60: Derivatives Intelligence
+- Funding Rate, Open Interest, Liquidations
+- Long/Short Ratio, Basis
+- Options IV, Put/Call Ratio
+- Feature generation for signal engine
 
-### Priority 4: Mobile App React Native Update (MEDIUM IMPACT)
-- Sync web features to mobile app
-- Add push notifications for alerts
-- Add real-time price tracking
-- **Why:** Mobile app is outdated
+### Phase 61: Market Regime Engine
+- 10 regimes: Bull/Bear/Sideways/High Vol/Low Vol/Breakout/Accumulation/Distribution/Capitulation/Recovery
+- Regime-conditioned signal weights
+- Strategy selection by regime
 
-### Priority 5: Docker Production Setup (LOW IMPACT)
-- Docker Compose with all services
-- Nginx reverse proxy
-- SSL/TLS certificates
-- **Why:** Easier deployment
+### Phase 62: Portfolio Intelligence
+Extend existing Portfolio Tracker with:
+- Correlation, Beta, Concentration
+- BTC/Stablecoin exposure
+- VaR, Max Drawdown, Effective Exposure
+
+### Phase 63: Signal Fusion Engine
+Upgrade existing 5-factor composite to regime-aware fusion.
+- Remove AI from pre-fusion weighted input (move to post-fusion validator)
+- Add Market Structure, Derivatives, Order Book as first-class factors
+- Regime-conditioned weights
+- Per-component contribution stored
+
+### Phase 64: Local AI Router
+- LLMProvider abstraction (Ollama, llama.cpp, Cloud)
+- Model discovery, health checks, structured output
+- AI OFF / AI LITE / AI STANDARD / AI CLOUD modes
+
+### Phase 65: Agent Ensemble
+- Technical Analyst, News Analyst, Market Analyst, Risk Analyst, Final Validator
+- Role-based prompts, input/output schemas
+- Agent performance tracking
+
+### Phase 66: Calibration Engine
+- Brier Score, Reliability Curve, Calibration Error
+- Calibrated probability for future signals
+
+### Phase 67: Versioning & Data Lineage
+- Strategy/Feature/Model/Prompt/Signal versioning
+- Market/News/Social/LLM snapshots
+- Reproducibility: "Why was this signal generated?"
+
+### Phase 68: Paper Trading
+- PaperExecutionProvider (same engine as live, different execution target)
+- Simulated fills, positions, PnL, fees, slippage
+
+### Phase 69: Shadow Trading
+- Real market data, real signals, simulated execution
+- Expected vs actual execution comparison
+
+### Phase 70: Live Execution
+- Exchange adapters, order management, kill switch
+- **Requires explicit production-readiness review**
 
 ---
 
@@ -90,18 +134,19 @@ An enterprise-grade AI-powered cryptocurrency intelligence platform with multi-a
 - ✅ Iran timezone (Asia/Tehran) support
 - ✅ WebSocket live prices via Daphne
 - ✅ Security hardened (restricted hosts, CORS, JWT)
+- ✅ Backtesting engine with fees, slippage, full metrics
+- ✅ Historical data ingestion from CoinGecko
 
-### What's Working Now
-- ✅ Celery configured (9 scheduled tasks)
-- ✅ News RSS crawling (35+ sources, 46+ articles)
-- ✅ X/Twitter scraping (20+ accounts)
-- ✅ Signal generation uses ALL 5 factors
-- ✅ Journal uses LLM with language support
-- ✅ Chatbot responds in Persian (99.4%)
-- ✅ 6-hour BTC feedback loop scans 8 data sources
-- ✅ WebSocket live prices
-- ✅ Weight history tracking
-- ✅ Signal history table
+### Key Architecture Rule (from Implementation Plan)
+```
+LLM must NEVER directly execute trades.
+
+Required flow:
+Data → Understanding → Regime → Quant Prediction → Multi-Factor Signal → Local AI Reasoning → Risk Control → Execution → Measurement → Calibration → Learning
+
+Forbidden:
+LLM → BUY → Exchange Order
+```
 
 ---
 
@@ -121,19 +166,24 @@ cd /c/Trading
 set DJANGO_SETTINGS_MODULE=crypto_platform.settings.local
 daphne -b 0.0.0.0 -p 8001 crypto_platform.asgi:application
 
-# Start Celery worker
-celery -A crypto_platform worker -l info -P solo
+# Start scheduler
+python scripts/scheduler.py
 
-# Start Celery beat
-celery -A crypto_platform beat -l info
+# Run tests
+python run_tests.py apps.signals.tests
 
-# Seed news sources
-python manage.py seed_news_sources
-
-# Run feedback loop manually
-python -c "
-import django; django.setup()
-from apps.feedback.services.btc_feedback_loop import BTCFeedbackLoop
-BTCFeedbackLoop.run()
-"
+# Run backtest via API
+curl -X POST http://localhost:8000/api/signals/backtests/run/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "strategy_name": "sma_crossover",
+    "symbol": "BTC/USDT",
+    "timeframe": "1h",
+    "start_date": "2024-01-01T00:00:00Z",
+    "end_date": "2024-02-01T00:00:00Z",
+    "initial_capital": 10000,
+    "fee_rate": 0.001,
+    "slippage_rate": 0.0005
+  }'
 ```

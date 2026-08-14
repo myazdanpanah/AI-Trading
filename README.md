@@ -112,6 +112,36 @@ X/TWITTER ACCOUNTS (30+):
    Macro: GoldTelegraph, SantiagoAuFund
 ```
 
+### Backtesting Engine
+```
+BACKTESTING - Full Historical Strategy Validation
+
+Features:
+  - Configurable fees (default 0.1% per trade)
+  - Configurable slippage (default 0.05%)
+  - Position sizing based on risk per trade
+  - Stop loss & take profit triggers
+  - Multiple open positions support
+  - Real historical data from CoinGecko
+
+Metrics:
+  - Total Return / CAGR
+  - Sharpe Ratio (annualized)
+  - Sortino Ratio (downside risk)
+  - Max Drawdown
+  - Win Rate / Profit Factor
+  - Expectancy
+  - MFE / MAE
+  - Total Fees / Total Slippage
+
+Reproducibility:
+  - Strategy version tracking
+  - Feature version tracking
+  - Factor weight snapshots
+  - Deterministic replay
+  - No-look-ahead guarantee
+```
+
 ### Scheduler (No Celery Required)
 ```
 STANDALONE SCHEDULER - Backup for Celery
@@ -205,11 +235,9 @@ celery -A crypto_platform worker -l info -P solo
 celery -A crypto_platform beat -l info
 ```
 
-### 6. Login
-```
-URL:      http://localhost:3000
-Username: myazdanpanah
-Password: 123456
+### 6. Create User
+```bash
+DJANGO_SETTINGS_MODULE=crypto_platform.settings.local python manage.py createsuperuser
 ```
 
 ---
@@ -256,6 +284,15 @@ POST /api/skills/chat/                       # Chat with AI
 GET  /api/news/sources/           # News sources (68+)
 GET  /api/journal/sources/        # Journal sources (69)
 POST /api/journal/entries/generate/  # Generate journal entry
+```
+
+### Backtesting
+```bash
+POST /api/signals/backtests/run/              # Run a backtest (fees, slippage, full metrics)
+GET  /api/signals/backtests/                  # List backtest results
+GET  /api/signals/backtests/{id}/             # Get backtest details
+GET  /api/signals/backtests/historical_data/  # Fetch OHLCV from CoinGecko
+GET  /api/signals/backtests/compare/          # Compare multiple backtests
 ```
 
 ### Feedback
@@ -315,7 +352,7 @@ SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=30)
 
 ## Roadmap
 
-### Completed (56 Phases)
+### Completed (57 Phases)
 - Foundation, Signals, Learning, Feedback
 - PostgreSQL, Real Signal Engine, AI Feedback Loop
 - Celery Automation, Analysis Panel, Iran Timezone
@@ -325,13 +362,22 @@ SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=30)
 - WebSocket, X/Twitter, Weight History
 - News Seeding, 6-Hour Feedback Loop, Security
 - Standalone Scheduler (Celery backup)
+- **Phase 57: Quant Research Engine** (backtesting with fees, slippage, Sortino, MFE/MAE, CAGR, deterministic replay)
 
-### Next Steps
-- [ ] Multi-Symbol Feedback Loop (ETH, SOL, BNB, XRP)
-- [ ] Real-Time News Sentiment Scoring (LLM-based)
-- [ ] Mobile App React Native Update
-- [ ] Docker Production Setup
-- [ ] Redis Caching (optional, for performance)
+### Next Steps (Implementation Plan Phases 58-70)
+- [ ] Phase 58: Walk-Forward Validation (prevent overfitting)
+- [ ] Phase 59: Risk Engine (independent risk control, kill switch)
+- [ ] Phase 60: Derivatives Intelligence (funding, OI, liquidations)
+- [ ] Phase 61: Market Regime Engine (10 regimes, regime-conditioned weights)
+- [ ] Phase 62: Portfolio Intelligence (correlation, VaR, beta)
+- [ ] Phase 63: Signal Fusion Engine (regime-aware, AI as post-fusion validator)
+- [ ] Phase 64: Local AI Router (Ollama, llama.cpp, cloud plugins)
+- [ ] Phase 65: Agent Ensemble (5 role-based local agents)
+- [ ] Phase 66: Calibration Engine (Brier Score, reliability curves)
+- [ ] Phase 67: Versioning & Data Lineage (reproducibility)
+- [ ] Phase 68: Paper Trading
+- [ ] Phase 69: Shadow Trading
+- [ ] Phase 70: Live Execution (requires production review)
 
 ---
 

@@ -639,7 +639,7 @@ class BacktestResultViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def run(self, request):
-        """Run a backtest."""
+        """Run a backtest with fees, slippage, and full reproducibility."""
         serializer = BacktestInputSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -647,9 +647,24 @@ class BacktestResultViewSet(viewsets.ModelViewSet):
         data = serializer.validated_data
 
         try:
+            from decimal import Decimal
+
             backtester = SignalBacktester(
-                initial_capital=data.get('initial_capital', 10000)
+                initial_capital=data.get('initial_capital', 10000),
+                risk_per_trade=data.get('risk_per_trade', Decimal('1.0')),
+                fee_rate=data.get('fee_rate', Decimal('0.001')),
+                slippage_rate=data.get('slippage_rate', Decimal('0.0005')),
+                stop_loss_pct=data.get('stop_loss_pct', Decimal('0.02')),
+                take_profit_pct=data.get('take_profit_pct', Decimal('0.04')),
             )
+
+            # Capture current factor weights for reproducibility
+            weight_snapshot = {}
+            try:
+                for fw in FactorWeight.objects.filter(is_active=True):
+                    weight_snapshot[fw.name] = float(fw.weight)
+            except Exception:
+                pass
 
             result = backtester.run_backtest(
                 strategy_name=data['strategy_name'],
@@ -657,11 +672,16 @@ class BacktestResultViewSet(viewsets.ModelViewSet):
                 timeframe=data['timeframe'],
                 start_date=data['start_date'],
                 end_date=data['end_date'],
+                strategy_version=data.get('strategy_version', '1.0'),
+                feature_version=data.get('feature_version', '1.0'),
+                weight_snapshot=weight_snapshot,
             )
 
-            # Save backtest result
+            # Save backtest result with all new fields
             backtest = BacktestResult.objects.create(
                 strategy_name=result['strategy_name'],
+                strategy_version=result.get('strategy_version', '1.0'),
+                feature_version=result.get('feature_version', '1.0'),
                 symbol=result['symbol'],
                 timeframe=result['timeframe'],
                 start_date=data['start_date'],
@@ -672,6 +692,9 @@ class BacktestResultViewSet(viewsets.ModelViewSet):
                 total_return_percent=result['total_return_percent'],
                 max_drawdown=result['max_drawdown'],
                 sharpe_ratio=result['sharpe_ratio'],
+                sortino_ratio=result.get('sortino_ratio', 0),
+                cagr=result.get('cagr', 0),
+                expectancy=result.get('expectancy', 0),
                 win_rate=result['win_rate'],
                 total_trades=result['total_trades'],
                 winning_trades=result['winning_trades'],
@@ -679,8 +702,17 @@ class BacktestResultViewSet(viewsets.ModelViewSet):
                 avg_win=result['avg_win'],
                 avg_loss=result['avg_loss'],
                 profit_factor=result['profit_factor'],
+                max_favorable_excursion=result.get('max_favorable_excursion', 0),
+                max_adverse_excursion=result.get('max_adverse_excursion', 0),
+                total_fees=result.get('total_fees', 0),
+                total_slippage=result.get('total_slippage', 0),
+                fee_rate=data.get('fee_rate', Decimal('0.001')),
+                slippage_rate=data.get('slippage_rate', Decimal('0.0005')),
+                execution_mode='backtest',
                 trades_data=result['trades'],
                 equity_curve=result['equity_curve'],
+                signal_snapshot=result.get('signal_snapshot', {}),
+                weight_snapshot=result.get('weight_snapshot', {}),
             )
 
             return Response(
@@ -691,6 +723,53 @@ class BacktestResultViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"Backtest failed: {e}")
             return Response(
-                {'error': 'An error occurred during backtesting. Please try again later.'},
+                {'error': f'Backtest failed: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=False, methods=['get'])
+    def historical_data(self, request):
+        """Fetch historical candle data from CoinGecko for backtesting."""
+        symbol = request.query_params.get('symbol', 'bitcoin')
+        timeframe = request.query_params.get('timeframe', '1h')
+        days = int(request.query_params.get('days', 30))
+
+        import asyncio
+        from .services.backtester import HistoricalDataFetcher
+
+        try:
+            loop = asyncio.new_event_loop()
+            candles = loop.run_until_complete(
+                HistoricalDataFetcher.fetch_candles(symbol, timeframe, days)
+            )
+            loop.close()
+
+            return Response({
+                'symbol': symbol,
+                'timeframe': timeframe,
+                'days': days,
+                'count': len(candles),
+                'candles': candles,
+            })
+        except Exception as e:
+            logger.error(f"Historical data fetch failed: {e}")
+            return Response(
+                {'error': f'Failed to fetch historical data: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'])
+    def compare(self, request):
+        """Compare multiple backtest results side by side."""
+        ids = request.query_params.get('ids', '')
+        if not ids:
+            # Get last 5 backtests
+            results = BacktestResult.objects.all()[:5]
+        else:
+            id_list = [i.strip() for i in ids.split(',') if i.strip()]
+            results = BacktestResult.objects.filter(id__in=id_list)
+
+        return Response({
+            'backtests': BacktestResultSerializer(results, many=True).data,
+            'count': results.count(),
+        })

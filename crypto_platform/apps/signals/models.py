@@ -311,19 +311,30 @@ class SignalPerformance(models.Model):
 
 
 class BacktestResult(models.Model):
-    """Backtesting results for strategy validation."""
+    """Backtesting results for strategy validation with full reproducibility."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    # Strategy identification
     strategy_name = models.CharField(max_length=100)
+    strategy_version = models.CharField(max_length=50, default='1.0')
+    feature_version = models.CharField(max_length=50, default='1.0')
+    # Asset & timeframe
     symbol = models.CharField(max_length=20, db_index=True)
     timeframe = models.CharField(max_length=10)
+    # Period
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
+    # Capital
     initial_capital = models.DecimalField(max_digits=20, decimal_places=2, default=10000)
     final_capital = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    # Core metrics
     total_return = models.DecimalField(max_digits=10, decimal_places=4, default=0)
     total_return_percent = models.DecimalField(max_digits=10, decimal_places=4, default=0)
     max_drawdown = models.DecimalField(max_digits=10, decimal_places=4, default=0)
     sharpe_ratio = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    sortino_ratio = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    cagr = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    expectancy = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    # Trade stats
     win_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     total_trades = models.IntegerField(default=0)
     winning_trades = models.IntegerField(default=0)
@@ -331,8 +342,30 @@ class BacktestResult(models.Model):
     avg_win = models.DecimalField(max_digits=10, decimal_places=4, default=0)
     avg_loss = models.DecimalField(max_digits=10, decimal_places=4, default=0)
     profit_factor = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    # MFE / MAE
+    max_favorable_excursion = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    max_adverse_excursion = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    # Fees & slippage
+    total_fees = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    total_slippage = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    fee_rate = models.DecimalField(max_digits=10, decimal_places=6, default=0.001, help_text='Fee rate per trade (e.g. 0.001 = 0.1%)')
+    slippage_rate = models.DecimalField(max_digits=10, decimal_places=6, default=0.0005, help_text='Slippage rate per trade (e.g. 0.0005 = 0.05%)')
+    # Execution mode
+    execution_mode = models.CharField(
+        max_length=20,
+        choices=[
+            ('paper', 'Paper Trading'),
+            ('shadow', 'Shadow Trading'),
+            ('backtest', 'Backtest'),
+        ],
+        default='backtest'
+    )
+    # Data & results
     trades_data = models.JSONField(default=list)
     equity_curve = models.JSONField(default=list)
+    # Reproducibility
+    signal_snapshot = models.JSONField(default=dict, blank=True, help_text='Snapshot of signal engine state at time of backtest')
+    weight_snapshot = models.JSONField(default=dict, blank=True, help_text='Factor weights used during backtest')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -342,4 +375,4 @@ class BacktestResult(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.strategy_name} - {self.symbol} - {self.total_return_percent}%"
+        return f"{self.strategy_name} v{self.strategy_version} - {self.symbol} - {self.total_return_percent}%"
