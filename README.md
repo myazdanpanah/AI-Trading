@@ -352,7 +352,7 @@ SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=30)
 
 ## Roadmap
 
-### Completed (63 Phases)
+### Completed (64 Phases)
 - Foundation, Signals, Learning, Feedback
 - PostgreSQL, Real Signal Engine, AI Feedback Loop
 - Celery Automation, Analysis Panel, Iran Timezone
@@ -369,6 +369,7 @@ SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=30)
 - **Phase 61: Market Regime Engine** (10 regimes, regime-conditioned weights, transition detection)
 - **Phase 62: Portfolio Intelligence** (correlation, VaR, beta, concentration, effective exposure)
 - **Phase 63: Signal Fusion Engine** (8-factor regime-aware fusion, AI as post-fusion validator, quant_composite_score)
+- **Phase 64: Local AI Router** (LLMProvider abstraction, 4 AI modes, structured output, retry logic)
 
 ### Next Steps (Implementation Plan Phases 58-70)
 - [ ] Phase 58: Walk-Forward Validation (prevent overfitting)

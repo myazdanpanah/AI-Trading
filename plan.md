@@ -45,6 +45,7 @@ An enterprise-grade AI-powered cryptocurrency intelligence platform with multi-a
 | **61** | **Market Regime Engine** | ✅ |
 | **62** | **Portfolio Intelligence** | ✅ |
 | **63** | **Signal Fusion Engine** | ✅ |
+| **64** | **Local AI Router** | ✅ |
 
 ---
 
