@@ -29,7 +29,7 @@ from .serializers import (
     AlertRuleSerializer, AlertHistorySerializer,
 )
 from .models import AlertRule, AlertHistory
-from .services import SignalGenerator, RiskManager, PortfolioTracker, SignalBacktester
+from .services import SignalGenerator, RiskManager, PortfolioTracker, SignalBacktester, SignalFusionEngine, RegimeEngine
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class SignalViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def generate(self, request):
-        """Generate a trading signal using multi-factor scoring."""
+        """Generate a trading signal using regime-aware 8-factor fusion (Phase 63)."""
         serializer = SignalGenerationInputSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -70,21 +70,16 @@ class SignalViewSet(viewsets.ModelViewSet):
             return obj
 
         try:
-            generator = SignalGenerator()
-
-            # Load configurable weights
-            try:
-                factor_weights = FactorWeight.objects.filter(is_active=True)
-                if factor_weights.exists():
-                    generator.load_weights(factor_weights)
-            except Exception:
-                pass  # Use defaults if DB unavailable
+            # ── Initialize engines ───────────────────────────────────
+            fusion_engine = SignalFusionEngine()
+            regime_engine = RegimeEngine()
 
             # Fetch live data and run technical analysis
             symbol = data['symbol'].upper()
             technical_data = data.get('technical_data', {})
             sentiment_data = data.get('sentiment_data', {})
             current_price = data.get('current_price')
+            historical_candles = []
 
             try:
                 from apps.market.services.unified_data import fetch_market_data
@@ -97,13 +92,19 @@ class SignalViewSet(viewsets.ModelViewSet):
                 volumes = market['volumes'][-50:]
                 current_price = current_price or market['current_price']
 
+                # Build candle data for regime detection
+                historical_candles = [
+                    {'open': c * 0.999, 'high': h, 'low': l, 'close': c, 'volume': v}
+                    for c, h, l, v in zip(closes, highs, lows, volumes)
+                ]
+
                 # Run indicator engine
                 indicators = IndicatorEngine.calculate_all_indicators(
                     [{'close': c, 'high': h, 'low': l, 'volume': v}
                      for c, h, l, v in zip(closes, highs, lows, volumes)]
                 )
 
-                # Translate indicator engine output to signal generator format
+                # Translate indicator engine output
                 rsi_data = indicators.get('rsi_14', {})
                 macd_data = indicators.get('macd', {})
                 ema9 = indicators.get('ema_9', {})
@@ -174,28 +175,65 @@ class SignalViewSet(viewsets.ModelViewSet):
 
             except Exception as data_err:
                 logger.warning(f"Failed to fetch live data for signal: {data_err}")
-                # Use defaults if live data unavailable
                 current_price = current_price or 0
 
-            # Generate signal with real data
-            result = generator.generate_signal(
-                symbol=symbol,
-                timeframe=data['timeframe'],
-                technical_data=technical_data,
-                sentiment_data=sentiment_data,
+            # ── Detect market regime ─────────────────────────────────
+            regime_state = regime_engine.detect_regime(historical_candles)
+            regime = regime_state.regime
+            regime_weights = regime_state.weights
+
+            # ── Calculate factor scores ──────────────────────────────
+            # Use old SignalGenerator to get individual scores
+            old_generator = SignalGenerator()
+            try:
+                factor_weights = FactorWeight.objects.filter(is_active=True)
+                if factor_weights.exists():
+                    old_generator.load_weights(factor_weights)
+            except Exception:
+                pass
+
+            old_result = old_generator.generate_signal(
+                symbol=symbol, timeframe=data['timeframe'],
+                technical_data=technical_data, sentiment_data=sentiment_data,
                 news_data=data.get('news_data', {}),
                 ai_data=data.get('ai_data', {}),
                 macro_data=data.get('macro_data', {}),
                 current_price=current_price,
             )
 
-            # Try to save to database (graceful fallback if DB unavailable)
+            # Extract scores for fusion engine (8 factors)
+            factor_scores = old_result.get('factor_scores', {})
+
+            # ── Fuse signal with regime-conditioned weights ──────────
+            result = fusion_engine.fuse_signal(
+                symbol=symbol,
+                timeframe=data['timeframe'],
+                technical_score=factor_scores.get('technical', 50),
+                sentiment_score=factor_scores.get('sentiment', 50),
+                news_score=factor_scores.get('news', 50),
+                macro_score=factor_scores.get('macro', 50),
+                derivatives_score=50,  # Default — would be fetched from DerivativesCollector
+                market_structure_score=50,  # Default — would be fetched from market structure
+                order_book_score=50,  # Default — would be fetched from order book
+                portfolio_context_score=50,  # Default — would be fetched from portfolio intelligence
+                regime=regime,
+                regime_weights=regime_weights,
+                current_price=float(current_price) if current_price else 0,
+            )
+
+            # Add entry levels from old generator
+            result['entry_price'] = old_result.get('entry_price')
+            result['stop_loss'] = old_result.get('stop_loss')
+            result['take_profit'] = old_result.get('take_profit', [])
+            result['risk_score'] = old_result.get('risk_score', 50)
+            result['reasons'] = old_result.get('reasons', [])
+
+            # ── Save to database ─────────────────────────────────────
             signal = None
             try:
                 with transaction.atomic():
                     entry_price_val = result.get('entry_price')
                     stop_loss_val = result.get('stop_loss')
-                    # Convert None to 0 for required fields
                     entry_price_float = float(entry_price_val) if entry_price_val else 0.0
                     stop_loss_float = float(stop_loss_val) if stop_loss_val else entry_price_float * 0.97
 
@@ -203,7 +241,7 @@ class SignalViewSet(viewsets.ModelViewSet):
                         symbol=result['symbol'],
                         direction=result['direction'],
                         confidence=result['confidence'],
-                        risk_score=result['risk_score'],
+                        risk_score=result.get('risk_score', 50),
                         entry_price=entry_price_float,
                         stop_loss=stop_loss_float,
                         take_profit=result.get('take_profit', []),
@@ -211,7 +249,7 @@ class SignalViewSet(viewsets.ModelViewSet):
                         technical_score=result['factor_scores'].get('technical', 0),
                         sentiment_score=result['factor_scores'].get('sentiment', 0),
                         news_score=result['factor_scores'].get('news', 0),
-                        ai_score=result['factor_scores'].get('ai', 0),
+                        ai_score=0,  # AI is post-fusion, not pre-fusion
                         macro_score=result['factor_scores'].get('macro', 0),
                         composite_score=result['composite_score'],
                         is_active=True,
@@ -239,17 +277,16 @@ class SignalViewSet(viewsets.ModelViewSet):
 
             serializable_result = decimal_to_float(result)
 
-            # Build response - use signal data if saved, otherwise from result
+            # Build response
             if signal:
                 signal_data = SignalSerializer(signal).data
             else:
-                # Build fake signal data from result for display
                 signal_data = {
                     'id': f"gen-{result['symbol']}-{result['timeframe']}",
                     'symbol': result['symbol'],
                     'direction': result['direction'],
                     'confidence': result['confidence'],
-                    'risk_score': result['risk_score'],
+                    'risk_score': result.get('risk_score', 50),
                     'entry_price': result.get('entry_price', 0),
                     'stop_loss': result.get('stop_loss', 0),
                     'take_profit': result.get('take_profit', []),
@@ -257,7 +294,7 @@ class SignalViewSet(viewsets.ModelViewSet):
                     'technical_score': result['factor_scores'].get('technical', 0),
                     'sentiment_score': result['factor_scores'].get('sentiment', 0),
                     'news_score': result['factor_scores'].get('news', 0),
-                    'ai_score': result['factor_scores'].get('ai', 0),
+                    'ai_score': 0,
                     'macro_score': result['factor_scores'].get('macro', 0),
                     'composite_score': result['composite_score'],
                     'reasons': result.get('reasons', []),
