@@ -53,6 +53,7 @@
 | **64** | **Local AI Router** | ✅ **COMPLETE** | **100%** |
 | **65** | **Agent Ensemble** | ✅ **COMPLETE** | **100%** |
 | **66** | **Calibration Engine** | ✅ **COMPLETE** | **100%** |
+| **67** | **Versioning & Data Lineage** | ✅ **COMPLETE** | **100%** |
 
 ---
 
@@ -456,6 +457,80 @@ AFTER: 8 quant factors (regime-conditioned) -> quant_composite -> AI validation 
 - [x] Database integration (reads SignalMemory)
 - [x] API endpoints for calibration and adjustment
 - [x] 28/28 tests pass
+
+---
+
+## Phase 67: Versioning & Data Lineage ✅ COMPLETE
+
+### What Was Done
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| VersionTracker service | ✅ | Captures full lineage for every signal |
+| SignalLineage model | ✅ | 15 fields: versions, snapshots, LLM context, ensemble, risk |
+| Database migration | ✅ | signals.0008_signal_lineage applied |
+| System versions tracking | ✅ | 8 versioned components (strategy, features, regime, etc.) |
+| Snapshot builders | ✅ | Market, news, social, derivatives, LLM context/output |
+| Human-readable explanation | ✅ | explain_signal() generates plain text from lineage |
+| API endpoints | ✅ | GET /signals/{id}/lineage/, GET /signals/versions/ |
+| Unit tests | ✅ | 22/22 tests pass |
+
+### What Every Signal Now Stores
+
+| Data | Description |
+|------|-------------|
+| Strategy version | SignalFusionEngine v2.0 |
+| Feature version | IndicatorEngine v1.2 |
+| Model version | gemma4:latest (if AI used) |
+| Prompt version | v1.0 |
+| Ensemble version | v1.0 (if ensemble used) |
+| Risk version | v1.0 |
+| Weight snapshot | Exact factor weights at signal time |
+| Regime | Detected regime + confidence |
+| Factor scores | All 8 factor scores |
+| Market snapshot | Price, indicators, candles |
+| News snapshot | Article count, sentiment, headlines |
+| Social snapshot | Fear/greed, social sentiment |
+| Derivatives snapshot | Funding, OI, L/S ratio |
+| LLM context | Model, prompt, temperature |
+| LLM output | Content, parsed output, latency |
+| Ensemble output | Verdict, adjusted confidence |
+| Risk decision | Approved/rejected, position size |
+
+### Files Created/Modified
+
+| File | Action | Description |
+|------|--------|-------------|
+| `crypto_platform/apps/signals/services/versioning.py` | CREATED | VersionTracker, snapshot builders, explain_signal |
+| `crypto_platform/apps/signals/tests_versioning.py` | CREATED | 22 unit tests |
+| `crypto_platform/apps/signals/models.py` | MODIFIED | +SignalLineage model |
+| `crypto_platform/apps/signals/views.py` | MODIFIED | +lineage, +versions endpoints |
+| `crypto_platform/apps/signals/services/__init__.py` | MODIFIED | +VersionTracker export |
+| `crypto_platform/apps/signals/migrations/0008_signal_lineage.py` | CREATED | Migration |
+
+### Test Results
+
+```
+22/22 versioning tests pass
+  SystemVersionsTest: 3/3
+  LineageCaptureTest: 6/6
+  SnapshotBuildersTest: 6/6
+  LLMAndEnsembleCaptureTest: 3/3
+  ExplainSignalTest: 3/3
+  FullLineageCaptureTest: 1/1
+```
+
+### Definition of Done — Phase 67
+
+- [x] Every signal stores strategy/feature/model/prompt versions
+- [x] Weight snapshots captured at signal time
+- [x] Market, news, social, derivatives snapshots stored
+- [x] LLM context and output captured
+- [x] Agent ensemble output captured
+- [x] Risk engine decision captured
+- [x] Human-readable explanation available
+- [x] API endpoints for lineage retrieval
+- [x] 22/22 tests pass
 
 ---
 

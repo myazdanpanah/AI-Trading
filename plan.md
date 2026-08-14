@@ -48,6 +48,7 @@ An enterprise-grade AI-powered cryptocurrency intelligence platform with multi-a
 | **64** | **Local AI Router** | ✅ |
 | **65** | **Agent Ensemble** | ✅ |
 | **66** | **Calibration Engine** | ✅ |
+| **67** | **Versioning & Data Lineage** | ✅ |
 
 ---
 
@@ -115,10 +116,12 @@ Upgrade existing 5-factor composite to regime-aware fusion.
 - ProbabilityAdjuster for confidence correction ✅
 - 28/28 tests pass ✅
 
-### Phase 67: Versioning & Data Lineage
-- Strategy/Feature/Model/Prompt/Signal versioning
-- Market/News/Social/LLM snapshots
-- Reproducibility: "Why was this signal generated?"
+### Phase 67: Versioning & Data Lineage ✅
+- Strategy/Feature/Model/Prompt/Signal versioning ✅
+- Market/News/Social/Derivatives/LLM snapshots ✅
+- Reproducibility: "Why was this signal generated?" ✅
+- Human-readable explanation via explain_signal() ✅
+- 22/22 tests pass ✅
 
 ### Phase 68: Paper Trading
 - PaperExecutionProvider (same engine as live, different execution target)

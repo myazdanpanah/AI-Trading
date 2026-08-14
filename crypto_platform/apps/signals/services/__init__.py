@@ -8,5 +8,6 @@ from .walk_forward import WalkForwardEngine
 from .regime_engine import RegimeEngine
 from .signal_fusion import SignalFusionEngine
 from .calibration import CalibrationEngine, ProbabilityAdjuster
+from .versioning import VersionTracker
 
-__all__ = ['SignalGenerator', 'RiskManager', 'RiskEngine', 'PortfolioTracker', 'SignalBacktester', 'WalkForwardEngine', 'RegimeEngine', 'SignalFusionEngine', 'CalibrationEngine', 'ProbabilityAdjuster']
+__all__ = ['SignalGenerator', 'RiskManager', 'RiskEngine', 'PortfolioTracker', 'SignalBacktester', 'WalkForwardEngine', 'RegimeEngine', 'SignalFusionEngine', 'CalibrationEngine', 'ProbabilityAdjuster', 'VersionTracker']

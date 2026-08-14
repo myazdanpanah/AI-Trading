@@ -497,6 +497,69 @@ class SignalViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=True, methods=['get'])
+    def lineage(self, request, pk=None):
+        """Get full data lineage for a signal.
+
+        Returns version info, data snapshots, LLM context, and human-readable explanation.
+        """
+        try:
+            from .models import SignalLineage
+            from .services.versioning import VersionTracker
+
+            signal = self.get_object()
+            lineage = SignalLineage.objects.filter(signal=signal).first()
+
+            if not lineage:
+                return Response({
+                    'signal_id': str(signal.id),
+                    'lineage': None,
+                    'message': 'No lineage data recorded for this signal',
+                })
+
+            # Generate human-readable explanation
+            tracker = VersionTracker()
+            explanation = tracker.explain_signal(lineage.data_lineage)
+
+            return Response({
+                'signal_id': str(signal.id),
+                'lineage': {
+                    'strategy_version': lineage.strategy_version,
+                    'feature_version': lineage.feature_version,
+                    'model_version': lineage.model_version,
+                    'prompt_version': lineage.prompt_version,
+                    'ensemble_version': lineage.ensemble_version,
+                    'risk_version': lineage.risk_version,
+                    'regime': lineage.regime,
+                    'regime_confidence': lineage.regime_confidence,
+                    'weights_snapshot': lineage.weights_snapshot,
+                    'factor_scores': lineage.factor_scores,
+                    'market_snapshot': lineage.market_snapshot,
+                    'news_snapshot': lineage.news_snapshot,
+                    'social_snapshot': lineage.social_snapshot,
+                    'derivatives_snapshot': lineage.derivatives_snapshot,
+                    'llm_context': lineage.llm_context,
+                    'llm_output': lineage.llm_output,
+                    'ensemble_output': lineage.ensemble_output,
+                    'risk_decision': lineage.risk_decision,
+                    'created_at': lineage.created_at.isoformat(),
+                },
+                'explanation': explanation,
+            })
+
+        except Exception as e:
+            logger.error(f"Lineage retrieval failed: {e}")
+            return Response(
+                {'error': f'Lineage retrieval failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'])
+    def versions(self, request):
+        """Get current system versions."""
+        from .services.versioning import SYSTEM_VERSIONS
+        return Response(SYSTEM_VERSIONS)
+
 
 @extend_schema_view(
     list=extend_schema(tags=['Signals'], summary='List signal reasons'),

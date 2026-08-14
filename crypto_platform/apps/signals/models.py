@@ -585,3 +585,72 @@ class KillSwitchState(models.Model):
 
     def __str__(self):
         return f"Kill Switch: {'ACTIVE' if self.is_active else 'inactive'}"
+
+
+class SignalLineage(models.Model):
+    """Full data lineage for signal reproducibility.
+
+    Every signal must store enough information to answer:
+    'Why was this signal generated at this exact moment?'
+
+    Stores:
+    - Strategy/feature/model/prompt versions
+    - Weight snapshot (exact factor weights used)
+    - Market snapshot (price, indicators at T)
+    - News snapshot (articles, sentiment at T)
+    - Social snapshot (fear/greed, X/Twitter at T)
+    - Regime snapshot (detected regime at T)
+    - LLM context/output (if AI was used)
+    - Agent ensemble output (if ensemble was used)
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    signal = models.OneToOneField(Signal, on_delete=models.CASCADE, related_name='lineage')
+
+    # ── Version Tracking ─────────────────────────────────────────────
+    strategy_version = models.CharField(max_length=50, default='2.0')
+    feature_version = models.CharField(max_length=50, default='1.2')
+    model_version = models.CharField(max_length=50, blank=True, help_text='LLM model version if AI was used')
+    prompt_version = models.CharField(max_length=50, default='1.0')
+    ensemble_version = models.CharField(max_length=50, blank=True)
+    risk_version = models.CharField(max_length=50, default='1.0')
+
+    # ── Factor Weights Snapshot ──────────────────────────────────────
+    weights_snapshot = models.JSONField(default=dict, help_text='Exact factor weights used for this signal')
+    regime = models.CharField(max_length=50, default='unknown', help_text='Detected market regime')
+    regime_confidence = models.FloatField(default=0.0)
+
+    # ── Data Snapshots ───────────────────────────────────────────────
+    factor_scores = models.JSONField(default=dict, help_text='Individual factor scores')
+    market_snapshot = models.JSONField(default=dict, help_text='Price, indicators, candles at signal time')
+    news_snapshot = models.JSONField(default=dict, help_text='News articles and sentiment at signal time')
+    social_snapshot = models.JSONField(default=dict, help_text='Fear/greed, social sentiment at signal time')
+    derivatives_snapshot = models.JSONField(default=dict, help_text='Funding, OI, liquidations at signal time')
+
+    # ── AI/LLM Context ──────────────────────────────────────────────
+    llm_context = models.JSONField(default=dict, help_text='What was sent to LLM')
+    llm_output = models.JSONField(default=dict, help_text='What LLM returned')
+    ensemble_output = models.JSONField(default=dict, help_text='Agent ensemble results')
+
+    # ── Risk Decision ────────────────────────────────────────────────
+    risk_decision = models.JSONField(default=dict, help_text='Risk engine decision')
+
+    # ── Full Lineage ─────────────────────────────────────────────────
+    data_lineage = models.JSONField(default=dict, help_text='Complete lineage data for reproducibility')
+
+    # ── Metadata ─────────────────────────────────────────────────────
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'signal lineage'
+        verbose_name_plural = 'signal lineages'
+        db_table = 'signal_lineages'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Lineage: {self.signal.symbol} v{self.strategy_version} at {self.created_at}"
+
+    def explain(self) -> str:
+        """Generate human-readable explanation."""
+        from .services.versioning import VersionTracker
+        tracker = VersionTracker()
+        return tracker.explain_signal(self.data_lineage)
