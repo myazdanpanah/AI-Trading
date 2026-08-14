@@ -47,6 +47,7 @@ An enterprise-grade AI-powered cryptocurrency intelligence platform with multi-a
 | **63** | **Signal Fusion Engine** | ✅ |
 | **64** | **Local AI Router** | ✅ |
 | **65** | **Agent Ensemble** | ✅ |
+| **66** | **Calibration Engine** | ✅ |
 
 ---
 
@@ -107,9 +108,12 @@ Upgrade existing 5-factor composite to regime-aware fusion.
 - Agent performance tracking ✅
 - 24/24 tests pass ✅
 
-### Phase 66: Calibration Engine
-- Brier Score, Reliability Curve, Calibration Error
-- Calibrated probability for future signals
+### Phase 66: Calibration Engine ✅
+- Brier Score, Reliability Curve, Calibration Error ✅
+- ECE, MCE, overconfidence/underconfidence detection ✅
+- Per-group calibration (regime, timeframe, symbol) ✅
+- ProbabilityAdjuster for confidence correction ✅
+- 28/28 tests pass ✅
 
 ### Phase 67: Versioning & Data Lineage
 - Strategy/Feature/Model/Prompt/Signal versioning

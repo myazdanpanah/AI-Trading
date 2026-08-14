@@ -418,6 +418,85 @@ class SignalViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=False, methods=['get'])
+    def calibration(self, request):
+        """Get calibration analysis for signal confidence.
+
+        Returns Brier Score, ECE, reliability curve, and per-group breakdowns.
+        Use ?symbol=BTC to filter by symbol.
+        Use ?limit=500 to control sample size.
+        Use ?predictions=[(80,true),(60,false),...] for custom analysis.
+        """
+        try:
+            from .services.calibration import CalibrationEngine, ProbabilityAdjuster
+
+            symbol = request.query_params.get('symbol')
+            limit = int(request.query_params.get('limit', 500))
+
+            # Custom predictions from request
+            custom_predictions = request.query_params.get('predictions')
+
+            engine = CalibrationEngine()
+
+            if custom_predictions:
+                import json
+                try:
+                    preds = json.loads(custom_predictions)
+                    predictions = [(float(p), bool(o)) for p, o in preds]
+                    result = engine.calibrate(predictions)
+                except (json.JSONDecodeError, ValueError) as e:
+                    return Response(
+                        {'error': f'Invalid predictions format: {str(e)}'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                result = engine.calibrate_from_database(symbol=symbol, limit=limit)
+
+            return Response(result.to_dict())
+
+        except Exception as e:
+            logger.error(f"Calibration analysis failed: {e}")
+            return Response(
+                {'error': f'Calibration failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'])
+    def adjust_confidence(self, request):
+        """Adjust a raw confidence score using the calibration curve.
+
+        POST {"confidence": 80, "symbol": "BTC"}
+        """
+        try:
+            from .services.calibration import CalibrationEngine, ProbabilityAdjuster
+
+            confidence = request.data.get('confidence', 50)
+            symbol = request.data.get('symbol')
+
+            # Get calibration data
+            cal_engine = CalibrationEngine()
+            cal_result = cal_engine.calibrate_from_database(symbol=symbol)
+
+            # Adjust confidence
+            adjusted = ProbabilityAdjuster.adjust_confidence(
+                confidence, cal_result.reliability_curve
+            )
+
+            return Response({
+                'raw_confidence': confidence,
+                'adjusted_confidence': round(adjusted, 2),
+                'calibration_quality': cal_result.calibration_quality,
+                'ece': cal_result.ece,
+                'brier_score': cal_result.brier_score,
+            })
+
+        except Exception as e:
+            logger.error(f"Confidence adjustment failed: {e}")
+            return Response(
+                {'error': f'Adjustment failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 @extend_schema_view(
     list=extend_schema(tags=['Signals'], summary='List signal reasons'),

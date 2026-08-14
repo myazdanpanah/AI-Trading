@@ -52,6 +52,7 @@
 | **63** | **Signal Fusion Engine** | ✅ **COMPLETE** | **100%** |
 | **64** | **Local AI Router** | ✅ **COMPLETE** | **100%** |
 | **65** | **Agent Ensemble** | ✅ **COMPLETE** | **100%** |
+| **66** | **Calibration Engine** | ✅ **COMPLETE** | **100%** |
 
 ---
 
@@ -391,6 +392,70 @@ AFTER: 8 quant factors (regime-conditioned) -> quant_composite -> AI validation 
 - [x] Final Validator reviews all agent outputs
 - [x] Ensemble integrated into signal generation endpoint
 - [x] 24/24 tests pass
+
+---
+
+## Phase 66: Calibration Engine ✅ COMPLETE
+
+### What Was Done
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| CalibrationEngine service | ✅ | Brier Score, ECE, MCE, reliability curves |
+| Reliability curve bucketing | ✅ | Configurable buckets (default 10), min samples per bucket |
+| Overconfidence detection | ✅ | Detects systematic over/under-confidence |
+| Calibration quality rating | ✅ | excellent/good/fair/poor/uncalibrated |
+| Per-group calibration | ✅ | By regime, timeframe, symbol |
+| ProbabilityAdjuster | ✅ | Adjusts raw confidence using reliability curve |
+| Database integration | ✅ | calibrate_from_database() reads SignalMemory |
+| API endpoints | ✅ | GET /signals/signals/calibration/, POST adjust_confidence |
+| Unit tests | ✅ | 28/28 tests pass |
+
+### Metrics Implemented
+
+| Metric | Description | Range |
+|--------|-------------|-------|
+| Brier Score | mean((predicted - actual)²) | 0=perfect, 1=worst |
+| ECE | Expected Calibration Error | 0=perfect |
+| MCE | Maximum Calibration Error | 0=perfect |
+| Reliability Curve | Predicted vs actual per bucket | Chart data |
+| Quality Rating | excellent/good/fair/poor/uncalibrated | String |
+
+### Files Created/Modified
+
+| File | Action | Description |
+|------|--------|-------------|
+| `crypto_platform/apps/signals/services/calibration.py` | CREATED | CalibrationEngine, ProbabilityAdjuster |
+| `crypto_platform/apps/signals/tests_calibration.py` | CREATED | 28 unit tests |
+| `crypto_platform/apps/signals/services/__init__.py` | MODIFIED | +CalibrationEngine export |
+| `crypto_platform/apps/signals/views.py` | MODIFIED | +calibration, +adjust_confidence endpoints |
+
+### Test Results
+
+```
+28/28 calibration tests pass
+  BrierScoreTest: 4/4
+  ReliabilityCurveTest: 4/4
+  ECEMCETest: 3/3
+  OverconfidenceDetectionTest: 3/3
+  CalibrationQualityTest: 3/3
+  PerGroupCalibrationTest: 3/3
+  ProbabilityAdjusterTest: 3/3
+  EdgeCaseTest: 5/5
+```
+
+### Definition of Done — Phase 66
+
+- [x] Brier Score calculation (0=perfect, 1=worst)
+- [x] Reliability curve with configurable buckets
+- [x] ECE and MCE calculation
+- [x] Overconfidence / underconfidence detection
+- [x] Calibration quality rating
+- [x] Per-group calibration (regime, timeframe, symbol)
+- [x] ProbabilityAdjuster for confidence correction
+- [x] Database integration (reads SignalMemory)
+- [x] API endpoints for calibration and adjustment
+- [x] 28/28 tests pass
 
 ---
 
