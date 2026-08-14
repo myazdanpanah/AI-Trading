@@ -6,7 +6,8 @@ from .views import (
     AIAnalysisViewSet,
     AgentDefinitionViewSet, WorkflowViewSet,
     WorkflowStepViewSet, WorkflowExecutionViewSet,
-    AgentExecutionViewSet, OrchestratorViewSet
+    AgentExecutionViewSet, OrchestratorViewSet,
+    AgentEnsembleViewSet,
 )
 
 router = DefaultRouter()
@@ -21,6 +22,7 @@ router.register(r'workflow-steps', WorkflowStepViewSet)
 router.register(r'workflow-executions', WorkflowExecutionViewSet)
 router.register(r'agent-executions', AgentExecutionViewSet)
 router.register(r'orchestrator', OrchestratorViewSet, basename='orchestrator')
+router.register(r'ensemble', AgentEnsembleViewSet, basename='ensemble')
 
 urlpatterns = [
     path('', include(router.urls)),

@@ -292,6 +292,71 @@ class AgentExecutionViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ['-started_at']
 
 
+class AgentEnsembleViewSet(viewsets.ViewSet):
+    """Agent Ensemble endpoint — runs 5 role-based agents for signal validation."""
+
+    @action(detail=False, methods=['post'])
+    def run(self, request):
+        """Run the agent ensemble on a signal context."""
+        from .services.agent_ensemble import AgentEnsemble
+        from .services.llm_router import AIConfig, AIMode
+
+        signal_ctx = request.data.get('signal_context', {})
+        if not signal_ctx:
+            return Response(
+                {'error': 'signal_context is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            ai_mode = getattr(__import__('django.conf', fromlist=['settings']).settings, 'AI_MODE', 'off')
+            ollama_url = getattr(__import__('django.conf', fromlist=['settings']).settings, 'OLLAMA_BASE_URL', 'http://localhost:11434')
+
+            ai_config = AIConfig(
+                mode=AIMode(ai_mode) if ai_mode in ['off', 'lite', 'standard', 'cloud'] else AIMode.STANDARD,
+                base_url=ollama_url,
+                timeout=50000,
+            )
+            ensemble = AgentEnsemble(config=ai_config)
+
+            result = asyncio.run(ensemble.run(signal_ctx=signal_ctx))
+            return Response(result.to_dict())
+
+        except Exception as e:
+            return Response(
+                {'error': f'Ensemble failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'])
+    def status(self, request):
+        """Get ensemble status and available agents."""
+        from .services.agent_ensemble import AgentEnsemble, AGENT_OUTPUT_SCHEMAS
+        from .services.llm_router import AgentRole, AIConfig, AIMode
+
+        ai_mode = getattr(__import__('django.conf', fromlist=['settings']).settings, 'AI_MODE', 'off')
+
+        agents = []
+        for role in AgentRole:
+            schema = AGENT_OUTPUT_SCHEMAS.get(role, {})
+            agents.append({
+                'role': role.value,
+                'required_fields': schema.get('required', []),
+            })
+
+        return Response({
+            'mode': ai_mode,
+            'agents': agents,
+            'execution_order': [
+                'technical_analyst',
+                'news_analyst',
+                'market_analyst',
+                'risk_analyst',
+                'final_validator',
+            ],
+        })
+
+
 class OrchestratorViewSet(viewsets.ViewSet):
     """AI Orchestrator endpoint."""
 

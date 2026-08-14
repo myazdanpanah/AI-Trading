@@ -51,6 +51,7 @@
 | **62** | **Portfolio Intelligence** | ✅ **COMPLETE** | **100%** |
 | **63** | **Signal Fusion Engine** | ✅ **COMPLETE** | **100%** |
 | **64** | **Local AI Router** | ✅ **COMPLETE** | **100%** |
+| **65** | **Agent Ensemble** | ✅ **COMPLETE** | **100%** |
 
 ---
 
@@ -330,6 +331,66 @@ SignalBacktesterTest:
 
 BEFORE: Technical(35%) + Sentiment(15%) + News(10%) + AI(25%) + Macro(15%)
 AFTER: 8 quant factors (regime-conditioned) -> quant_composite -> AI validation (optional) -> Risk Engine
+
+---
+
+## Phase 65: Agent Ensemble ✅ COMPLETE
+
+### What Was Done
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| AgentEnsemble service | ✅ | 5 role-based agents orchestrated in sequence |
+| AgentContextBuilder | ✅ | Role-specific context generation (Technical, News, Market, Risk, Validator) |
+| AgentOutputSchemas | ✅ | Structured JSON output schemas for all 5 roles |
+| LLMRouter integration | ✅ | Ensemble uses LLMRouter for all agent calls |
+| AI OFF mode | ✅ | Returns quant_only, zero LLM calls |
+| AI LITE mode | ✅ | Runs 2 agents: Technical + Final Validator |
+| AI STANDARD mode | ✅ | Runs all 5 agents in sequence |
+| Signal generation integration | ✅ | Ensemble replaces single LLMRouter call in generate endpoint |
+| API endpoints | ✅ | POST /ai/ensemble/run/, GET /ai/ensemble/status/ |
+| Graceful fallback | ✅ | Failed agents produce neutral output, ensemble continues |
+| Unit tests | ✅ | 24/24 tests pass |
+
+### Agent Roles
+
+| # | Role | Input | Output |
+|---|------|-------|--------|
+| 1 | Technical Analyst | RSI, MACD, trend, VWAP, Ichimoku, stochastic | direction, confidence, patterns, recommendation |
+| 2 | News Analyst | News score, fear/greed, social sentiment, headlines | sentiment, impact, key_events, time_horizon |
+| 3 | Market Analyst | Regime, macro, derivatives, funding, OI | regime_assessment, risk_level, drivers |
+| 4 | Risk Analyst | Composite score, portfolio exposure, drawdown | risk_level, key_risks, position_sizing |
+| 5 | Final Validator | All agent outputs + quant composite | verdict (validate/reject/modify), adjusted_confidence |
+
+### Files Created/Modified
+
+| File | Action | Description |
+|------|--------|-------------|
+| `crypto_platform/apps/ai_engine/services/agent_ensemble.py` | CREATED | AgentEnsemble, AgentContextBuilder, schemas |
+| `crypto_platform/apps/ai_engine/tests_agent_ensemble.py` | CREATED | 24 unit tests |
+| `crypto_platform/apps/ai_engine/views.py` | MODIFIED | +AgentEnsembleViewSet |
+| `crypto_platform/apps/ai_engine/urls.py` | MODIFIED | +ensemble route |
+| `crypto_platform/apps/signals/views.py` | MODIFIED | generate endpoint uses AgentEnsemble |
+
+### Test Results
+
+```
+24/24 agent ensemble tests pass
+18/18 LLM router tests pass (regression)
+```
+
+### Definition of Done — Phase 65
+
+- [x] All 5 agents have defined input/output schemas
+- [x] Agents run in sequence (Technical -> News -> Market -> Risk -> Validator)
+- [x] One model (gemma4) performs all 5 roles
+- [x] AI OFF mode works (zero LLM calls)
+- [x] AI LITE mode runs 2 agents
+- [x] AI STANDARD mode runs 5 agents
+- [x] Failed agents degrade gracefully
+- [x] Final Validator reviews all agent outputs
+- [x] Ensemble integrated into signal generation endpoint
+- [x] 24/24 tests pass
 
 ---
 

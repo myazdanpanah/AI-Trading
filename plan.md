@@ -46,6 +46,7 @@ An enterprise-grade AI-powered cryptocurrency intelligence platform with multi-a
 | **62** | **Portfolio Intelligence** | ✅ |
 | **63** | **Signal Fusion Engine** | ✅ |
 | **64** | **Local AI Router** | ✅ |
+| **65** | **Agent Ensemble** | ✅ |
 
 ---
 
@@ -98,10 +99,13 @@ Upgrade existing 5-factor composite to regime-aware fusion.
 - Model discovery, health checks, structured output
 - AI OFF / AI LITE / AI STANDARD / AI CLOUD modes
 
-### Phase 65: Agent Ensemble
-- Technical Analyst, News Analyst, Market Analyst, Risk Analyst, Final Validator
-- Role-based prompts, input/output schemas
-- Agent performance tracking
+### Phase 65: Agent Ensemble ✅
+5 role-based local agents running sequentially:
+- Technical Analyst, News Analyst, Market Analyst, Risk Analyst, Final Validator ✅
+- Role-based prompts, input/output schemas, structured JSON ✅
+- AI OFF/LITE/STANDARD modes ✅
+- Agent performance tracking ✅
+- 24/24 tests pass ✅
 
 ### Phase 66: Calibration Engine
 - Brier Score, Reliability Curve, Calibration Error

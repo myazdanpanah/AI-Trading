@@ -228,10 +228,11 @@ class SignalViewSet(viewsets.ModelViewSet):
             result['risk_score'] = old_result.get('risk_score', 50)
             result['reasons'] = old_result.get('reasons', [])
 
-            # ── AI Validation via LLMRouter (Phase 64) ───────────────
-            ai_validation_result = None
+            # ── AI Validation via Agent Ensemble (Phase 65) ─────────
+            ensemble_result = None
             try:
-                from apps.ai_engine.services.llm_router import LLMRouter, AIConfig, AIMode, AgentRole
+                from apps.ai_engine.services.agent_ensemble import AgentEnsemble
+                from apps.ai_engine.services.llm_router import AIConfig, AIMode
                 import asyncio
 
                 # Get AI mode from settings
@@ -242,50 +243,63 @@ class SignalViewSet(viewsets.ModelViewSet):
                     ai_config = AIConfig(
                         mode=AIMode(ai_mode) if ai_mode in ['off', 'lite', 'standard', 'cloud'] else AIMode.STANDARD,
                         base_url=ollama_url,
-                        timeout=50000,  # 50 seconds per user request
+                        timeout=50000,
                     )
-                    llm_router = LLMRouter(ai_config)
+                    ensemble = AgentEnsemble(config=ai_config)
 
-                    # Build context for AI validation
-                    ai_context = {
+                    # Build full signal context for ensemble
+                    signal_context = {
+                        'symbol': symbol,
+                        'current_price': float(current_price) if current_price else 0,
                         'quant_composite_score': result.get('quant_composite_score', 50),
+                        'direction': result.get('direction', 'hold'),
+                        'confidence': result.get('confidence', 50),
                         'regime': regime,
                         'technical_score': factor_scores.get('technical', 50),
                         'sentiment_score': factor_scores.get('sentiment', 50),
                         'news_score': factor_scores.get('news', 50),
+                        'macro_score': factor_scores.get('macro', 50),
                         'derivatives_score': 50,
+                        'rsi': technical_data.get('rsi', 50),
+                        'macd_signal': technical_data.get('macd_signal', 'neutral'),
+                        'trend': technical_data.get('trend', 'neutral'),
+                        'volatility': technical_data.get('volatility', 2),
+                        'fear_greed_index': sentiment_data.get('fear_greed_index', 50),
+                        'social_sentiment': sentiment_data.get('social_sentiment', 50),
                     }
 
-                    # Run AI validation
+                    # Run ensemble (all 5 agents in sequence)
                     loop = asyncio.new_event_loop()
-                    ai_response = loop.run_until_complete(
-                        llm_router.analyze(
-                            context=ai_context,
-                            role=AgentRole.FINAL_VALIDATOR,
-                        )
+                    ensemble_result = loop.run_until_complete(
+                        ensemble.run(signal_ctx=signal_context)
                     )
                     loop.close()
 
-                    if ai_response.success and ai_response.parsed_output:
-                        ai_validation_result = ai_response.parsed_output
-                        # Apply AI adjustment to result
-                        if ai_response.parsed_output.get('verdict') == 'validate':
-                            result['ai_validated'] = True
-                            result['ai_adjustment'] = ai_response.parsed_output.get('adjusted_confidence', result['confidence'])
-                            result['ai_risks'] = ai_response.parsed_output.get('risks', [])
-                            result['ai_reasons'] = ai_response.parsed_output.get('reasons', [])
-                        elif ai_response.parsed_output.get('verdict') == 'reject':
-                            result['direction'] = 'hold'
-                            result['confidence'] = max(10, result['confidence'] - 20)
-                            result['ai_validated'] = False
-                            result['ai_risks'] = ai_response.parsed_output.get('risks', ['AI rejected signal'])
+                    # Apply ensemble verdict to result
+                    if ensemble_result.verdict == 'validate':
+                        result['ai_validated'] = True
+                        result['confidence'] = ensemble_result.adjusted_confidence
+                        result['ai_risks'] = ensemble_result.risks
+                        result['ai_reasons'] = ensemble_result.reasons
+                    elif ensemble_result.verdict == 'reject':
+                        result['direction'] = 'hold'
+                        result['confidence'] = max(10, result['confidence'] - 20)
+                        result['ai_validated'] = False
+                        result['ai_risks'] = ensemble_result.risks or ['Ensemble rejected signal']
+                    elif ensemble_result.verdict == 'modify':
+                        result['confidence'] = ensemble_result.adjusted_confidence
+                        result['ai_risks'] = ensemble_result.risks
+                        result['ai_reasons'] = ensemble_result.reasons
 
-                        logger.info(
-                            f"AI validation: {ai_response.parsed_output.get('verdict')} | "
-                            f"Latency: {ai_response.latency_ms}ms | Model: {ai_response.model}"
-                        )
+                    result['ensemble_result'] = ensemble_result.to_dict()
+
+                    logger.info(
+                        f"Ensemble: {ensemble_result.verdict} | "
+                        f"Agents: {ensemble_result.agents_succeeded}/5 | "
+                        f"Latency: {ensemble_result.total_latency_ms}ms"
+                    )
             except Exception as ai_err:
-                logger.warning(f"AI validation failed (continuing with quant-only): {ai_err}")
+                logger.warning(f"Agent ensemble failed (continuing with quant-only): {ai_err}")
 
             # ── Save to database ─────────────────────────────────────
             signal = None
@@ -327,7 +341,7 @@ class SignalViewSet(viewsets.ModelViewSet):
                     SignalGenerationRequest.objects.create(
                         symbol=result['symbol'],
                         timeframe=result['timeframe'],
-                        input_data=decimal_to_float(data),
+                        input_data=decimal_to_float({**data, 'ensemble_result': ensemble_result.to_dict()} if ensemble_result else data),
                         weights_used=result.get('weights_used', {}),
                         status='completed',
                     )
@@ -361,9 +375,9 @@ class SignalViewSet(viewsets.ModelViewSet):
                     'is_active': True,
                 }
 
-            # Add AI validation to response
-            if ai_validation_result:
-                serializable_result['ai_validation'] = ai_validation_result
+            # Add ensemble results to response
+            if ensemble_result:
+                serializable_result['agent_ensemble'] = ensemble_result.to_dict()
 
             return Response({
                 'signal': signal_data,
