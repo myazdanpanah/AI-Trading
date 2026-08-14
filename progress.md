@@ -48,6 +48,7 @@
 | **59** | **Risk Engine** | ✅ **COMPLETE** | **100%** |
 | **60** | **Derivatives Intelligence** | ✅ **COMPLETE** | **100%** |
 | **61** | **Market Regime Engine** | ✅ **COMPLETE** | **100%** |
+| **62** | **Portfolio Intelligence** | ✅ **COMPLETE** | **100%** |
 
 ---
 
@@ -272,6 +273,41 @@ SignalBacktesterTest:
 - [x] Historical reproducibility
 - [x] No future data in regime detection
 - [x] 16/16 tests pass
+
+## Phase 62: Portfolio Intelligence ✅ COMPLETE
+
+### What Was Done
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| PortfolioIntelligence service | ✅ | Correlation, VaR, beta, concentration, effective exposure |
+| Correlation matrix | ✅ | Pearson correlation across all held positions |
+| Beta calculation | ✅ | vs BTC and vs total market benchmark |
+| Concentration metrics | ✅ | Per-asset %, HHI index, max concentration |
+| Effective exposure | ✅ | Netting correlated positions for true market exposure |
+| BTC/Stablecoin tracking | ✅ | Dedicated exposure calculations |
+| Value at Risk (VaR) | ✅ | 95% and 99% historical simulation |
+| Conditional VaR | ✅ | Expected shortfall (CVaR) |
+| Drawdown tracking | ✅ | Max drawdown and current drawdown |
+| Sharpe/Sortino ratios | ✅ | Risk-adjusted return metrics |
+| Unit tests | ✅ | 36/36 tests pass |
+
+### Files Created/Modified
+
+| File | Action | Description |
+|------|--------|-------------|
+| `crypto_platform/apps/portfolio/services/portfolio_intelligence.py` | CREATED | PortfolioIntelligence service |
+| `crypto_platform/apps/portfolio/tests_intelligence.py` | CREATED | 36 unit tests |
+
+### Definition of Done — Phase 62
+
+- [x] Correlation calculation correctness
+- [x] Concentration limits trigger correctly
+- [x] Effective exposure differs from naive summed exposure
+- [x] VaR calculation against reference method
+- [x] Beta vs BTC and total market
+- [x] BTC/Stablecoin exposure tracking
+- [x] 36/36 tests pass
 
 ---
 
