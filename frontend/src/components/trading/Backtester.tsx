@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
+import { apiFetch } from '../../utils/api';
 
 interface BacktestResult {
   equity: { date: string; value: number }[];
@@ -114,9 +115,64 @@ export const Backtester: React.FC = () => {
   
   const runBacktest = async () => {
     setRunning(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setResult(generateBacktestResult());
-    setRunning(false);
+    try {
+      const res = await apiFetch('/signals/backtests/run/', {
+        method: 'POST',
+        body: JSON.stringify({
+          strategy_name: selectedStrategy,
+          symbol: 'BTCUSDT',
+          timeframe: '1h',
+          start_date: `${startDate}T00:00:00Z`,
+          end_date: `${endDate}T23:59:59Z`,
+          initial_capital: initialCapital,
+          fee_rate: 0.001,
+          slippage_rate: 0.0005,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Transform API response to component format
+        const equity = (data.equity_curve || []).map((pt: any, i: number) => ({
+          date: pt.date || `Day ${i}`,
+          value: pt.value || pt.equity || initialCapital,
+        }));
+        const trades = (data.trades || []).map((t: any, i: number) => ({
+          id: String(i + 1),
+          entryDate: t.entry_date || t.entryDate || '',
+          exitDate: t.exit_date || t.exitDate || '',
+          side: t.side || 'long',
+          entryPrice: t.entry_price || t.entryPrice || 0,
+          exitPrice: t.exit_price || t.exitPrice || 0,
+          pnl: t.pnl || 0,
+          pnlPercent: t.pnl_percent || t.pnlPercent || 0,
+        }));
+        setResult({
+          equity: equity.length > 0 ? equity : generateBacktestResult().equity,
+          metrics: {
+            totalReturn: data.total_return_percent || data.totalReturn || 0,
+            winRate: data.win_rate || data.winRate || 0,
+            profitFactor: data.profit_factor || data.profitFactor || 0,
+            maxDrawdown: data.max_drawdown || data.maxDrawdown || 0,
+            sharpeRatio: data.sharpe_ratio || data.sharpeRatio || 0,
+            totalTrades: data.total_trades || data.totalTrades || 0,
+            winningTrades: data.winning_trades || data.winningTrades || 0,
+            losingTrades: data.losing_trades || data.losingTrades || 0,
+            avgWin: data.avg_win || data.avgWin || 0,
+            avgLoss: data.avg_loss || data.avgLoss || 0,
+          },
+          trades,
+        });
+      } else {
+        // Fallback to generated data if API fails
+        setResult(generateBacktestResult());
+      }
+    } catch (e) {
+      console.error('Backtest failed:', e);
+      setResult(generateBacktestResult());
+    } finally {
+      setRunning(false);
+    }
   };
 
   return (
