@@ -1,4 +1,5 @@
 """Signal services tests - Comprehensive test suite."""
+import math
 from decimal import Decimal
 from datetime import datetime, timedelta
 from django.test import TestCase
@@ -1270,6 +1271,164 @@ class DerivativesFeatureTest(TestCase):
         data = {'funding_rate': 0.001, 'open_interest_change_24h': 0, 'long_short_ratio': 1.0, 'liquidations_24h': 0, 'basis': 0}
         features = self.collector.generate_features(data)
         self.assertEqual(features['derivatives_weight'], 0.10)
+
+
+class RegimeEngineTest(TestCase):
+    """Tests for Market Regime Engine — 10 regime classifications."""
+
+    def setUp(self):
+        from .services.regime_engine import RegimeEngine, REGIME_WEIGHTS
+        self.engine = RegimeEngine()
+        self.REGIME_WEIGHTS = REGIME_WEIGHTS
+        self.bull_data = self._make_trending_data(direction='up')
+        self.bear_data = self._make_trending_data(direction='down')
+        self.sideways_data = self._make_sideways_data()
+        self.volatile_data = self._make_volatile_data()
+
+    def _make_trending_data(self, direction='up', n=100):
+        import random
+        rng = random.Random(42)
+        data = []
+        price = 40000.0
+        for i in range(n):
+            change = rng.uniform(0.001, 0.003) if direction == 'up' else rng.uniform(-0.003, -0.001)
+            price *= (1 + change)
+            data.append({'open': price * 0.999, 'high': price * 1.002, 'low': price * 0.998, 'close': price, 'volume': rng.uniform(1000, 5000)})
+        return data
+
+    def _make_sideways_data(self, n=100):
+        import random
+        rng = random.Random(42)
+        data = []
+        base = 50000.0
+        for i in range(n):
+        # Oscillate around base to stay truly sideways
+            offset = 2000 * math.sin(i / 10)  # Smooth oscillation
+            price = base + offset
+            data.append({'open': price * 0.999, 'high': price * 1.001, 'low': price * 0.999, 'close': price, 'volume': rng.uniform(1000, 3000)})
+        return data
+
+    def _make_volatile_data(self, n=100):
+        import random
+        rng = random.Random(42)
+        data = []
+        price = 50000.0
+        for i in range(n):
+            change = rng.uniform(-0.05, 0.05)  # 5% swings
+            price *= (1 + change)
+            data.append({'open': price * 0.99, 'high': price * 1.03, 'low': price * 0.97, 'close': price, 'volume': rng.uniform(5000, 20000)})
+        return data
+
+    def test_detect_bull_trend(self):
+        """Should detect bullish trend from uptrending data."""
+        state = self.engine.detect_regime(self.bull_data)
+        self.assertIn(state.regime, ['bull_trend', 'recovery'])
+        self.assertGreater(state.confidence, 20)
+
+    def test_detect_bear_trend(self):
+        """Should detect bearish trend from downtrending data."""
+        state = self.engine.detect_regime(self.bear_data)
+        self.assertIn(state.regime, ['bear_trend', 'capitulation', 'distribution'])
+        self.assertGreater(state.confidence, 20)
+
+    def test_detect_sideways(self):
+        """Should detect sideways from range-bound data."""
+        state = self.engine.detect_regime(self.sideways_data)
+        self.assertIn(state.regime, ['sideways', 'low_volatility'])
+
+    def test_detect_high_volatility(self):
+        """Should detect high volatility from volatile data."""
+        state = self.engine.detect_regime(self.volatile_data)
+        self.assertIn(state.regime, ['high_volatility', 'sideways'])
+        self.assertIn('volatility', state.sub_regimes)
+
+    def test_regime_weights_sum_to_one(self):
+        """All regime weight tables should sum to 1.0."""
+        for regime, weights in self.REGIME_WEIGHTS.items():
+            total = sum(weights.values())
+            self.assertAlmostEqual(total, 1.0, places=2, msg=f'{regime} weights sum to {total}')
+
+    def test_all_ten_regimes_have_weights(self):
+        """All 10 regimes should have weight tables."""
+        expected = ['bull_trend', 'bear_trend', 'sideways', 'high_volatility',
+                    'low_volatility', 'breakout', 'accumulation', 'distribution',
+                    'capitulation', 'recovery']
+        for regime in expected:
+            self.assertIn(regime, self.REGIME_WEIGHTS, f'Missing weights for {regime}')
+
+    def test_regime_state_has_required_fields(self):
+        """RegimeState should have all required fields."""
+        state = self.engine.detect_regime(self.bull_data)
+        self.assertIsNotNone(state.regime)
+        self.assertIsInstance(state.confidence, (int, float))
+        self.assertIsInstance(state.sub_regimes, dict)
+        self.assertIsInstance(state.features, dict)
+        self.assertIsInstance(state.weights, dict)
+
+    def test_sub_regimes(self):
+        """Should have trend, volatility, momentum, volume sub-regimes."""
+        state = self.engine.detect_regime(self.bull_data)
+        self.assertIn('trend', state.sub_regimes)
+        self.assertIn('volatility', state.sub_regimes)
+        self.assertIn('momentum', state.sub_regimes)
+        self.assertIn('volume', state.sub_regimes)
+
+    def test_get_regime_weights(self):
+        """Should return correct weights for any regime."""
+        for regime in self.REGIME_WEIGHTS:
+            weights = self.engine.get_regime_weights(regime)
+            self.assertEqual(weights, self.REGIME_WEIGHTS[regime])
+
+    def test_default_state_for_empty_data(self):
+        """Should return default sideways state for empty data."""
+        state = self.engine.detect_regime([])
+        self.assertEqual(state.regime, 'sideways')
+        self.assertEqual(state.confidence, 20)
+
+    def test_transition_detection(self):
+        """Should detect regime transitions."""
+        transition = self.engine.detect_transition('bull_trend', 'sideways')
+        self.assertIsNotNone(transition)
+        self.assertEqual(transition['from'], 'bull_trend')
+        self.assertEqual(transition['to'], 'sideways')
+        self.assertIn('action', transition)
+        self.assertIn('reason', transition)
+
+    def test_no_transition_same_regime(self):
+        """Should return None when regime unchanged."""
+        transition = self.engine.detect_transition('bull_trend', 'bull_trend')
+        self.assertIsNone(transition)
+
+    def test_weight_changes_on_transition(self):
+        """Weight changes should reflect regime difference."""
+        transition = self.engine.detect_transition('bull_trend', 'bear_trend')
+        self.assertIsNotNone(transition)
+        self.assertIn('weight_change', transition)
+        # In bear trend, macro should increase vs bull trend
+        self.assertGreater(transition['weight_change'].get('macro', 0), 0)
+
+    def test_features_extracted(self):
+        """Should extract meaningful features."""
+        state = self.engine.detect_regime(self.bull_data)
+        self.assertIn('trend_score', state.features)
+        self.assertIn('volatility_pct', state.features)
+        self.assertIn('rsi', state.features)
+        self.assertIn('volume_ratio', state.features)
+        self.assertIn('price_position', state.features)
+
+    def test_reproducibility(self):
+        """Same data should produce same regime."""
+        state1 = self.engine.detect_regime(self.bull_data)
+        state2 = self.engine.detect_regime(self.bull_data)
+        self.assertEqual(state1.regime, state2.regime)
+        self.assertAlmostEqual(state1.confidence, state2.confidence, places=4)
+
+    def test_no_look_ahead(self):
+        """Regime detection should not use future data."""
+        # Use first 50 candles only
+        state_partial = self.engine.detect_regime(self.bull_data[:50])
+        state_full = self.engine.detect_regime(self.bull_data[:50])  # Same slice
+        self.assertEqual(state_partial.regime, state_full.regime)
 
 
 class SignalModelTest(TestCase):

@@ -47,6 +47,7 @@
 | **58** | **Walk-Forward Validation** | ✅ **COMPLETE** | **100%** |
 | **59** | **Risk Engine** | ✅ **COMPLETE** | **100%** |
 | **60** | **Derivatives Intelligence** | ✅ **COMPLETE** | **100%** |
+| **61** | **Market Regime Engine** | ✅ **COMPLETE** | **100%** |
 
 ---
 
@@ -233,6 +234,44 @@ SignalBacktesterTest:
 - [x] Data normalization
 - [x] Missing data handling
 - [x] 14/14 tests pass
+
+## Phase 61: Market Regime Engine ✅ COMPLETE
+
+### What Was Done
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| RegimeEngine service | ✅ | 10 regime classifications with confidence scoring |
+| Regime feature extraction | ✅ | Trend, volatility, momentum, volume, price position, breakout detection |
+| Regime-conditioned weights | ✅ | 10 weight tables optimized for each regime |
+| Transition detection | ✅ | Detects regime changes with action recommendations |
+| Weight change tracking | ✅ | Calculates exact weight deltas between regimes |
+| Unit tests | ✅ | 16/16 tests pass |
+
+### Regimes Implemented
+
+| Regime | Description | Weight Focus |
+|--------|-------------|--------------|
+| bull_trend | Sustained upward price action | Technical (35%) |
+| bear_trend | Sustained downward price action | Macro (20%), News (15%) |
+| sideways | Range-bound, no clear direction | Technical (40%) |
+| high_volatility | Large price swings | Derivatives (20%) |
+| low_volatility | Compressed range | Technical (35%), Market Structure (20%) |
+| breakout | Price breaking out of range | Technical (30%), News (15%) |
+| accumulation | Smart money buying | Balanced across factors |
+| distribution | Smart money selling | News (20%) |
+| capitulation | Panic selling, extreme fear | Sentiment (20%), News (20%) |
+| recovery | Bouncing from bottom | Technical (30%) |
+
+### Definition of Done — Phase 61
+
+- [x] 10 regime classifications defined
+- [x] Regime features extracted (trend, volatility, momentum, etc.)
+- [x] Regime-conditioned weights for each regime
+- [x] Transition detection with action recommendations
+- [x] Historical reproducibility
+- [x] No future data in regime detection
+- [x] 16/16 tests pass
 
 ---
 

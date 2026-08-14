@@ -5,5 +5,6 @@ from .risk_engine import RiskEngine
 from .portfolio_tracker import PortfolioTracker
 from .backtester import SignalBacktester
 from .walk_forward import WalkForwardEngine
+from .regime_engine import RegimeEngine
 
-__all__ = ['SignalGenerator', 'RiskManager', 'RiskEngine', 'PortfolioTracker', 'SignalBacktester', 'WalkForwardEngine']
+__all__ = ['SignalGenerator', 'RiskManager', 'RiskEngine', 'PortfolioTracker', 'SignalBacktester', 'WalkForwardEngine', 'RegimeEngine']
