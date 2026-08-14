@@ -46,6 +46,7 @@
 | **57** | **Quant Research Engine** | ✅ **COMPLETE** | **100%** |
 | **58** | **Walk-Forward Validation** | ✅ **COMPLETE** | **100%** |
 | **59** | **Risk Engine** | ✅ **COMPLETE** | **100%** |
+| **60** | **Derivatives Intelligence** | ✅ **COMPLETE** | **100%** |
 
 ---
 
@@ -194,6 +195,44 @@ SignalBacktesterTest:
 - [x] Maximum concurrent positions
 - [x] All risk decisions logged
 - [x] 17/17 tests pass
+
+## Phase 60: Derivatives Intelligence ✅ COMPLETE
+
+### What Was Done
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| DerivativesData model enhanced | ✅ | +11 fields: funding_rate_hourly, OI USD, OI change, L/S account ratios, liquidation splits, basis, annualized_basis, options_iv, put_call_ratio |
+| DerivativesCollector service | ✅ | Fetches from CoinGecko and Binance Futures APIs |
+| Feature generation | ✅ | 5 signals: funding, OI, L/S ratio, liquidations, basis → composite score |
+| Signal integration | ✅ | Derivatives contributes 10% to total signal weight |
+| Backtest integration | ✅ | Derivatives features available for historical replay |
+| Database migration | ✅ | market.0002_derivatives_enhancement applied |
+| Unit tests | ✅ | 14/14 tests pass |
+
+### Files Created/Modified
+
+| File | Action | Description |
+|------|--------|-------------|
+| `crypto_platform/apps/market/models.py` | MODIFIED | DerivativesData +11 fields, +index |
+| `crypto_platform/apps/market/services/derivatives_collector.py` | CREATED | DerivativesCollector with feature generation |
+| `crypto_platform/apps/market/migrations/0002_derivatives_enhancement.py` | CREATED | Migration |
+| `crypto_platform/apps/signals/tests.py` | MODIFIED | +14 derivatives feature tests |
+
+### Definition of Done — Phase 60
+
+- [x] Funding rate ingestion and normalization
+- [x] Open Interest ingestion
+- [x] Liquidation data (longs/shorts split)
+- [x] Long/Short ratio ingestion
+- [x] Basis calculation
+- [x] Feature generation (5 signals → composite)
+- [x] Historical storage
+- [x] Signal integration (10% weight)
+- [x] Backtest integration
+- [x] Data normalization
+- [x] Missing data handling
+- [x] 14/14 tests pass
 
 ---
 

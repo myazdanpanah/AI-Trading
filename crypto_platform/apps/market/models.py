@@ -114,13 +114,31 @@ class OrderBook(models.Model):
 
 
 class DerivativesData(models.Model):
-    """Derivatives market data."""
+    """Derivatives market data — funding, OI, liquidations, L/S ratio, basis."""
     id = models.BigAutoField(primary_key=True)
     symbol = models.CharField(max_length=20, db_index=True)
+    # Funding rate
     funding_rate = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    funding_rate_hourly = models.DecimalField(max_digits=10, decimal_places=8, default=0, help_text='Annualized funding rate')
+    # Open Interest
     open_interest = models.DecimalField(max_digits=30, decimal_places=8, default=0)
+    open_interest_usd = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    open_interest_change_24h = models.DecimalField(max_digits=10, decimal_places=4, default=0, help_text='OI change in % over 24h')
+    # Long/Short Ratio
     long_short_ratio = models.DecimalField(max_digits=10, decimal_places=4, default=1)
+    long_account_ratio = models.DecimalField(max_digits=5, decimal_places=4, default=0.5, help_text='Ratio of long accounts')
+    short_account_ratio = models.DecimalField(max_digits=5, decimal_places=4, default=0.5, help_text='Ratio of short accounts')
+    # Liquidations
     liquidations_24h = models.DecimalField(max_digits=30, decimal_places=8, default=0)
+    liquidation_longs_24h = models.DecimalField(max_digits=30, decimal_places=8, default=0)
+    liquidation_shorts_24h = models.DecimalField(max_digits=30, decimal_places=8, default=0)
+    # Basis (futures vs spot)
+    basis = models.DecimalField(max_digits=10, decimal_places=6, default=0, help_text='Futures premium over spot (%)')
+    annualized_basis = models.DecimalField(max_digits=10, decimal_places=4, default=0, help_text='Annualized basis (%)')
+    # Options (where available)
+    options_iv = models.DecimalField(max_digits=10, decimal_places=4, default=0, help_text='Implied volatility')
+    put_call_ratio = models.DecimalField(max_digits=10, decimal_places=4, default=1, help_text='Put/Call volume ratio')
+    # Timestamps
     timestamp = models.DateTimeField(db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -129,6 +147,9 @@ class DerivativesData(models.Model):
         verbose_name_plural = 'derivatives data'
         db_table = 'derivatives_data'
         ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['symbol', 'timestamp']),
+        ]
 
     def __str__(self):
         return f"{self.symbol} Derivatives - {self.timestamp}"

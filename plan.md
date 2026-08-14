@@ -41,6 +41,7 @@ An enterprise-grade AI-powered cryptocurrency intelligence platform with multi-a
 | **57** | **Quant Research Engine** | ✅ |
 | **58** | **Walk-Forward Validation** | ✅ |
 | **59** | **Risk Engine** | ✅ |
+| **60** | **Derivatives Intelligence** | ✅ |
 
 ---
 

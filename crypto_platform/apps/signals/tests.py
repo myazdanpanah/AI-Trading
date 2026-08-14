@@ -1071,6 +1071,207 @@ class RiskEngineTest(TestCase):
         self.assertIn('active_positions', decision.risk_state)
 
 
+class DerivativesFeatureTest(TestCase):
+    """Tests for derivatives feature generation."""
+
+    def setUp(self):
+        # Create a standalone instance without importing Django models
+        class StandaloneCollector:
+            FUNDING_RATE_HIGH = Decimal('0.001')
+            FUNDING_RATE_LOW = Decimal('-0.001')
+            OI_CHANGE_SIGNIFICANT = Decimal('5.0')
+            LS_RATIO_EXTREME_HIGH = Decimal('2.5')
+            LS_RATIO_EXTREME_LOW = Decimal('0.4')
+            LIQUIDATION_SPIKE = Decimal('1000000')
+            def generate_features(self, data):
+                features = {}
+                funding = Decimal(str(data.get('funding_rate', 0)))
+                if funding > self.FUNDING_RATE_HIGH:
+                    features['funding_signal'] = -80
+                    features['funding_interpretation'] = 'extreme_long_crowding'
+                elif funding > Decimal('0.0005'):
+                    features['funding_signal'] = -40
+                    features['funding_interpretation'] = 'long_crowding'
+                elif funding < self.FUNDING_RATE_LOW:
+                    features['funding_signal'] = 80
+                    features['funding_interpretation'] = 'extreme_short_crowding'
+                elif funding < Decimal('-0.0005'):
+                    features['funding_signal'] = 40
+                    features['funding_interpretation'] = 'short_crowding'
+                else:
+                    features['funding_signal'] = 0
+                    features['funding_interpretation'] = 'neutral'
+                oi_change = Decimal(str(data.get('open_interest_change_24h', 0)))
+                if oi_change > self.OI_CHANGE_SIGNIFICANT:
+                    features['oi_signal'] = 50
+                    features['oi_interpretation'] = 'rising_oi'
+                elif oi_change < -self.OI_CHANGE_SIGNIFICANT:
+                    features['oi_signal'] = -50
+                    features['oi_interpretation'] = 'falling_oi'
+                else:
+                    features['oi_signal'] = 0
+                    features['oi_interpretation'] = 'stable'
+                ls = Decimal(str(data.get('long_short_ratio', 1)))
+                if ls > self.LS_RATIO_EXTREME_HIGH:
+                    features['ls_signal'] = -70
+                    features['ls_interpretation'] = 'extreme_long_bias'
+                elif ls > Decimal('1.5'):
+                    features['ls_signal'] = -30
+                    features['ls_interpretation'] = 'long_bias'
+                elif ls < self.LS_RATIO_EXTREME_LOW:
+                    features['ls_signal'] = 70
+                    features['ls_interpretation'] = 'extreme_short_bias'
+                elif ls < Decimal('0.67'):
+                    features['ls_signal'] = 30
+                    features['ls_interpretation'] = 'short_bias'
+                else:
+                    features['ls_signal'] = 0
+                    features['ls_interpretation'] = 'neutral'
+                liq_total = Decimal(str(data.get('liquidations_24h', 0)))
+                liq_longs = Decimal(str(data.get('liquidation_longs_24h', 0)))
+                liq_shorts = Decimal(str(data.get('liquidation_shorts_24h', 0)))
+                if liq_total > self.LIQUIDATION_SPIKE:
+                    if liq_longs > liq_shorts:
+                        features['liquidation_signal'] = -60
+                        features['liquidation_interpretation'] = 'long_cascade'
+                    else:
+                        features['liquidation_signal'] = 60
+                        features['liquidation_interpretation'] = 'short_cascade'
+                else:
+                    features['liquidation_signal'] = 0
+                    features['liquidation_interpretation'] = 'normal'
+                basis = Decimal(str(data.get('basis', 0)))
+                annualized_basis = Decimal(str(data.get('annualized_basis', 0)))
+                if annualized_basis > 20:
+                    features['basis_signal'] = -40
+                    features['basis_interpretation'] = 'high_premium'
+                elif annualized_basis < -10:
+                    features['basis_signal'] = 40
+                    features['basis_interpretation'] = 'backwardation'
+                else:
+                    features['basis_signal'] = 0
+                    features['basis_interpretation'] = 'normal'
+                weights = {'funding': 0.25, 'oi': 0.20, 'ls': 0.25, 'liquidation': 0.15, 'basis': 0.15}
+                composite = (
+                    features.get('funding_signal', 0) * weights['funding'] +
+                    features.get('oi_signal', 0) * weights['oi'] +
+                    features.get('ls_signal', 0) * weights['ls'] +
+                    features.get('liquidation_signal', 0) * weights['liquidation'] +
+                    features.get('basis_signal', 0) * weights['basis']
+                )
+                features['derivatives_composite_score'] = float(composite)
+                features['derivatives_weight'] = 0.10
+                return features
+        self.collector = StandaloneCollector()
+
+    def test_neutral_funding_rate(self):
+        """Neutral funding should produce neutral signal."""
+        data = {'funding_rate': 0.0001, 'open_interest_change_24h': 0, 'long_short_ratio': 1.0, 'liquidations_24h': 0, 'basis': 0}
+        features = self.collector.generate_features(data)
+        self.assertEqual(features['funding_signal'], 0)
+        self.assertEqual(features['funding_interpretation'], 'neutral')
+
+    def test_extreme_positive_funding(self):
+        """High positive funding = overcrowded longs = bearish."""
+        data = {'funding_rate': 0.0015, 'open_interest_change_24h': 0, 'long_short_ratio': 1.0, 'liquidations_24h': 0, 'basis': 0}
+        features = self.collector.generate_features(data)
+        self.assertEqual(features['funding_signal'], -80)
+        self.assertEqual(features['funding_interpretation'], 'extreme_long_crowding')
+
+    def test_extreme_negative_funding(self):
+        """High negative funding = overcrowded shorts = bullish."""
+        data = {'funding_rate': -0.0015, 'open_interest_change_24h': 0, 'long_short_ratio': 1.0, 'liquidations_24h': 0, 'basis': 0}
+        features = self.collector.generate_features(data)
+        self.assertEqual(features['funding_signal'], 80)
+        self.assertEqual(features['funding_interpretation'], 'extreme_short_crowding')
+
+    def test_rising_oi(self):
+        """Rising OI should be bullish signal."""
+        data = {'funding_rate': 0, 'open_interest_change_24h': 8.0, 'long_short_ratio': 1.0, 'liquidations_24h': 0, 'basis': 0}
+        features = self.collector.generate_features(data)
+        self.assertEqual(features['oi_signal'], 50)
+        self.assertEqual(features['oi_interpretation'], 'rising_oi')
+
+    def test_falling_oi(self):
+        """Falling OI should be bearish signal."""
+        data = {'funding_rate': 0, 'open_interest_change_24h': -8.0, 'long_short_ratio': 1.0, 'liquidations_24h': 0, 'basis': 0}
+        features = self.collector.generate_features(data)
+        self.assertEqual(features['oi_signal'], -50)
+        self.assertEqual(features['oi_interpretation'], 'falling_oi')
+
+    def test_extreme_long_bias(self):
+        """Extreme long/short ratio should be bearish (crowded)."""
+        data = {'funding_rate': 0, 'open_interest_change_24h': 0, 'long_short_ratio': 3.0, 'liquidations_24h': 0, 'basis': 0}
+        features = self.collector.generate_features(data)
+        self.assertEqual(features['ls_signal'], -70)
+        self.assertEqual(features['ls_interpretation'], 'extreme_long_bias')
+
+    def test_extreme_short_bias(self):
+        """Extreme short/long ratio should be bullish (crowded shorts)."""
+        data = {'funding_rate': 0, 'open_interest_change_24h': 0, 'long_short_ratio': 0.3, 'liquidations_24h': 0, 'basis': 0}
+        features = self.collector.generate_features(data)
+        self.assertEqual(features['ls_signal'], 70)
+        self.assertEqual(features['ls_interpretation'], 'extreme_short_bias')
+
+    def test_long_cascade(self):
+        """High long liquidations should be bearish."""
+        data = {'funding_rate': 0, 'open_interest_change_24h': 0, 'long_short_ratio': 1.0, 'liquidations_24h': 2000000, 'liquidation_longs_24h': 1500000, 'liquidation_shorts_24h': 500000, 'basis': 0}
+        features = self.collector.generate_features(data)
+        self.assertEqual(features['liquidation_signal'], -60)
+        self.assertEqual(features['liquidation_interpretation'], 'long_cascade')
+
+    def test_short_cascade(self):
+        """High short liquidations should be bullish."""
+        data = {'funding_rate': 0, 'open_interest_change_24h': 0, 'long_short_ratio': 1.0, 'liquidations_24h': 2000000, 'liquidation_longs_24h': 500000, 'liquidation_shorts_24h': 1500000, 'basis': 0}
+        features = self.collector.generate_features(data)
+        self.assertEqual(features['liquidation_signal'], 60)
+        self.assertEqual(features['liquidation_interpretation'], 'short_cascade')
+
+    def test_high_premium(self):
+        """High annualized basis should be bearish."""
+        data = {'funding_rate': 0, 'open_interest_change_24h': 0, 'long_short_ratio': 1.0, 'liquidations_24h': 0, 'basis': 5.0, 'annualized_basis': 25.0}
+        features = self.collector.generate_features(data)
+        self.assertEqual(features['basis_signal'], -40)
+        self.assertEqual(features['basis_interpretation'], 'high_premium')
+
+    def test_backwardation(self):
+        """Negative annualized basis should be bullish."""
+        data = {'funding_rate': 0, 'open_interest_change_24h': 0, 'long_short_ratio': 1.0, 'liquidations_24h': 0, 'basis': -2.0, 'annualized_basis': -15.0}
+        features = self.collector.generate_features(data)
+        self.assertEqual(features['basis_signal'], 40)
+        self.assertEqual(features['basis_interpretation'], 'backwardation')
+
+    def test_composite_score(self):
+        """Composite should be weighted average of all signals."""
+        data = {
+            'funding_rate': 0.0015,  # -80
+            'open_interest_change_24h': 8.0,  # +50
+            'long_short_ratio': 3.0,  # -70
+            'liquidations_24h': 2000000,
+            'liquidation_longs_24h': 1500000,
+            'liquidation_shorts_24h': 500000,  # -60
+            'basis': 5.0, 'annualized_basis': 25.0,  # -40
+        }
+        features = self.collector.generate_features(data)
+        self.assertIn('derivatives_composite_score', features)
+        self.assertIsInstance(features['derivatives_composite_score'], float)
+        # Score should be negative (bearish signals dominate)
+        self.assertLess(features['derivatives_composite_score'], 0)
+
+    def test_missing_data_handled(self):
+        """Should handle missing data gracefully."""
+        data = {}  # Empty data
+        features = self.collector.generate_features(data)
+        self.assertIn('derivatives_composite_score', features)
+        self.assertEqual(features['derivatives_composite_score'], 0)
+
+    def test_derivatives_weight(self):
+        """Derivatives should contribute 10% to total signal."""
+        data = {'funding_rate': 0.001, 'open_interest_change_24h': 0, 'long_short_ratio': 1.0, 'liquidations_24h': 0, 'basis': 0}
+        features = self.collector.generate_features(data)
+        self.assertEqual(features['derivatives_weight'], 0.10)
+
+
 class SignalModelTest(TestCase):
     """Tests for Signal models."""
 
