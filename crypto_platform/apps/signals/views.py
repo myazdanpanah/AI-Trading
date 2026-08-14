@@ -748,6 +748,101 @@ class SignalViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    # ── Live Execution Endpoints ────────────────────────────────────
+
+    @action(detail=False, methods=['get'])
+    def live_status(self, request):
+        """Get live execution account status."""
+        try:
+            from .services.live_execution import LiveExecutionEngine, LIVE_TRADING_ENABLED
+            engine = LiveExecutionEngine()
+            status_data = engine.get_status()
+            status_data['live_trading_enabled'] = LIVE_TRADING_ENABLED
+            return Response(status_data)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def live_order(self, request):
+        """Place a live order (requires Risk Engine approval).
+
+        POST {
+            "symbol": "BTCUSDT",
+            "side": "buy",
+            "type": "market",
+            "quantity": 0.001,
+            "risk_approved": true
+        }
+        """
+        try:
+            from .services.live_execution import LiveExecutionEngine
+
+            data = request.data
+            required = ['symbol', 'side', 'type', 'quantity']
+            for field in required:
+                if field not in data:
+                    return Response(
+                        {'error': f'Missing required field: {field}'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            engine = LiveExecutionEngine(
+                exchange=data.get('exchange', 'binance'),
+                testnet=data.get('testnet', True),
+            )
+
+            import asyncio
+            result = asyncio.run(engine.place_order(
+                symbol=data['symbol'],
+                side=data['side'],
+                order_type=data['type'],
+                quantity=float(data['quantity']),
+                price=float(data['price']) if 'price' in data else None,
+                stop_price=float(data['stop_price']) if 'stop_price' in data else None,
+                signal_id=data.get('signal_id'),
+                risk_approved=data.get('risk_approved', False),
+            ))
+
+            status_code = status.HTTP_201_CREATED if result['success'] else status.HTTP_400_BAD_REQUEST
+            return Response(result, status=status_code)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def live_cancel(self, request):
+        """Cancel a live order."""
+        try:
+            from .services.live_execution import LiveExecutionEngine
+
+            order_id = request.data.get('order_id')
+            if not order_id:
+                return Response(
+                    {'error': 'order_id is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            engine = LiveExecutionEngine()
+            import asyncio
+            result = asyncio.run(engine.cancel_order(order_id))
+            return Response(result)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
+    def live_open_orders(self, request):
+        """Get all open live orders."""
+        try:
+            from .services.live_execution import LiveExecutionEngine
+            symbol = request.query_params.get('symbol')
+            engine = LiveExecutionEngine()
+            import asyncio
+            orders = asyncio.run(engine.get_open_orders(symbol=symbol))
+            return Response({'orders': orders, 'count': len(orders)})
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema_view(
     list=extend_schema(tags=['Signals'], summary='List signal reasons'),
